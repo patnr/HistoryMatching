@@ -1,0 +1,6 @@
+*.m
+*.pyc
+__pycache__
+*.lprof
+profile.txt
+tags

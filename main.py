@@ -15,6 +15,13 @@ try:
 except AttributeError:
     def profile(func): return func # provide a pass-through version.
 
+from contextlib import contextmanager
+@contextmanager
+def ignore_inefficiency():
+    warnings.simplefilter("ignore",sparse.SparseEfficiencyWarning)
+    yield
+    warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
+
 # TODO: 1d case
 # TODO: orientation, ravel, etc
 
@@ -106,9 +113,8 @@ def TPFA(Gridded,K,q):
     # Therefore we use sp.sparse.linalg.spsolve, even though it
     # converts DIAgonal formats to CSC (and throws inefficiency warning).
     A = sparse.spdiags(DiagVecs, DiagIndx, N, N)
-    warnings.simplefilter("ignore",sparse.SparseEfficiencyWarning)
-    u = spsolve(A,q)
-    warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
+    with ignore_inefficiency():
+        u = spsolve(A,q)
     # The above is still much more efficient than going to full matrices,
     # indeed I get comparable speed to Matlab.
     # A = A.toarray()

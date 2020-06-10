@@ -61,12 +61,12 @@ def RelPerm(s,Fluid,nargout_is_4=False):
 def GenA(Gridded,V,q):
     """Upwind finite-volume scheme."""
     fp=q.clip(max=0).ravel() # production
-    XN=V['x'].clip(max=0); x1=XN[:-1,:,:].ravel(order="F") # separate flux into
-    YN=V['y'].clip(max=0); y1=YN[:,:-1,:].ravel(order="F") # - flow in positive coordinate
-    ZN=V['z'].clip(max=0); z1=ZN[:,:,:-1].ravel(order="F") #   direction (XP,YP,ZP)
-    XP=V['x'].clip(min=0); x2=XP[1:,:,:] .ravel(order="F") # - flow in negative coordinate
-    YP=V['y'].clip(min=0); y2=YP[:,1:,:] .ravel(order="F") #   direction (XN,YN,ZN)
-    ZP=V['z'].clip(min=0); z2=ZP[:,:,1:] .ravel(order="F") #
+    XN=V.x.clip(max=0); x1=XN[:-1,:,:].ravel(order="F") # separate flux into
+    YN=V.y.clip(max=0); y1=YN[:,:-1,:].ravel(order="F") # - flow in positive coordinate
+    ZN=V.z.clip(max=0); z1=ZN[:,:,:-1].ravel(order="F") #   direction (XP,YP,ZP)
+    XP=V.x.clip(min=0); x2=XP[1:,:,:] .ravel(order="F") # - flow in negative coordinate
+    YP=V.y.clip(min=0); y2=YP[:,1:,:] .ravel(order="F") #   direction (XN,YN,ZN)
+    ZP=V.z.clip(min=0); z2=ZP[:,:,1:] .ravel(order="F") #
     DiagVecs=[    z2,  y2, x2, fp+x1-x2+y1-y2+z1-z2, -x1, -y1, -z1]   # diagonal vectors
     DiagIndx=[-Nx*Ny, -Nx, -1,           0         ,  1 ,  Nx, Nx*Ny] # diagonal index
     A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
@@ -152,22 +152,31 @@ def Upstream(Gridded,S,Fluid,V,q,T):
     pv = h3*Gridded['por'].ravel(order="F") # pore volume=cell volume*porosity
 
     fi = q.clip(min=0)# inflow from wells
+
     XP=V.x.clip(min=0); XN=V.x.clip(max=0) # influx and outflux, x-faces
     YP=V.y.clip(min=0); YN=V.y.clip(max=0) # influx and outflux, y-faces
     ZP=V.z.clip(min=0); ZN=V.z.clip(max=0) # influx and outflux, z-faces
+
     Vi = XP[:-1,:,:]+YP[:,:-1,:]+ZP[:,:,:-1]- \
          XN[ 1:,:,:]-YN[:, 1:,:]-ZN[:,:, 1:] # each gridblock
+
+    # Comppute dt
     pm = min(pv/(Vi.ravel(order="F")+fi.ravel(order="F"))) # estimate of influx
     cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction
     Nts = int(np.ceil(T/cfl)) # number of local time steps
     dtx = (T/Nts)/pv # local time steps
-    A=GenA(Gridded,V,q) # system matrix
+
+    # Discretized transport operator
+    A=GenA(Gridded,V,q)           # system matrix
     A=sparse.spdiags(dtx,0,N,N)@A # A * dt/|Omega i|
+
     fi = q.clip(min=0).ravel()*dtx # injection
+
     for t in range(1,Nts+1):
-        mw,mo=RelPerm(S,Fluid) # compute mobilities
-        fw = mw/(mw+mo) # compute fractional flow
-        S = S+(A@fw+fi[:,None]) # update saturation
+        mw,mo=RelPerm(S,Fluid)      # compute mobilities
+        fw = mw/(mw+mo)             # compute fractional flow
+        S = S + (A@fw + fi[:,None]) # update saturation
+
     return S
 ##
 

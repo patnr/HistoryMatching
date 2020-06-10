@@ -9,6 +9,8 @@ repos:
     #rev: 19.3b0
     #hooks:
     #-   id: black
+
+#https://github.com/pre-commit/pre-commit/issues/761#issuecomment-394167542
 -   repo: local
     hooks:
     -   id: pytest

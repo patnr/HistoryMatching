@@ -13,6 +13,13 @@ except AttributeError:
 # TODO: orientation, ravel, etc
 # TODO:
 
+# Matrix inversion:
+# We use solve_banded (not solveh_banded) because
+# sp.sparse.linalg.spsolve converts DIAgonal formats to CSC.
+# There's long existed a feature-request for scipy to wrap this,
+# but it's not there yet: ttps://github.com/scipy/scipy/issues/2285 .
+# Other options to consider: scipy.sparse.linalg.lsqr, etc.
+
 Dx = 1
 Dy = 1
 Dz = 1
@@ -82,17 +89,16 @@ def TPFA(Grid,K,q):
     z1 = TZ[:,:,:-1].ravel(order="F"); z2 = TZ[:,:,1:].ravel(order="F");
 
     DiagVecs = [   -z2, -y2, -x2, x1+x2+y1+y2+z1+z2, -x1, -y1,  -z1];
-    DiagIndx = [-Nx*Ny, -Nx,  -1,         0        ,  1 ,  Nx, Nx*Ny];
+    DiagIndx = [-Nx*Ny, -Nx,  -1,         0        ,   1,  Nx, Nx*Ny];
+    DiagVecs[3][0] += np.sum(Grid['K'][:,0,0,0]);
 
     A = sparse.spdiags(DiagVecs, DiagIndx, N, N)
     A = A.toarray()
-    A[0,0] = A[0,0]+np.sum(Grid['K'][:,0,0,0]);
 
     # Solve linear system and extract interface fluxes.
     u = np.linalg.solve(A, q)
     P = u.reshape((Nx,Ny,Nz),order="F")
     # u = A\q;
-    # P = reshape(u,Nx,Ny,Nz);
 
     V = {}
     V['x'] = np.zeros((Nx+1,Ny,Nz));
@@ -146,7 +152,6 @@ def Upstream(Grid,S,Fluid,V,q,T):
     return S
 ##
 
-@profile
 def main(nt):
     S=np.zeros(N)[:,None]; # Initial saturation
 
@@ -163,6 +168,4 @@ def main(nt):
 
     return P,V,S
 
-if __name__ == "__main__":
-    # main(28)
-    main(1)
+main(1)

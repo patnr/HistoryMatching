@@ -140,7 +140,7 @@ def Pres(Gridded,S,Fluid,q):
     # Compute K*lambda(S)
     Mw,Mo = RelPerm(S,Fluid)
     Mt = Mw+Mo
-    Mt = Mt.reshape((Nx,Ny,Nz))
+    Mt = Mt.reshape((Nx,Ny,Nz),order="F")
     KM = Mt*Gridded.K
     # Compute pressure and extract fluxes
     [P,V]=TPFA(Gridded,KM,q)
@@ -180,6 +180,11 @@ def Upstream(Gridded,S,Fluid,V,q,T):
     return S
 ##
 
+plt.ion()
+fig, ax = freshfig(1)
+
+##
+
 @profile
 def main(nt):
     S=np.zeros(N)[:,None] # Initial saturation
@@ -189,22 +194,19 @@ def main(nt):
         [P,V]=Pres(Gridded,S,Fluid,Q) # pressure solver
         S=Upstream(Gridded,S,Fluid,V,Q,dt) # saturation solver
 
-        # plot filled contours at the midpoints of the grid cells
-        # contourf(...
-                 # linspace(hx/2,Dx-hx/2,Nx),...
-                 # linspace(hy/2,Dy-hy/2,Ny),...
-                 # S.reshape((Nx,Ny),order="F"),...
-                 # ,11,'k')
-        # axis square ; caxis ([0 1]) # equal axes and color
-        # drawnow # force update of plot
+        # Plotting
+        if t>1:
+            for c in CC.collections:
+                ax.collections.remove(c)
+        CC = ax.contourf(
+            linspace(0,Dx-hx,Nx)+hx/2,
+            linspace(0,Dy-hy,Ny)+hy/2,
+            S.reshape((Nx,Ny,Nz),order="F")[:,:,0],
+            levels=linspace(0,1,11),
+        )
+        # ax.set_aspect("equal")
+        plt.pause(.01)
 
     return P,V,S
 
 P,V,S = main(28)
-##
-# plt.ion()
-# fig, ax = freshfig(1)
-
-# ax.contourf(S.reshape)
-
-##

@@ -26,12 +26,12 @@ hx, hy, hz = Dx/Nx, Dy/Ny,  Dz/Nz # resolution
 h3 = hx*hy*hz # Cell volumes (could be array?)
 
 Gridded = Bunch(
-    K  = np.ones((3,Nx,Ny,Nz)), # permeability
-    por= np.ones((Nx,Ny,Nz)),   # porosity
+    K  =np.ones((3,Nx,Ny,Nz)), # permeability
+    por=np.ones((Nx,Ny,Nz)),   # porosity
 )
 
 Fluid = Bunch(
-    vw=1.0, vo=1.0,  # Viscosities
+     vw=1.0,  vo=1.0,  # Viscosities
     swc=0.0, sor=0.0 # Irreducible saturations
 )
 
@@ -40,30 +40,36 @@ Q=np.zeros(N); Q[0]=1; Q[-1] = -1; Q = Q[:,None]
 
 ##
 @profile
-def Pres(Gridded,S,Fluid,q):
-    # Compute K*lambda(S)
-    Mw,Mo = RelPerm(S,Fluid)
-    Mt = Mw+Mo
-    Mt = Mt.reshape((Nx,Ny,Nz))
-    KM = Mt*Gridded.K
-    # Compute pressure and extract fluxes
-    [P,V]=TPFA(Gridded,KM,q)
-    return P, V
-
-@profile
 def RelPerm(s,Fluid,nargout_is_4=False):
+    """Rel. permeabilities of oil and water."""
     S = (s-Fluid.swc)/(1-Fluid.swc-Fluid.sor) # Rescale saturations
     Mw = S**2/Fluid.vw # Water mobility
     Mo =(1-S)**2/Fluid.vo # Oil mobility
-    if nargout_is_4:
-        dMw = 2*S/Fluid.vw/(1-Fluid.swc-Fluid.sor)
-        dMo = -2*(1-S)/Fluid.vo/(1-Fluid.swc-Fluid.sor)
-        return Mw,Mo,dMw,dMo
-    else:
-        return Mw,Mo
+    # Derivatives:
+    # dMw = 2*S/Fluid.vw/(1-Fluid.swc-Fluid.sor)
+    # dMo = -2*(1-S)/Fluid.vo/(1-Fluid.swc-Fluid.sor)
+    return Mw,Mo
+
+@profile
+def GenA(Gridded,V,q):
+    """Upwind finite-volume scheme."""
+    fp=q.clip(max=0).ravel() # production
+    XN=V['x'].clip(max=0); x1=XN[:-1,:,:].ravel(order="F") # separate flux into
+    YN=V['y'].clip(max=0); y1=YN[:,:-1,:].ravel(order="F") # - flow in positive coordinate
+    ZN=V['z'].clip(max=0); z1=ZN[:,:,:-1].ravel(order="F") #   direction (XP,YP,ZP)
+    XP=V['x'].clip(min=0); x2=XP[1:,:,:] .ravel(order="F") # - flow in negative coordinate
+    YP=V['y'].clip(min=0); y2=YP[:,1:,:] .ravel(order="F") #   direction (XN,YN,ZN)
+    ZP=V['z'].clip(min=0); z2=ZP[:,:,1:] .ravel(order="F") #
+    DiagVecs=[    z2,  y2, x2, fp+x1-x2+y1-y2+z1-z2, -x1, -y1, -z1]   # diagonal vectors
+    DiagIndx=[-Nx*Ny, -Nx, -1,           0         ,  1 ,  Nx, Nx*Ny] # diagonal index
+    A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
+    return A
 
 @profile
 def TPFA(Gridded,K,q):
+    """Two-point flux-approximation (TPFA) of Darcy:
+
+    diffusion w/ nonlinear coefficient K."""
     # Compute transmissibilities by harmonic averaging.
     L = K**(-1)
     tx = 2*hy*hz/hx; TX = np.zeros((Nx+1,Ny,Nz))
@@ -112,38 +118,37 @@ def TPFA(Gridded,K,q):
 
     P = u.reshape((Nx,Ny,Nz),order="F")
 
-    V = {}
-    V['x'] = np.zeros((Nx+1,Ny,Nz))
-    V['y'] = np.zeros((Nx,Ny+1,Nz))
-    V['z'] = np.zeros((Nx,Ny,Nz+1))
-
-    V['x'] [1:-1,:,:] = (P[:-1,:,:] - P[1:,:,:]) * TX[1:-1,:,:]
-    V['y'] [:,1:-1,:] = (P[:,:-1,:] - P[:,1:,:]) * TY[:,1:-1,:]
-    V['z'] [:,:,1:-1] = (P[:,:,:-1] - P[:,:,1:]) * TZ[:,:,1:-1]
+    V = Bunch(
+        x = np.zeros((Nx+1,Ny,Nz)),
+        y = np.zeros((Nx,Ny+1,Nz)),
+        z = np.zeros((Nx,Ny,Nz+1)),
+    )
+    V.x[1:-1,:,:] = (P[:-1,:,:] - P[1:,:,:]) * TX[1:-1,:,:]
+    V.y[:,1:-1,:] = (P[:,:-1,:] - P[:,1:,:]) * TY[:,1:-1,:]
+    V.z[:,:,1:-1] = (P[:,:,:-1] - P[:,:,1:]) * TZ[:,:,1:-1]
     return P,V
 
 @profile
-def GenA(Gridded,V,q):
-    fp=q.clip(max=0).ravel() # production
-    XN=V['x'].clip(max=0); x1=XN[:-1,:,:].ravel(order="F") # separate flux into
-    YN=V['y'].clip(max=0); y1=YN[:,:-1,:].ravel(order="F") # - flow in positive coordinate
-    ZN=V['z'].clip(max=0); z1=ZN[:,:,:-1].ravel(order="F") #   direction (XP,YP,ZP)
-    XP=V['x'].clip(min=0); x2=XP[1:,:,:] .ravel(order="F") # - flow in negative coordinate
-    YP=V['y'].clip(min=0); y2=YP[:,1:,:] .ravel(order="F") #   direction (XN,YN,ZN)
-    ZP=V['z'].clip(min=0); z2=ZP[:,:,1:] .ravel(order="F") #
-    DiagVecs=[    z2,  y2, x2, fp+x1-x2+y1-y2+z1-z2, -x1, -y1, -z1]   # diagonal vectors
-    DiagIndx=[-Nx*Ny, -Nx, -1,           0         ,  1 ,  Nx, Nx*Ny] # diagonal index
-    A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
-    return A
+def Pres(Gridded,S,Fluid,q):
+    """TPFA finite-volume of Darcy: -nabla(K lambda(s) nabla(u)) = q."""
+    # Compute K*lambda(S)
+    Mw,Mo = RelPerm(S,Fluid)
+    Mt = Mw+Mo
+    Mt = Mt.reshape((Nx,Ny,Nz))
+    KM = Mt*Gridded.K
+    # Compute pressure and extract fluxes
+    [P,V]=TPFA(Gridded,KM,q)
+    return P, V
 
 @profile
 def Upstream(Gridded,S,Fluid,V,q,T):
+    """Explicit upwind finite-volume discretisation of CoM."""
     pv = h3*Gridded['por'].ravel(order="F") # pore volume=cell volume*porosity
 
     fi = q.clip(min=0)# inflow from wells
-    XP=V['x'].clip(min=0); XN=V['x'].clip(max=0) # influx and outflux, x-faces
-    YP=V['y'].clip(min=0); YN=V['y'].clip(max=0) # influx and outflux, y-faces
-    ZP=V['z'].clip(min=0); ZN=V['z'].clip(max=0) # influx and outflux, z-faces
+    XP=V.x.clip(min=0); XN=V.x.clip(max=0) # influx and outflux, x-faces
+    YP=V.y.clip(min=0); YN=V.y.clip(max=0) # influx and outflux, y-faces
+    ZP=V.z.clip(min=0); ZN=V.z.clip(max=0) # influx and outflux, z-faces
     Vi = XP[:-1,:,:]+YP[:,:-1,:]+ZP[:,:,:-1]- \
          XN[ 1:,:,:]-YN[:, 1:,:]-ZN[:,:, 1:] # each gridblock
     pm = min(pv/(Vi.ravel(order="F")+fi.ravel(order="F"))) # estimate of influx

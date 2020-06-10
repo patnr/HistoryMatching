@@ -2,7 +2,14 @@
 import numpy as np
 import scipy as sp
 from scipy import sparse
+# from scipy.special import errstate
+import warnings
+# from scipy.linalg import solve_banded
+from scipy.sparse.linalg import spsolve
 from pylib.misc import aprint
+import matplotlib as mpl
+from matplotlib import pyplot as plt
+# plt.ion()
 
 import builtins
 try:
@@ -13,12 +20,6 @@ except AttributeError:
 # TODO: orientation, ravel, etc
 # TODO:
 
-# Matrix inversion:
-# We use solve_banded (not solveh_banded) because
-# sp.sparse.linalg.spsolve converts DIAgonal formats to CSC.
-# There's long existed a feature-request for scipy to wrap this,
-# but it's not there yet: ttps://github.com/scipy/scipy/issues/2285 .
-# Other options to consider: scipy.sparse.linalg.lsqr, etc.
 
 Dx = 1
 Dy = 1
@@ -92,13 +93,34 @@ def TPFA(Grid,K,q):
     DiagIndx = [-Nx*Ny, -Nx,  -1,         0        ,   1,  Nx, Nx*Ny];
     DiagVecs[3][0] += np.sum(Grid['K'][:,0,0,0]);
 
-    A = sparse.spdiags(DiagVecs, DiagIndx, N, N)
-    A = A.toarray()
-
     # Solve linear system and extract interface fluxes.
-    u = np.linalg.solve(A, q)
+
+    # Note on the matrix inversion:
+    # We would like to use solve_banded (not solveh_banded),
+    # despite it being somewhat convoluted (https://github.com/scipy/scipy/issues/2285)
+    # which according to stackexchange (see below) uses the Thomas algorithm,
+    # as recommended by Aziz and Settari ("Petro. Res. simulation").
+    # (TODO: How can I specify offset from diagonal?)
+    # ab = array([x for (x,n) in zip(DiagVecs,DiagIndx)])
+    # u = solve_banded((3,3), ab, q, check_finite=False)
+
+    # However, according to https://scicomp.stackexchange.com/a/30074/1740
+    # solve_banded does not work well for when the band offsets large,
+    # i.e. higher-dimensional problems.
+    # Therefore we use sp.sparse.linalg.spsolve, even though it
+    # converts DIAgonal formats to CSC (and throws inefficiency warning).
+    A = sparse.spdiags(DiagVecs, DiagIndx, N, N)
+    warnings.simplefilter("ignore",sparse.SparseEfficiencyWarning)
+    u = spsolve(A,q)
+    warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
+    # The above is still much more efficient than going to full matrices,
+    # indeed I get comparable speed to Matlab.
+    # A = A.toarray()
+    # u = np.linalg.solve(A, q)
+
+    # Other options to consider: scipy.sparse.linalg.lsqr, etc.
+
     P = u.reshape((Nx,Ny,Nz),order="F")
-    # u = A\q;
 
     V = {}
     V['x'] = np.zeros((Nx+1,Ny,Nz));
@@ -152,6 +174,7 @@ def Upstream(Grid,S,Fluid,V,q,T):
     return S
 ##
 
+@profile
 def main(nt):
     S=np.zeros(N)[:,None]; # Initial saturation
 
@@ -168,4 +191,4 @@ def main(nt):
 
     return P,V,S
 
-main(1)
+main(28)

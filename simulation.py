@@ -210,37 +210,46 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
 
     return S
 
+def liveplot(S,t):
+
+    if not liveplot.init:
+        for c in liveplot.CC.collections:
+            ax.collections.remove(c)
+
+    liveplot.CC = ax.contourf(
+        linspace(0,Dx-hx,Nx)+hx/2,
+        linspace(0,Dy-hy,Ny)+hy/2,
+        S.reshape(gridshape).T,
+        # Needed to transpose coz contour() uses
+        # the same orientation as array printing.
+        levels=linspace(0,1,11), vmin=0,vmax=1)
+
+    ax.set_title("Water saturation, t = %.1f"%(t))
+    if liveplot.init:
+        fig.colorbar(liveplot.CC)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.plot(*injectors[:2], "v", ms=16)
+        ax.plot(*producers[:2], "^", ms=16)
+    # ax.set_aspect("equal")
+
+    plt.pause(.01)
+    liveplot.init = False
+
 
 @profile
 def simulate(nSteps,dt_animation=.025,plotting=True):
     S=np.zeros(N) # Initial saturation
 
-    for iT in range(1,nSteps+1):
+    for iT in 1+arange(nSteps):
         [P,V] =   pressure_step(Gridded,S,Fluid,Q)
         S     = saturation_step(Gridded,S,Fluid,Q,V,dt_animation)
 
-        # Plotting
+        t = iT*dt_animation
         if plotting:
-            if iT>1:
-                for c in CC.collections:
-                    ax.collections.remove(c)
-            CC = ax.contourf(
-                linspace(0,Dx-hx,Nx)+hx/2,
-                linspace(0,Dy-hy,Ny)+hy/2,
-                S.reshape(gridshape).T,
-                # Needed to transpose coz contour() uses
-                # the same orientation as array printing.
-                levels=linspace(0,1,11), vmin=0,vmax=1)
-
-            ax.set_title("Water saturation, t = %.1f"%(iT*dt_animation))
             if iT==1:
-                fig.colorbar(CC)
-                ax.set_xlabel("x")
-                ax.set_ylabel("y")
-                ax.plot(*injectors[:2], "v", ms=16)
-                ax.plot(*producers[:2], "^", ms=16)
-            # ax.set_aspect("equal")
-            plt.pause(.01)
+                liveplot.init = True
+            liveplot(S,t)
 
     return P,V,S
 

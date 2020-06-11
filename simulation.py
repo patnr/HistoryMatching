@@ -35,6 +35,7 @@ def ignore_inefficiency():
     yield
     warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
 
+from res_gen import gen_ens
 
 # TODO: 1d case
 
@@ -44,13 +45,14 @@ rand = ss.uniform(0,1).rvs
 
 ## Grid
 # Note: x is 1st coord, y is 2nd.
-Dx, Dy = 1,1    # Domain lengths
-Nx, Ny = 64, 64 # Domain points
-gridshape = (Nx,Ny)
+Dx, Dy    = 1,1    # lengths
+Nx, Ny    = 64, 64 # num. of pts.
+gridshape = Nx,Ny
+grid      = Nx, Ny, Dx, Dy
+M         = np.prod(gridshape)
 sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
 xy2sub  = lambda x,y: ( int(round(x/Dx*Nx)), int(round(y/Dy*Ny)) )
 xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
-M = np.prod(gridshape)
 
 # Resolution
 hx, hy = Dx/Nx, Dy/Ny
@@ -240,13 +242,12 @@ def liveplot(S,t):
             ax.text(w[0]-.01, w[1]-.02, 1+i)
     # ax.set_aspect("equal")
 
-    plt.pause(.01)
+    plt.pause(.1)
     liveplot.init = False
 
 
 @profile
-def simulate(nSteps,dt_animation=.025,plotting=True):
-    S=np.zeros(M) # Initial oil saturation
+def simulate(nSteps,S,dt_animation=.025,plotting=True):
     production = []
 
     for iT in 1+arange(nSteps):
@@ -273,8 +274,13 @@ if __name__ == "__main__":
     dt = 0.025
     nT = 28
 
-    P,V,S,production = simulate(nT,dt)
-    # P,V,S,production = simulate(1)
+    # Initial water saturation
+    S = gen_ens(1,grid,0.7).squeeze()
+    # S = np.zeros(M)
+
+    P,V,S,production = simulate(nT,S,dt)
+    # P,V,S,production = simulate(1,S)
+
 
     ## Production plot
     production = array(production)

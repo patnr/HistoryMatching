@@ -50,7 +50,7 @@ gridshape = (Nx,Ny)
 sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
 xy2sub  = lambda x,y: ( int(round(x/Dx*Nx)), int(round(y/Dy*Ny)) )
 xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
-N = np.prod(gridshape)
+M = np.prod(gridshape)
 
 # Resolution
 hx, hy = Dx/Nx, Dy/Ny
@@ -69,7 +69,7 @@ Fluid = Bunch(
 
 
 ## Wells
-Q = np.zeros(N)
+Q = np.zeros(M)
 # Injectors
 injectors = rand((3,7))
 injectors[0] *= Dx
@@ -109,7 +109,7 @@ def upwind_diff(Gridded,V,q):
     y2 = V.y.clip(min=0)[:,1:] .ravel() #   direction (XN,YN)
     DiagVecs=[    x2, y2, fp+y1-y2+x1-x2, -y1, -x1] # diagonal vectors
     DiagIndx=[  -Ny , -1,        0      ,  1 ,  Ny] # diagonal index
-    A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
+    A=sparse.spdiags(DiagVecs,DiagIndx,M,M) # matrix with upwind FV stencil
     return A
 
 @profile
@@ -142,7 +142,7 @@ def TPFA(Gridded,K,q):
     # which according to stackexchange (see below) uses the Thomas algorithm,
     # as recommended by Aziz and Settari ("Petro. Res. simulation").
     # (TODO: How can I specify offset from diagonal?)
-    # ab = array([x for (x,n) in zip(DiagVecs,DiagIndx)])
+    # ab = array([x for (x,M) in zip(DiagVecs,DiagIndx)])
     # u = solve_banded((3,3), ab, q, check_finite=False)
 
     # However, according to https://scicomp.stackexchange.com/a/30074/1740
@@ -150,7 +150,7 @@ def TPFA(Gridded,K,q):
     # i.e. higher-dimensional problems.
     # Therefore we use sp.sparse.linalg.spsolve, even though it
     # converts DIAgonal formats to CSC (and throws inefficiency warning).
-    A = sparse.spdiags(DiagVecs, DiagIndx, N, N)
+    A = sparse.spdiags(DiagVecs, DiagIndx, M, M)
     with ignore_inefficiency():
         u = spsolve(A,q)
     # The above is still much more efficient than going to full matrices,
@@ -204,7 +204,7 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
 
     # Discretized transport operator
     A=upwind_diff(Gridded,V,q)     # system matrix
-    A=sparse.spdiags(dtx,0,N,N)@A # A * dt/|Omega i|
+    A=sparse.spdiags(dtx,0,M,M)@A # A * dt/|Omega i|
 
     for iT in range(1,Nts+1):
         mw,mo=RelPerm(S,Fluid)  # compute mobilities
@@ -246,7 +246,7 @@ def liveplot(S,t):
 
 @profile
 def simulate(nSteps,dt_animation=.025,plotting=True):
-    S=np.zeros(N) # Initial saturation
+    S=np.zeros(M) # Initial oil saturation
     production = []
 
     for iT in 1+arange(nSteps):

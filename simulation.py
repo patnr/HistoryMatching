@@ -4,6 +4,8 @@ http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 Translated to python by Patrick N. Raanes.
 """
+
+## Imports
 import warnings
 import builtins
 
@@ -64,7 +66,7 @@ Fluid = Bunch(
     swc=0.0, sor=0.0 # Irreducible saturations
 )
 
-# Wells
+## Wells
 Q = np.zeros(N)
 # Injectors
 injectors = rand((3,7))
@@ -81,7 +83,8 @@ producers[2] /= -producers[2].sum()
 for x,y,q in zip(*producers):
     Q[xy2i(x,y)] = q
 
-##
+
+## Functions
 @profile
 def RelPerm(s,Fluid,nargout_is_4=False):
     """Rel. permeabilities of oil and water."""
@@ -188,7 +191,7 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
 
     Vi = XP[:-1]-XN[1:]+YP[:,:-1]-YN[:,1:] # each gridblock
 
-    # Comppute dt
+    # Compute dt
     from numpy import errstate
     with errstate(divide="ignore"):
         pm  = min(pv/(Vi.ravel()+fi)) # estimate of influx
@@ -206,22 +209,15 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
         S = S + (A@fw + fi*dtx) # update saturation
 
     return S
-##
 
-plt.ion()
-fig, ax = freshfig(1)
-
-# Animation (i.e. external) time step
-dt=0.025
-##
 
 @profile
-def simulate(nSteps=28,plotting=True):
+def simulate(nSteps,dt_animation=.025,plotting=True):
     S=np.zeros(N) # Initial saturation
 
     for iT in range(1,nSteps+1):
         [P,V] =   pressure_step(Gridded,S,Fluid,Q)
-        S     = saturation_step(Gridded,S,Fluid,Q,V,dt)
+        S     = saturation_step(Gridded,S,Fluid,Q,V,dt_animation)
 
         # Plotting
         if plotting:
@@ -236,7 +232,7 @@ def simulate(nSteps=28,plotting=True):
                 # the same orientation as array printing.
                 levels=linspace(0,1,11), vmin=0,vmax=1)
 
-            ax.set_title("Water saturation, t = %.1f"%(iT*dt))
+            ax.set_title("Water saturation, t = %.1f"%(iT*dt_animation))
             if iT==1:
                 fig.colorbar(CC)
                 ax.set_xlabel("x")
@@ -248,6 +244,12 @@ def simulate(nSteps=28,plotting=True):
 
     return P,V,S
 
+
+## Main
 if __name__ == "__main__":
+
+    plt.ion()
+    fig, ax = freshfig(1)
+
     P,V,S = simulate(28)
     # P,V,S = simulate(1)

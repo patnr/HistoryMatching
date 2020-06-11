@@ -2,6 +2,7 @@ import numpy as np
 from simulation import simulate, injectors, xy2i, xy2sub
 
 xy = injectors[:2,0]
+
 def test_main():
     P,V,S = simulate(1,plotting=False)
     assert np.isclose(S[xy2i(*xy)], 0.9540751770156238, atol=1e-14)

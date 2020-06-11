@@ -13,11 +13,9 @@ import warnings
 from scipy.sparse.linalg import spsolve
 from pylib.all import *
 from mpl_tools.misc import *
-
-
+import builtins
 
 # Profiling
-import builtins
 try:
     profile = builtins.profile     # will exists if launched via kernprof
 except AttributeError:
@@ -33,15 +31,16 @@ def ignore_inefficiency():
     warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
 
 
-
 # TODO: 1d case
-# TODO: orientation, ravel, etc
+
+
 
 ## Grid
-Dx, Dy = 1,1     # Domain lengths
+# Note: x is 1st coord, y is 2nd.
+Dx, Dy = 1,1    # Domain lengths
 Nx, Ny = 64, 64 # Domain points
 gridshape = (Nx,Ny)
-xy2i = lambda x,y: np.ravel_multi_index((x,y), gridshape, order='C')
+xy2i = lambda x,y: np.ravel_multi_index((x,y), gridshape)
 N = np.prod(gridshape)
 
 # Resolution
@@ -82,12 +81,12 @@ def RelPerm(s,Fluid,nargout_is_4=False):
 def GenA(Gridded,V,q):
     """Upwind finite-volume scheme."""
     fp=q.clip(max=0) # production
-    XN=V.x.clip(max=0); x1=XN[:-1,:].ravel(order="F") # separate flux into
-    YN=V.y.clip(max=0); y1=YN[:,:-1].ravel(order="F") # - flow in positive coordinate
-    XP=V.x.clip(min=0); x2=XP[1:,:] .ravel(order="F") # - flow in negative coordinate
-    YP=V.y.clip(min=0); y2=YP[:,1:] .ravel(order="F") #   direction (XN,YN)
-    DiagVecs=[    y2, x2, fp+x1-x2+y1-y2, -x1, -y1] # diagonal vectors
-    DiagIndx=[  -Nx , -1,        0      ,  1 ,  Nx] # diagonal index
+    XN=V.x.clip(max=0); x1=XN[:-1,:].ravel() # separate flux into
+    YN=V.y.clip(max=0); y1=YN[:,:-1].ravel() # - flow in positive coordinate
+    XP=V.x.clip(min=0); x2=XP[1:,:] .ravel() # - flow in negative coordinate
+    YP=V.y.clip(min=0); y2=YP[:,1:] .ravel() #   direction (XN,YN)
+    DiagVecs=[    x2, y2, fp+y1-y2+x1-x2, -y1, -x1] # diagonal vectors
+    DiagIndx=[  -Ny , -1,        0      ,  1 ,  Ny] # diagonal index
     A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
     return A
 
@@ -105,11 +104,11 @@ def TPFA(Gridded,K,q):
     TY[:,1:-1] = ty/(L[1,:,:-1] + L[1,:,1:])
 
     # Assemble TPFA discretization matrix.
-    x1 = TX[:-1,:].ravel(order="F"); x2 = TX[1:,:].ravel(order="F")
-    y1 = TY[:,:-1].ravel(order="F"); y2 = TY[:,1:].ravel(order="F")
+    x1 = TX[:-1,:].ravel(); x2 = TX[1:,:].ravel()
+    y1 = TY[:,:-1].ravel(); y2 = TY[:,1:].ravel()
 
-    DiagVecs = [-y2, -x2, x1+x2+y1+y2, -x1, -y1]
-    DiagIndx = [-Nx,  -1,         0  ,   1,  Nx]
+    DiagVecs = [-x2, -y2, y1+y2+x1+x2, -y1, -x1]
+    DiagIndx = [-Ny,  -1,         0  ,   1,  Ny]
     DiagVecs[2][0] += np.sum(Gridded.K[:,0,0])
 
     # Solve linear system and extract interface fluxes.
@@ -138,7 +137,7 @@ def TPFA(Gridded,K,q):
 
     # Other options to consider: scipy.sparse.linalg.lsqr, etc.
 
-    P = u.reshape(gridshape,order="F")
+    P = u.reshape(gridshape)
 
     V = Bunch(
         x = np.zeros((Nx+1,Ny)),
@@ -154,7 +153,7 @@ def Pres(Gridded,S,Fluid,q):
     # Compute K*lambda(S)
     Mw,Mo = RelPerm(S,Fluid)
     Mt = Mw+Mo
-    Mt = Mt.reshape(gridshape,order="F")
+    Mt = Mt.reshape(gridshape)
     KM = Mt*Gridded.K
     # Compute pressure and extract fluxes
     [P,V]=TPFA(Gridded,KM,q)
@@ -163,7 +162,7 @@ def Pres(Gridded,S,Fluid,q):
 @profile
 def Upstream(Gridded,S,Fluid,V,q,T):
     """Explicit upwind finite-volume discretisation of CoM."""
-    pv = h2*Gridded['por'].ravel(order="F") # pore volume=cell volume*porosity
+    pv = h2*Gridded['por'].ravel() # pore volume=cell volume*porosity
 
     fi = q.clip(min=0)# inflow from wells
 
@@ -174,7 +173,7 @@ def Upstream(Gridded,S,Fluid,V,q,T):
          XN[ 1:,:]-YN[:, 1:] # each gridblock
 
     # Comppute dt
-    pm = min(pv/(Vi.ravel(order="F")+fi)) # estimate of influx
+    pm = min(pv/(Vi.ravel()+fi)) # estimate of influx
     cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction # NB: 3-->2 since no z ?
     Nts = int(np.ceil(T/cfl)) # number of local time steps
     dtx = (T/Nts)/pv # local time steps
@@ -216,13 +215,17 @@ def simulate(nSteps=28,plotting=True):
             CC = ax.contourf(
                 linspace(0,Dx-hx,Nx)+hx/2,
                 linspace(0,Dy-hy,Ny)+hy/2,
-                S.reshape(gridshape,order="F"),
+                # Need to transpose coz contour() uses
+                # the same orientation as array printing.
+                S.reshape(gridshape).T,
                 levels=linspace(0,1,11),
                 vmin=0,vmax=1,
             )
             ax.set_title("Water saturation, t = %.1f"%(iT*dt))
             if iT==1:
                 fig.colorbar(CC)
+                ax.set_xlabel("x")
+                ax.set_ylabel("y")
             # ax.set_aspect("equal")
             plt.pause(.01)
 

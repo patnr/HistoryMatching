@@ -4,16 +4,18 @@ http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 Translated to python by Patrick N. Raanes.
 """
+import warnings
+import builtins
+
 import numpy as np
 import scipy as sp
 from scipy import sparse
 # from scipy.special import errstate
-import warnings
 # from scipy.linalg import solve_banded
 from scipy.sparse.linalg import spsolve
+
 from pylib.all import *
 from mpl_tools.misc import *
-import builtins
 
 # Profiling
 try:
@@ -59,10 +61,10 @@ Fluid = Bunch(
     swc=0.0, sor=0.0 # Irreducible saturations
 )
 
-# Production/injection
+# Wells - production/injection
 Q = np.zeros(N)
 # injectors = rand(())
-Q[xy2i(.7,.2)]  = .5
+Q[xy2i(.7,.2)] = .5
 Q[xy2i(.2,.7)] = .5
 Q[-1] = -1
 # Q[0]  = +1
@@ -80,13 +82,13 @@ def RelPerm(s,Fluid,nargout_is_4=False):
     return Mw,Mo
 
 @profile
-def GenA(Gridded,V,q):
+def upwind_diff(Gridded,V,q):
     """Upwind finite-volume scheme."""
-    fp=q.clip(max=0) # production
-    XN=V.x.clip(max=0); x1=XN[:-1,:].ravel() # separate flux into
-    YN=V.y.clip(max=0); y1=YN[:,:-1].ravel() # - flow in positive coordinate
-    XP=V.x.clip(min=0); x2=XP[1:,:] .ravel() # - flow in negative coordinate
-    YP=V.y.clip(min=0); y2=YP[:,1:] .ravel() #   direction (XN,YN)
+    fp =   q.clip(max=0) # production
+    x1 = V.x.clip(max=0)[:-1,:].ravel() # separate flux into
+    y1 = V.y.clip(max=0)[:,:-1].ravel() # - flow in positive coordinate
+    x2 = V.x.clip(min=0)[1:,:] .ravel() # - flow in negative coordinate
+    y2 = V.y.clip(min=0)[:,1:] .ravel() #   direction (XN,YN)
     DiagVecs=[    x2, y2, fp+y1-y2+x1-x2, -y1, -x1] # diagonal vectors
     DiagIndx=[  -Ny , -1,        0      ,  1 ,  Ny] # diagonal index
     A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
@@ -99,18 +101,19 @@ def TPFA(Gridded,K,q):
     diffusion w/ nonlinear coefficient K."""
     # Compute transmissibilities by harmonic averaging.
     L = K**(-1)
-    tx = 2*hy/hx; TX = np.zeros((Nx+1,Ny))
-    ty = 2*hx/hy; TY = np.zeros((Nx,Ny+1))
+    TX = np.zeros((Nx+1,Ny))
+    TY = np.zeros((Nx,Ny+1))
 
-    TX[1:-1,:] = tx/(L[0,:-1,:] + L[0,1:,:])
-    TY[:,1:-1] = ty/(L[1,:,:-1] + L[1,:,1:])
+    TX[1:-1,:] = 2*hy/hx/(L[0,:-1,:] + L[0,1:,:])
+    TY[:,1:-1] = 2*hx/hy/(L[1,:,:-1] + L[1,:,1:])
 
     # Assemble TPFA discretization matrix.
     x1 = TX[:-1,:].ravel(); x2 = TX[1:,:].ravel()
     y1 = TY[:,:-1].ravel(); y2 = TY[:,1:].ravel()
 
     DiagVecs = [-x2, -y2, y1+y2+x1+x2, -y1, -x1]
-    DiagIndx = [-Ny,  -1,         0  ,   1,  Ny]
+    DiagIndx = [-Ny,  -1,      0     ,   1,  Ny]
+    # Coerce system to be SPD (ref article, page 13).
     DiagVecs[2][0] += np.sum(Gridded.K[:,0,0])
 
     # Solve linear system and extract interface fluxes.
@@ -150,7 +153,7 @@ def TPFA(Gridded,K,q):
     return P,V
 
 @profile
-def Pres(Gridded,S,Fluid,q):
+def pressure_step(Gridded,S,Fluid,q):
     """TPFA finite-volume of Darcy: -nabla(K lambda(s) nabla(u)) = q."""
     # Compute K*lambda(S)
     Mw,Mo = RelPerm(S,Fluid)
@@ -162,7 +165,7 @@ def Pres(Gridded,S,Fluid,q):
     return P, V
 
 @profile
-def Upstream(Gridded,S,Fluid,V,q,T):
+def saturation_step(Gridded,S,Fluid,q,V,T):
     """Explicit upwind finite-volume discretisation of CoM."""
     pv = h2*Gridded['por'].ravel() # pore volume=cell volume*porosity
 
@@ -171,8 +174,7 @@ def Upstream(Gridded,S,Fluid,V,q,T):
     XP=V.x.clip(min=0); XN=V.x.clip(max=0) # influx and outflux, x-faces
     YP=V.y.clip(min=0); YN=V.y.clip(max=0) # influx and outflux, y-faces
 
-    Vi = XP[:-1,:]+YP[:,:-1]-\
-         XN[ 1:,:]-YN[:, 1:] # each gridblock
+    Vi = XP[:-1]-XN[1:]+YP[:,:-1]-YN[:,1:] # each gridblock
 
     # Comppute dt
     from numpy import errstate
@@ -183,15 +185,13 @@ def Upstream(Gridded,S,Fluid,V,q,T):
     dtx = (T/Nts)/pv # local time steps
 
     # Discretized transport operator
-    A=GenA(Gridded,V,q)           # system matrix
+    A=upwind_diff(Gridded,V,q)     # system matrix
     A=sparse.spdiags(dtx,0,N,N)@A # A * dt/|Omega i|
 
-    fi = q.clip(min=0)*dtx # injection
-
     for iT in range(1,Nts+1):
-        mw,mo=RelPerm(S,Fluid)      # compute mobilities
-        fw = mw/(mw+mo)             # compute fractional flow
-        S = S + (A@fw + fi) # update saturation
+        mw,mo=RelPerm(S,Fluid)  # compute mobilities
+        fw = mw/(mw+mo)         # compute fractional flow
+        S = S + (A@fw + fi*dtx) # update saturation
 
     return S
 ##
@@ -208,8 +208,8 @@ def simulate(nSteps=28,plotting=True):
     S=np.zeros(N) # Initial saturation
 
     for iT in range(1,nSteps+1):
-        [P,V]=Pres(Gridded,S,Fluid,Q) # pressure solver
-        S=Upstream(Gridded,S,Fluid,V,Q,dt) # saturation solver
+        [P,V] =   pressure_step(Gridded,S,Fluid,Q)
+        S     = saturation_step(Gridded,S,Fluid,Q,V,dt)
 
         # Plotting
         if plotting:
@@ -219,12 +219,11 @@ def simulate(nSteps=28,plotting=True):
             CC = ax.contourf(
                 linspace(0,Dx-hx,Nx)+hx/2,
                 linspace(0,Dy-hy,Ny)+hy/2,
-                # Need to transpose coz contour() uses
-                # the same orientation as array printing.
                 S.reshape(gridshape).T,
-                levels=linspace(0,1,11),
-                vmin=0,vmax=1,
-            )
+                # Needed to transpose coz contour() uses
+                # the same orientation as array printing.
+                levels=linspace(0,1,11), vmin=0,vmax=1)
+
             ax.set_title("Water saturation, t = %.1f"%(iT*dt))
             if iT==1:
                 fig.colorbar(CC)

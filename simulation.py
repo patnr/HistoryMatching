@@ -210,7 +210,7 @@ dt=0.025
 ##
 
 @profile
-def main(nSteps=28,plotting=True):
+def simulate(nSteps=28,plotting=True):
     S=np.zeros(N) # Initial saturation
 
     for iT in range(1,nSteps+1):
@@ -238,4 +238,4 @@ def main(nSteps=28,plotting=True):
     return P,V,S
 
 if __name__ == "__main__":
-    P,V,S = main(1)
+    P,V,S = simulate(28)

@@ -205,13 +205,13 @@ def Upstream(Gridded,S,Fluid,V,q,T):
 plt.ion()
 fig, ax = freshfig(1)
 
+# Animation (i.e. external) time step
+dt=0.025
 ##
 
 @profile
 def main(nSteps=28,plotting=True):
     S=np.zeros(N) # Initial saturation
-
-    dt=0.7/nSteps
 
     for iT in range(1,nSteps+1):
         [P,V]=Pres(Gridded,S,Fluid,Q) # pressure solver
@@ -238,4 +238,4 @@ def main(nSteps=28,plotting=True):
     return P,V,S
 
 if __name__ == "__main__":
-    P,V,S = main()
+    P,V,S = main(1)

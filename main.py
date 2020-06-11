@@ -43,7 +43,9 @@ Fluid = Bunch(
 )
 
 # Production/injection
-Q=np.zeros(N); Q[0]=1; Q[-1] = -1; Q = Q[:,None]
+Q = np.zeros(N)
+Q[0]  = 1
+Q[-1] = -1
 
 ##
 @profile
@@ -60,7 +62,7 @@ def RelPerm(s,Fluid,nargout_is_4=False):
 @profile
 def GenA(Gridded,V,q):
     """Upwind finite-volume scheme."""
-    fp=q.clip(max=0).ravel() # production
+    fp=q.clip(max=0) # production
     XN=V.x.clip(max=0); x1=XN[:-1,:,:].ravel(order="F") # separate flux into
     YN=V.y.clip(max=0); y1=YN[:,:-1,:].ravel(order="F") # - flow in positive coordinate
     ZN=V.z.clip(max=0); z1=ZN[:,:,:-1].ravel(order="F") #   direction (XP,YP,ZP)
@@ -161,7 +163,7 @@ def Upstream(Gridded,S,Fluid,V,q,T):
          XN[ 1:,:,:]-YN[:, 1:,:]-ZN[:,:, 1:] # each gridblock
 
     # Comppute dt
-    pm = min(pv/(Vi.ravel(order="F")+fi.ravel(order="F"))) # estimate of influx
+    pm = min(pv/(Vi.ravel(order="F")+fi)) # estimate of influx
     cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction
     Nts = int(np.ceil(T/cfl)) # number of local time steps
     dtx = (T/Nts)/pv # local time steps
@@ -170,12 +172,12 @@ def Upstream(Gridded,S,Fluid,V,q,T):
     A=GenA(Gridded,V,q)           # system matrix
     A=sparse.spdiags(dtx,0,N,N)@A # A * dt/|Omega i|
 
-    fi = q.clip(min=0).ravel()*dtx # injection
+    fi = q.clip(min=0)*dtx # injection
 
     for t in range(1,Nts+1):
         mw,mo=RelPerm(S,Fluid)      # compute mobilities
         fw = mw/(mw+mo)             # compute fractional flow
-        S = S + (A@fw + fi[:,None]) # update saturation
+        S = S + (A@fw + fi) # update saturation
 
     return S
 ##
@@ -187,7 +189,7 @@ fig, ax = freshfig(1)
 
 @profile
 def main(nt):
-    S=np.zeros(N)[:,None] # Initial saturation
+    S=np.zeros(N) # Initial saturation
 
     dt = 0.7/nt # Time steps
     for t in range(1,nt+1):

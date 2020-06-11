@@ -9,6 +9,7 @@ import builtins
 
 import numpy as np
 import scipy as sp
+import scipy.stats as ss
 from scipy import sparse
 # from scipy.special import errstate
 # from scipy.linalg import solve_banded
@@ -35,6 +36,8 @@ def ignore_inefficiency():
 
 # TODO: 1d case
 
+np.random.seed(9)
+rand = ss.uniform(0,1).rvs
 
 
 ## Grid
@@ -43,7 +46,7 @@ Dx, Dy = 1,1    # Domain lengths
 Nx, Ny = 64, 64 # Domain points
 gridshape = (Nx,Ny)
 sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
-xy2sub  = lambda x,y: [ int(round(x/Dx*Nx)), int(round(y/Dy*Ny)) ]
+xy2sub  = lambda x,y: ( int(round(x/Dx*Nx)), int(round(y/Dy*Ny)) )
 xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
 N = np.prod(gridshape)
 
@@ -61,13 +64,22 @@ Fluid = Bunch(
     swc=0.0, sor=0.0 # Irreducible saturations
 )
 
-# Wells - production/injection
+# Wells
 Q = np.zeros(N)
-# injectors = rand(())
-Q[xy2i(.7,.2)] = .5
-Q[xy2i(.2,.7)] = .5
-Q[-1] = -1
-# Q[0]  = +1
+# Injectors
+injectors = rand((3,7))
+injectors[0] *= Dx
+injectors[1] *= Dy
+injectors[2] /= injectors[2].sum()
+for x,y,q in zip(*injectors):
+    Q[xy2i(x,y)] = q
+# Producers
+producers = rand((3,5))
+producers[0] *= Dx
+producers[1] *= Dy
+producers[2] /= -producers[2].sum()
+for x,y,q in zip(*producers):
+    Q[xy2i(x,y)] = q
 
 ##
 @profile
@@ -229,6 +241,8 @@ def simulate(nSteps=28,plotting=True):
                 fig.colorbar(CC)
                 ax.set_xlabel("x")
                 ax.set_ylabel("y")
+                ax.plot(*injectors[:2], "v", ms=16)
+                ax.plot(*producers[:2], "^", ms=16)
             # ax.set_aspect("equal")
             plt.pause(.01)
 

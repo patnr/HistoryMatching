@@ -38,18 +38,18 @@ def ignore_inefficiency():
 # TODO: orientation, ravel, etc
 
 ## Grid
-Dx, Dy, Dz = 1,1,1     # Domain lengths
-Nx, Ny, Nz = 64, 64, 1 # Domain points
-gridshape = (Nx,Ny,Nz)
-xy2i = lambda x,y: np.ravel_multi_index((x,y,0), gridshape, order='C')
+Dx, Dy = 1,1     # Domain lengths
+Nx, Ny = 64, 64 # Domain points
+gridshape = (Nx,Ny)
+xy2i = lambda x,y: np.ravel_multi_index((x,y), gridshape, order='C')
 N = np.prod(gridshape)
 
 # Resolution
-hx, hy, hz = Dx/Nx, Dy/Ny,  Dz/Nz
-h3 = hx*hy*hz # Cell volumes (could be array?)
+hx, hy = Dx/Nx, Dy/Ny
+h2 = hx*hy # Cell volumes (could be array?)
 
 Gridded = Bunch(
-    K  =np.ones((3,*gridshape)), # permeability
+    K  =np.ones((2,*gridshape)), # permeability
     por=np.ones(gridshape),   # porosity
 )
 
@@ -62,10 +62,9 @@ Fluid = Bunch(
 Q = np.zeros(N)
 # injectors = rand(())
 # Q[xy2i(0,40)]  = .5
+# Q[xy2i(50,20)] = .5
 Q[-1] = -1
 Q[0]  = +1
-# Q[xy2i(50,20)] = .5
-# Q[xy2i(50,20)] = .5
 
 ##
 @profile
@@ -83,14 +82,12 @@ def RelPerm(s,Fluid,nargout_is_4=False):
 def GenA(Gridded,V,q):
     """Upwind finite-volume scheme."""
     fp=q.clip(max=0) # production
-    XN=V.x.clip(max=0); x1=XN[:-1,:,:].ravel(order="F") # separate flux into
-    YN=V.y.clip(max=0); y1=YN[:,:-1,:].ravel(order="F") # - flow in positive coordinate
-    ZN=V.z.clip(max=0); z1=ZN[:,:,:-1].ravel(order="F") #   direction (XP,YP,ZP)
-    XP=V.x.clip(min=0); x2=XP[1:,:,:] .ravel(order="F") # - flow in negative coordinate
-    YP=V.y.clip(min=0); y2=YP[:,1:,:] .ravel(order="F") #   direction (XN,YN,ZN)
-    ZP=V.z.clip(min=0); z2=ZP[:,:,1:] .ravel(order="F") #
-    DiagVecs=[    z2,  y2, x2, fp+x1-x2+y1-y2+z1-z2, -x1, -y1, -z1]   # diagonal vectors
-    DiagIndx=[-Nx*Ny, -Nx, -1,           0         ,  1 ,  Nx, Nx*Ny] # diagonal index
+    XN=V.x.clip(max=0); x1=XN[:-1,:].ravel(order="F") # separate flux into
+    YN=V.y.clip(max=0); y1=YN[:,:-1].ravel(order="F") # - flow in positive coordinate
+    XP=V.x.clip(min=0); x2=XP[1:,:] .ravel(order="F") # - flow in negative coordinate
+    YP=V.y.clip(min=0); y2=YP[:,1:] .ravel(order="F") #   direction (XN,YN)
+    DiagVecs=[    y2, x2, fp+x1-x2+y1-y2, -x1, -y1] # diagonal vectors
+    DiagIndx=[  -Nx , -1,        0      ,  1 ,  Nx] # diagonal index
     A=sparse.spdiags(DiagVecs,DiagIndx,N,N) # matrix with upwind FV stencil
     return A
 
@@ -101,22 +98,19 @@ def TPFA(Gridded,K,q):
     diffusion w/ nonlinear coefficient K."""
     # Compute transmissibilities by harmonic averaging.
     L = K**(-1)
-    tx = 2*hy*hz/hx; TX = np.zeros((Nx+1,Ny,Nz))
-    ty = 2*hx*hz/hy; TY = np.zeros((Nx,Ny+1,Nz))
-    tz = 2*hx*hy/hz; TZ = np.zeros((Nx,Ny,Nz+1))
+    tx = 2*hy/hx; TX = np.zeros((Nx+1,Ny))
+    ty = 2*hx/hy; TY = np.zeros((Nx,Ny+1))
 
-    TX[1:-1,:,:] = tx/(L[0,:-1,:,:] + L[0,1:,:,:])
-    TY[:,1:-1,:] = ty/(L[1,:,:-1,:] + L[1,:,1:,:])
-    TZ[:,:,1:-1] = tz/(L[2,:,:,:-1] + L[2,:,:,1:])
+    TX[1:-1,:] = tx/(L[0,:-1,:] + L[0,1:,:])
+    TY[:,1:-1] = ty/(L[1,:,:-1] + L[1,:,1:])
 
     # Assemble TPFA discretization matrix.
-    x1 = TX[:-1,:,:].ravel(order="F"); x2 = TX[1:,:,:].ravel(order="F")
-    y1 = TY[:,:-1,:].ravel(order="F"); y2 = TY[:,1:,:].ravel(order="F")
-    z1 = TZ[:,:,:-1].ravel(order="F"); z2 = TZ[:,:,1:].ravel(order="F")
+    x1 = TX[:-1,:].ravel(order="F"); x2 = TX[1:,:].ravel(order="F")
+    y1 = TY[:,:-1].ravel(order="F"); y2 = TY[:,1:].ravel(order="F")
 
-    DiagVecs = [   -z2, -y2, -x2, x1+x2+y1+y2+z1+z2, -x1, -y1,  -z1]
-    DiagIndx = [-Nx*Ny, -Nx,  -1,         0        ,   1,  Nx, Nx*Ny]
-    DiagVecs[3][0] += np.sum(Gridded.K[:,0,0,0])
+    DiagVecs = [-y2, -x2, x1+x2+y1+y2, -x1, -y1]
+    DiagIndx = [-Nx,  -1,         0  ,   1,  Nx]
+    DiagVecs[2][0] += np.sum(Gridded.K[:,0,0])
 
     # Solve linear system and extract interface fluxes.
 
@@ -147,13 +141,11 @@ def TPFA(Gridded,K,q):
     P = u.reshape(gridshape,order="F")
 
     V = Bunch(
-        x = np.zeros((Nx+1,Ny,Nz)),
-        y = np.zeros((Nx,Ny+1,Nz)),
-        z = np.zeros((Nx,Ny,Nz+1)),
+        x = np.zeros((Nx+1,Ny)),
+        y = np.zeros((Nx,Ny+1)),
     )
-    V.x[1:-1,:,:] = (P[:-1,:,:] - P[1:,:,:]) * TX[1:-1,:,:]
-    V.y[:,1:-1,:] = (P[:,:-1,:] - P[:,1:,:]) * TY[:,1:-1,:]
-    V.z[:,:,1:-1] = (P[:,:,:-1] - P[:,:,1:]) * TZ[:,:,1:-1]
+    V.x[1:-1,:] = (P[:-1,:] - P[1:,:]) * TX[1:-1,:]
+    V.y[:,1:-1] = (P[:,:-1] - P[:,1:]) * TY[:,1:-1]
     return P,V
 
 @profile
@@ -171,20 +163,19 @@ def Pres(Gridded,S,Fluid,q):
 @profile
 def Upstream(Gridded,S,Fluid,V,q,T):
     """Explicit upwind finite-volume discretisation of CoM."""
-    pv = h3*Gridded['por'].ravel(order="F") # pore volume=cell volume*porosity
+    pv = h2*Gridded['por'].ravel(order="F") # pore volume=cell volume*porosity
 
     fi = q.clip(min=0)# inflow from wells
 
     XP=V.x.clip(min=0); XN=V.x.clip(max=0) # influx and outflux, x-faces
     YP=V.y.clip(min=0); YN=V.y.clip(max=0) # influx and outflux, y-faces
-    ZP=V.z.clip(min=0); ZN=V.z.clip(max=0) # influx and outflux, z-faces
 
-    Vi = XP[:-1,:,:]+YP[:,:-1,:]+ZP[:,:,:-1]- \
-         XN[ 1:,:,:]-YN[:, 1:,:]-ZN[:,:, 1:] # each gridblock
+    Vi = XP[:-1,:]+YP[:,:-1]-\
+         XN[ 1:,:]-YN[:, 1:] # each gridblock
 
     # Comppute dt
     pm = min(pv/(Vi.ravel(order="F")+fi)) # estimate of influx
-    cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction
+    cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction # NB: 3-->2 since no z ?
     Nts = int(np.ceil(T/cfl)) # number of local time steps
     dtx = (T/Nts)/pv # local time steps
 
@@ -225,7 +216,7 @@ def simulate(nSteps=28,plotting=True):
             CC = ax.contourf(
                 linspace(0,Dx-hx,Nx)+hx/2,
                 linspace(0,Dy-hy,Ny)+hy/2,
-                S.reshape(gridshape,order="F")[:,:,0],
+                S.reshape(gridshape,order="F"),
                 levels=linspace(0,1,11),
                 vmin=0,vmax=1,
             )

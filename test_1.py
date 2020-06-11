@@ -7,4 +7,4 @@ def test_main():
 
 def test_main2():
     P,V,S = simulate(1,plotting=False)
-    assert np.isclose(P[5,0,0], -1.2973481310166959, atol=1e-14)
+    assert np.isclose(P[5,0], -1.2973481310166959, atol=1e-14)

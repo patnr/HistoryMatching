@@ -61,10 +61,10 @@ Fluid = Bunch(
 # Production/injection
 Q = np.zeros(N)
 # injectors = rand(())
-# Q[xy2i(0,40)]  = .5
-# Q[xy2i(50,20)] = .5
+Q[xy2i(0,40)]  = .5
+Q[xy2i(50,20)] = .5
 Q[-1] = -1
-Q[0]  = +1
+# Q[0]  = +1
 
 ##
 @profile
@@ -230,3 +230,4 @@ def simulate(nSteps=28,plotting=True):
 
 if __name__ == "__main__":
     P,V,S = simulate(28)
+    # P,V,S = simulate(1)

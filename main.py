@@ -1,4 +1,9 @@
-#http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+"""Based on Matlab codes from NTNU/Sintef:
+
+http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+
+Translated to python by Patrick N. Raanes.
+"""
 import numpy as np
 import scipy as sp
 from scipy import sparse
@@ -9,12 +14,17 @@ from scipy.sparse.linalg import spsolve
 from pylib.all import *
 from mpl_tools.misc import *
 
+
+
+# Profiling
 import builtins
 try:
     profile = builtins.profile     # will exists if launched via kernprof
 except AttributeError:
     def profile(func): return func # provide a pass-through version.
 
+
+# Ignore warnings
 from contextlib import contextmanager
 @contextmanager
 def ignore_inefficiency():
@@ -22,19 +32,25 @@ def ignore_inefficiency():
     yield
     warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
 
+
+
 # TODO: 1d case
 # TODO: orientation, ravel, etc
 
 ## Grid
 Dx, Dy, Dz = 1,1,1     # Domain lengths
 Nx, Ny, Nz = 64, 64, 1 # Domain points
-N = Nx*Ny*Nz
-hx, hy, hz = Dx/Nx, Dy/Ny,  Dz/Nz # resolution
+gridshape = (Nx,Ny,Nz)
+xy2i = lambda x,y: np.ravel_multi_index((x,y,0), gridshape, order='C')
+N = np.prod(gridshape)
+
+# Resolution
+hx, hy, hz = Dx/Nx, Dy/Ny,  Dz/Nz
 h3 = hx*hy*hz # Cell volumes (could be array?)
 
 Gridded = Bunch(
-    K  =np.ones((3,Nx,Ny,Nz)), # permeability
-    por=np.ones((Nx,Ny,Nz)),   # porosity
+    K  =np.ones((3,*gridshape)), # permeability
+    por=np.ones(gridshape),   # porosity
 )
 
 Fluid = Bunch(
@@ -44,8 +60,12 @@ Fluid = Bunch(
 
 # Production/injection
 Q = np.zeros(N)
-Q[0]  = 1
+# injectors = rand(())
+# Q[xy2i(0,40)]  = .5
 Q[-1] = -1
+Q[0]  = +1
+# Q[xy2i(50,20)] = .5
+# Q[xy2i(50,20)] = .5
 
 ##
 @profile
@@ -124,7 +144,7 @@ def TPFA(Gridded,K,q):
 
     # Other options to consider: scipy.sparse.linalg.lsqr, etc.
 
-    P = u.reshape((Nx,Ny,Nz),order="F")
+    P = u.reshape(gridshape,order="F")
 
     V = Bunch(
         x = np.zeros((Nx+1,Ny,Nz)),
@@ -142,7 +162,7 @@ def Pres(Gridded,S,Fluid,q):
     # Compute K*lambda(S)
     Mw,Mo = RelPerm(S,Fluid)
     Mt = Mw+Mo
-    Mt = Mt.reshape((Nx,Ny,Nz),order="F")
+    Mt = Mt.reshape(gridshape,order="F")
     KM = Mt*Gridded.K
     # Compute pressure and extract fluxes
     [P,V]=TPFA(Gridded,KM,q)
@@ -174,7 +194,7 @@ def Upstream(Gridded,S,Fluid,V,q,T):
 
     fi = q.clip(min=0)*dtx # injection
 
-    for t in range(1,Nts+1):
+    for iT in range(1,Nts+1):
         mw,mo=RelPerm(S,Fluid)      # compute mobilities
         fw = mw/(mw+mo)             # compute fractional flow
         S = S + (A@fw + fi) # update saturation
@@ -188,27 +208,34 @@ fig, ax = freshfig(1)
 ##
 
 @profile
-def main(nt):
+def main(nSteps=28,plotting=True):
     S=np.zeros(N) # Initial saturation
 
-    dt = 0.7/nt # Time steps
-    for t in range(1,nt+1):
+    dt=0.7/nSteps
+
+    for iT in range(1,nSteps+1):
         [P,V]=Pres(Gridded,S,Fluid,Q) # pressure solver
         S=Upstream(Gridded,S,Fluid,V,Q,dt) # saturation solver
 
         # Plotting
-        if t>1:
-            for c in CC.collections:
-                ax.collections.remove(c)
-        CC = ax.contourf(
-            linspace(0,Dx-hx,Nx)+hx/2,
-            linspace(0,Dy-hy,Ny)+hy/2,
-            S.reshape((Nx,Ny,Nz),order="F")[:,:,0],
-            levels=linspace(0,1,11),
-        )
-        # ax.set_aspect("equal")
-        plt.pause(.01)
+        if plotting:
+            if iT>1:
+                for c in CC.collections:
+                    ax.collections.remove(c)
+            CC = ax.contourf(
+                linspace(0,Dx-hx,Nx)+hx/2,
+                linspace(0,Dy-hy,Ny)+hy/2,
+                S.reshape(gridshape,order="F")[:,:,0],
+                levels=linspace(0,1,11),
+                vmin=0,vmax=1,
+            )
+            ax.set_title("Water saturation, t = %.1f"%(iT*dt))
+            if iT==1:
+                fig.colorbar(CC)
+            # ax.set_aspect("equal")
+            plt.pause(.01)
 
     return P,V,S
 
-P,V,S = main(28)
+if __name__ == "__main__":
+    P,V,S = main()

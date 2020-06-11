@@ -40,7 +40,9 @@ def ignore_inefficiency():
 Dx, Dy = 1,1    # Domain lengths
 Nx, Ny = 64, 64 # Domain points
 gridshape = (Nx,Ny)
-xy2i = lambda x,y: np.ravel_multi_index((x,y), gridshape)
+sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
+xy2sub  = lambda x,y: [ int(round(x/Dx*Nx)), int(round(y/Dy*Ny)) ]
+xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
 N = np.prod(gridshape)
 
 # Resolution
@@ -60,8 +62,8 @@ Fluid = Bunch(
 # Production/injection
 Q = np.zeros(N)
 # injectors = rand(())
-Q[xy2i(0,40)]  = .5
-Q[xy2i(50,20)] = .5
+Q[xy2i(.7,.2)]  = .5
+Q[xy2i(.2,.7)] = .5
 Q[-1] = -1
 # Q[0]  = +1
 
@@ -173,7 +175,9 @@ def Upstream(Gridded,S,Fluid,V,q,T):
          XN[ 1:,:]-YN[:, 1:] # each gridblock
 
     # Comppute dt
-    pm = min(pv/(Vi.ravel()+fi)) # estimate of influx
+    from numpy import errstate
+    with errstate(divide="ignore"):
+        pm  = min(pv/(Vi.ravel()+fi)) # estimate of influx
     cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction # NB: 3-->2 since no z ?
     Nts = int(np.ceil(T/cfl)) # number of local time steps
     dtx = (T/Nts)/pv # local time steps

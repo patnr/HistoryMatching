@@ -7,10 +7,9 @@ import scipy.stats as ss
 from pylib.all import *
 from mpl_tools.misc import *
 
-## Functions
+from common import grid, gridshape, randn
 
-rand = ss.uniform(0,1).rvs
-randn = ss.norm(0,1).rvs
+## Functions
 
 def variogram_gauss(xx,r,n=0,a=1/3):
     # Gauss
@@ -60,9 +59,6 @@ def gen_ens(N,grid,sill):
 
 ## Plot
 if __name__ == "__main__":
-    from simulation import grid
-    gridshape = grid[:2]
-
     np.random.seed(9)
 
     N = 12

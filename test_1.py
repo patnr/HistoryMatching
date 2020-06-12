@@ -1,14 +1,6 @@
 import numpy as np
-from simulation import simulate, injectors, xy2i, xy2sub, M
-
-xy = injectors[:2,0]
+from simulation import simulate, S0
 
 def test_main():
-    S = np.zeros(M)
-    P,V,S,production = simulate(1,S,plotting=False)
-    assert np.isclose(S[xy2i(*xy)], 0.9540751770156238, atol=1e-14)
-
-def test_main2():
-    S = np.zeros(M)
-    P,V,S,production = simulate(1,S,plotting=False)
-    assert np.isclose(P[xy2sub(*xy)], 0.09942313923592554, atol=1e-14)
+    saturation,production = simulate(1,S0,.025,dt_plot=None)
+    assert np.isclose(saturation[-1][96], 0.355432939161119, atol=1e-14)

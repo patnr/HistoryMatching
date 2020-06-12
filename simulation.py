@@ -5,92 +5,12 @@ http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 Translated to python by Patrick N. Raanes.
 """
 
-## Imports
-import warnings
-import builtins
-
-import numpy as np
-import scipy as sp
-import scipy.stats as ss
-from scipy import sparse
-# from scipy.special import errstate
-# from scipy.linalg import solve_banded
-from scipy.sparse.linalg import spsolve
-
-from pylib.all import *
-from mpl_tools.misc import *
-
-# Profiling
-try:
-    profile = builtins.profile     # will exists if launched via kernprof
-except AttributeError:
-    def profile(func): return func # provide a pass-through version.
-
-
-# Ignore warnings
-from contextlib import contextmanager
-@contextmanager
-def ignore_inefficiency():
-    warnings.simplefilter("ignore",sparse.SparseEfficiencyWarning)
-    yield
-    warnings.simplefilter("default",sparse.SparseEfficiencyWarning)
-
-from res_gen import gen_ens
-
 # TODO: 1d case
 
-np.random.seed(9)
-rand = ss.uniform(0,1).rvs
-
-
-## Grid
-# Note: x is 1st coord, y is 2nd.
-Dx, Dy    = 1,1    # lengths
-Nx, Ny    = 64, 64 # num. of pts.
-gridshape = Nx,Ny
-grid      = Nx, Ny, Dx, Dy
-M         = np.prod(gridshape)
-sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
-xy2sub  = lambda x,y: ( int(round(x/Dx*Nx)), int(round(y/Dy*Ny)) )
-xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
-
-# Resolution
-hx, hy = Dx/Nx, Dy/Ny
-h2 = hx*hy # Cell volumes (could be array?)
-
-Gridded = Bunch(
-    K  =np.ones((2,*gridshape)), # permeability
-    por=np.ones(gridshape),   # porosity
-)
-
-Fluid = Bunch(
-     vw=1.0,  vo=1.0,  # Viscosities
-    swc=0.0, sor=0.0 # Irreducible saturations
-)
-
-
-
-## Wells
-Q = np.zeros(M)
-# Injectors
-injectors = rand((3,7))
-injectors[0] *= Dx
-injectors[1] *= Dy
-injectors[2] /= injectors[2].sum()
-for x,y,q in zip(*injectors):
-    Q[xy2i(x,y)] = q
-# Producers
-producers = rand((3,5))
-producers[0] *= Dx
-producers[1] *= Dy
-producers[2] /= -producers[2].sum()
-for x,y,q in zip(*producers):
-    Q[xy2i(x,y)] = q
-
-
+from common import *
+from res_gen import gen_ens
 
 ## Functions
-@profile
 def RelPerm(s,Fluid,nargout_is_4=False):
     """Rel. permeabilities of oil and water."""
     S = (s-Fluid.swc)/(1-Fluid.swc-Fluid.sor) # Rescale saturations
@@ -101,7 +21,6 @@ def RelPerm(s,Fluid,nargout_is_4=False):
     # dMo = -2*(1-S)/Fluid.vo/(1-Fluid.swc-Fluid.sor)
     return Mw,Mo
 
-@profile
 def upwind_diff(Gridded,V,q):
     """Upwind finite-volume scheme."""
     fp =   q.clip(max=0) # production
@@ -114,7 +33,6 @@ def upwind_diff(Gridded,V,q):
     A=sparse.spdiags(DiagVecs,DiagIndx,M,M) # matrix with upwind FV stencil
     return A
 
-@profile
 def TPFA(Gridded,K,q):
     """Two-point flux-approximation (TPFA) of Darcy:
 
@@ -172,7 +90,6 @@ def TPFA(Gridded,K,q):
     V.y[:,1:-1] = (P[:,:-1] - P[:,1:]) * TY[:,1:-1]
     return P,V
 
-@profile
 def pressure_step(Gridded,S,Fluid,q):
     """TPFA finite-volume of Darcy: -nabla(K lambda(s) nabla(u)) = q."""
     # Compute K*lambda(S)
@@ -184,7 +101,6 @@ def pressure_step(Gridded,S,Fluid,q):
     [P,V]=TPFA(Gridded,KM,q)
     return P, V
 
-@profile
 def saturation_step(Gridded,S,Fluid,q,V,T):
     """Explicit upwind finite-volume discretisation of CoM."""
     pv = h2*Gridded['por'].ravel() # pore volume=cell volume*porosity
@@ -215,12 +131,46 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
 
     return S
 
-def liveplot(S,t):
+@profile
+def step(S,dt):
+    [P,V] =   pressure_step(Gridded,S,Fluid,Q)
+    S     = saturation_step(Gridded,S,Fluid,Q,V,dt)
+    return S
 
-    if not liveplot.init:
+def obs(S):
+    return [S[xy2i(x,y)] for (x,y,_) in producers]
+
+def simulate(nSteps,S,dt_ext=.025,dt_plot=0.01):
+    saturation = []
+    production = []
+
+    for iT in 1+arange(nSteps):
+        S = step(S,dt_ext)
+
+        saturation += [S]
+        production += [obs(S)]
+
+        liveplot(S,iT*dt_ext,dt_plot)
+
+    return saturation, production
+
+
+def liveplot(S,t,dt_pause):
+
+    # Exit if dt==0 or None
+    if not dt_pause: return
+
+    if not hasattr(liveplot,'ax'):
+        # Init fig
+        plt.ion()
+        fig, ax = freshfig(1)
+    else:
+        # Clear plot
+        ax = liveplot.ax
         for c in liveplot.CC.collections:
             ax.collections.remove(c)
 
+    # Plot
     liveplot.CC = ax.contourf(
         linspace(0,Dx-hx,Nx)+hx/2,
         linspace(0,Dy-hy,Ny)+hy/2,
@@ -229,65 +179,57 @@ def liveplot(S,t):
         # the same orientation as array printing.
         levels=linspace(0,1,11), vmin=0,vmax=1)
 
+    # Adjust plot
     ax.set_title("Oil saturation, t = %.1f"%(t))
-    if liveplot.init:
+    if not hasattr(liveplot,'ax'):
+        liveplot.ax = ax
+
         fig.colorbar(liveplot.CC)
         ax.set_xlabel("x")
         ax.set_ylabel("y")
-        ax.plot(*injectors[:2], "v", ms=16)
-        ax.plot(*producers[:2], "^", ms=16)
-        for i,w in enumerate(injectors.T):
+        ax.plot(*injectors.T[:2], "v", ms=16)
+        ax.plot(*producers.T[:2], "^", ms=16)
+        for i,w in enumerate(injectors):
             ax.text(w[0]-.01, w[1]-.01, 1+i, color="w")
-        for i,w in enumerate(producers.T):
+        for i,w in enumerate(producers):
             ax.text(w[0]-.01, w[1]-.02, 1+i)
-    # ax.set_aspect("equal")
+        # ax.set_aspect("equal")
+    plt.pause(dt_pause)
 
-    plt.pause(.1)
-    liveplot.init = False
-
-
-@profile
-def simulate(nSteps,S,dt_animation=.025,plotting=True):
-    production = []
-
-    for iT in 1+arange(nSteps):
-        [P,V] =   pressure_step(Gridded,S,Fluid,Q)
-        S     = saturation_step(Gridded,S,Fluid,Q,V,dt_animation)
-
-        production += [[S[xy2i(x,y)] for (x,y,q) in producers.T]]
-
-        t = iT*dt_animation
-        if plotting:
-            if iT==1:
-                liveplot.init = True
-            liveplot(S,t)
-
-    return P,V,S, production
+def setup_wells(wells):
+    wells = normalize_wellset(wells)
+    # Add to source field
+    Q = np.zeros(M)
+    for x,y,q in wells: Q[xy2i(x,y)] = +q
+    return wells, Q
 
 
-## Main
+## Global params. Available also when this module is imported.
+np.random.seed(9)
+injectors = rand((3,7)).T
+producers = rand((3,5)).T
+
+# injectors = [[0,0,1]]
+# producers = [[1,1,-1]]
+
+injectors, Qi = setup_wells(injectors)
+producers, Qp = setup_wells(producers)
+Q = Qi - Qp
+
+S0 = gen_ens(1,grid,0.7).squeeze()
+# S0 = np.zeros(M)
+
 if __name__ == "__main__":
-
-    plt.ion()
-    fig, ax = freshfig(1)
-
     dt = 0.025
     nT = 28
-
-    # Initial water saturation
-    S = gen_ens(1,grid,0.7).squeeze()
-    # S = np.zeros(M)
-
-    P,V,S,production = simulate(nT,S,dt)
-    # P,V,S,production = simulate(1,S)
-
+    saturation,production = simulate(nT,S0,dt,dt_plot=.01)
 
     ## Production plot
     production = array(production)
     fig, ax = freshfig(2)
     tt = dt*(1+arange(nT))
-    for i,p in enumerate(production.T):
+    for i,p in enumerate(1-production.T):
         ax.plot(tt,p,"-*",label=1+i)
-    ax.legend(title="Production\nWell num.")
+    ax.legend(title="(Production)\nwell num.")
     ax.set_ylabel("Oil saturation (rel. production)")
     ax.set_xlabel("Time")

@@ -216,10 +216,11 @@ injectors, Qi = setup_wells(injectors)
 producers, Qp = setup_wells(producers)
 Q = Qi - Qp
 
-S0 = gen_ens(1,grid,0.7).squeeze()
-# S0 = np.zeros(M)
-
 if __name__ == "__main__":
+
+    S0 = gen_ens(1,grid,0.7).squeeze()
+    # S0 = np.zeros(M)
+
     dt = 0.025
     nT = 28
     saturation,production = simulate(nT,S0,dt,dt_plot=.01)

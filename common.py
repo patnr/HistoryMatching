@@ -65,3 +65,24 @@ def normalize_wellset(ww):
     ww[1] *= Dy
     ww[2] /= ww[2].sum()
     return ww.T
+
+def plot_field(ax, field, *args, **kwargs):
+    # Needed to transpose coz contour() uses
+    # the same orientation as array printing.
+    field = field.reshape(gridshape).T
+    # Center nodes (coz finite-volume)
+    xx = linspace(0,Dx-hx,Nx)+hx/2
+    yy = linspace(0,Dy-hy,Ny)+hy/2
+    collections = ax.contourf(xx, yy, field,
+        *args, levels=21,vmax=1,**kwargs)
+    ax.set(xlim=(0,1),ylim=(0,1))
+    # ax.set(xlim=(hx/2,1-hx/2),ylim=(hy/2,1-hy/2)) # tight
+    if ax.is_first_col(): ax.set_ylabel("y")
+    if ax.is_last_row (): ax.set_xlabel("x")
+    return collections
+
+
+def fig_colorbar(fig,collections):
+    fig.subplots_adjust(right=0.8)
+    cax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(collections, cax)

@@ -152,7 +152,8 @@ def simulate(nSteps,S,dt_ext=.025,dt_plot=0.01):
 
         liveplot(S,iT*dt_ext,dt_plot)
 
-    return saturation, production
+    if dt_plot: del liveplot.ax
+    return array(saturation), array(production)
 
 
 def liveplot(S,t,dt_pause):
@@ -171,13 +172,7 @@ def liveplot(S,t,dt_pause):
             ax.collections.remove(c)
 
     # Plot
-    liveplot.CC = ax.contourf(
-        linspace(0,Dx-hx,Nx)+hx/2,
-        linspace(0,Dy-hy,Ny)+hy/2,
-        1 - S.reshape(gridshape).T,
-        # Needed to transpose coz contour() uses
-        # the same orientation as array printing.
-        levels=linspace(0,1,11), vmin=0,vmax=1)
+    liveplot.CC = plot_field(ax, 1-S, vmin=0)
 
     # Adjust plot
     ax.set_title("Oil saturation, t = %.1f"%(t))
@@ -195,6 +190,22 @@ def liveplot(S,t,dt_pause):
             ax.text(w[0]-.01, w[1]-.02, 1+i)
         # ax.set_aspect("equal")
     plt.pause(dt_pause)
+
+def prod_plot(production, dt, nT, obs=None):
+    fig, ax = freshfig(2)
+    tt = dt*(1+arange(nT))
+    hh = []
+    for i,p in enumerate(1-production.T):
+        hh += ax.plot(tt,p,"-",label=1+i)
+
+    if obs is not None:
+        for i,y in enumerate(1-obs.T):
+            ax.plot(tt,y,"*",c=hh[i].get_color())
+
+    ax.legend(title="(Production)\nwell num.")
+    ax.set_ylabel("Oil saturation (rel. production)")
+    ax.set_xlabel("Time")
+
 
 def setup_wells(wells):
     wells = normalize_wellset(wells)
@@ -225,12 +236,4 @@ if __name__ == "__main__":
     nT = 28
     saturation,production = simulate(nT,S0,dt,dt_plot=.01)
 
-    ## Production plot
-    production = array(production)
-    fig, ax = freshfig(2)
-    tt = dt*(1+arange(nT))
-    for i,p in enumerate(1-production.T):
-        ax.plot(tt,p,"-*",label=1+i)
-    ax.legend(title="(Production)\nwell num.")
-    ax.set_ylabel("Oil saturation (rel. production)")
-    ax.set_xlabel("Time")
+    prod_plot(production,dt,nT)

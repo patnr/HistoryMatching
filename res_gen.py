@@ -7,14 +7,14 @@ import scipy.stats as ss
 from pylib.all import *
 from mpl_tools.misc import *
 
-from common import grid, gridshape, randn
+from common import grid, gridshape, randn, fig_colorbar
 
 ## Functions
 
 def variogram_gauss(xx,r,n=0,a=1/3):
     # Gauss
     gamma = 1 - exp(-xx**2/r**2/a)
-    # Sill
+    # Sill (=1)
     gamma *= (1-n)
     # Nugget
     gamma[xx!=0] += n
@@ -54,7 +54,7 @@ def gen_ens_01(N, grid):
 def gen_ens(N,grid,sill):
     SS = gen_ens_01(N, grid)
     SS *= sill # set amplitude/sill
-    return SS
+    return SS.T
 
 
 ## Plot
@@ -65,17 +65,15 @@ if __name__ == "__main__":
     sill = 0.7
     SS = gen_ens(N,grid,sill)
 
-    fig, axs = freshfig(1,nrows=3,ncols=int(N/3),sharex=True,sharey=True)
+    fig, axs = freshfig(21,nrows=3,ncols=int(N/3),sharex=True,sharey=True)
     CC = []
-    for i, (ax, S) in enumerate(zip(axs.ravel(),SS.T)):
+    for i, (ax, S) in enumerate(zip(axs.ravel(),SS)):
         ax.set_title(i)
         collections = ax.contourf(1 - S.reshape(gridshape).T,
                     levels=21,vmin=1-sill,vmax=1)
         CC.append(collections)
 
-    fig.subplots_adjust(right=0.8)
-    cax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    fig.colorbar(CC[0], cax)
+    fig_colorbar(fig,CC[0])
 
 
 ## 1D

@@ -35,7 +35,7 @@ randn = ss.norm(0,1).rvs
 ## Grid
 # Note: x is 1st coord, y is 2nd.
 Dx, Dy    = 1,1    # lengths
-Nx, Ny    = 64, 64 # num. of pts.
+Nx, Ny    = 32, 32 # num. of pts.
 gridshape = Nx,Ny
 grid      = Nx, Ny, Dx, Dy
 M         = np.prod(gridshape)

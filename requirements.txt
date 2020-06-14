@@ -1,13 +1,16 @@
 appdirs==1.4.4
+appnope==0.1.0
 attrs==19.3.0
 awscli==1.16.291
 backcall==0.1.0
 botocore==1.13.27
 certifi==2020.4.5.1
 cfgv==3.1.0
+colorama==0.4.1
 cycler==0.10.0
 decorator==4.4.2
 distlib==0.3.0
+docutils==0.15.2
 filelock==3.0.12
 identify==1.4.19
 importlib-metadata==1.5.0
@@ -49,6 +52,7 @@ see==1.4.1
 six==1.14.0
 toml==0.10.1
 traitlets==4.3.3
+urllib3==1.25.9
 virtualenv==20.0.21
 virtualenv-clone==0.5.3
 wcwidth==0.1.9

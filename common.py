@@ -43,6 +43,12 @@ sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
 xy2sub  = lambda x,y: (int(round( x/Dx*(Nx-1) )),
                        int(round( y/Dy*(Ny-1) )))
 xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
+ind2sub = lambda ind: np.unravel_index(ind, gridshape)
+def ind2xy(ind):
+    i,j = ind2sub(ind)
+    x   = i/(Nx-1)*Dx
+    y   = j/(Ny-1)*Dy
+    return x,y
 
 # Resolution
 hx, hy = Dx/Nx, Dy/Ny
@@ -73,16 +79,68 @@ def plot_field(ax, field, *args, **kwargs):
     # Center nodes (coz finite-volume)
     xx = linspace(0,Dx-hx,Nx)+hx/2
     yy = linspace(0,Dy-hy,Ny)+hy/2
+    # ax.imshow(field[::-1])
     collections = ax.contourf(xx, yy, field,
-        *args, levels=21,vmax=1,**kwargs)
+        *args, levels=21, **kwargs)
     ax.set(xlim=(0,1),ylim=(0,1))
     # ax.set(xlim=(hx/2,1-hx/2),ylim=(hy/2,1-hy/2)) # tight
     if ax.is_first_col(): ax.set_ylabel("y")
     if ax.is_last_row (): ax.set_xlabel("x")
     return collections
 
+def norm(xx):
+    # return nla.norm(xx/xx.size)
+    return np.sqrt(np.sum(xx@xx)/xx.size)
 
-def fig_colorbar(fig,collections):
+def plot_corr_field(ax,A,b,title=""):
+    N = len(b)
+    # CovMat = X.T @ X / (N-1)
+    # CovMat = np.cov(E.T)
+    # vv = diag(CovMat)
+    # CorrMat = CovMat/sqrt(vv)/sqrt(vv[:,None])
+    # corrs = CorrMat[i]
+    A     = A - A.mean(axis=0)
+    b     = b - b.mean(axis=0)
+    covs  = b @ A / (N-1)
+    varA  = np.sum(A*A,0) / (N-1)
+    varb  = np.sum(b*b,0) / (N-1)
+    corrs = covs/sqrt(varb)/sqrt(varA)
+
+    ax.set(title=f"Correlations for {title}")
+    return plot_field(ax, corrs, cmap=mpl.cm.bwr,vmax=1,vmin=-1)
+
+def plot_corr_field_vs(ax,E,xy,title=""):
+    i = xy2i(*xy)
+    b = E[:,i]
+    collections = plot_corr_field(ax,E,b,f"{title}")
+    ax.plot(*xy, '*k',ms=4)
+    return collections
+
+def plot_wells(ax, ww, inj=True):
+    ax.plot(*ww.T[:2], "v" if inj else "^", ms=16)
+    for i,w in enumerate(ww):
+        ax.text(*w[:2], i, color="w" if inj else "k", ha="center", va="center")
+    plt.pause(.01)
+
+def plot_prod(production, dt, nT, obs=None):
+    fig, ax = freshfig(2)
+    tt = dt*(1+arange(nT))
+    hh = []
+    for i,p in enumerate(1-production.T):
+        hh += ax.plot(tt,p,"-",label=1+i)
+
+    if obs is not None:
+        for i,y in enumerate(1-obs.T):
+            ax.plot(tt,y,"*",c=hh[i].get_color())
+
+    ax.legend(title="(Production)\nwell num.")
+    ax.set_ylabel("Oil saturation (rel. production)")
+    ax.set_xlabel("Time")
+    plt.pause(.01)
+    return hh
+
+def fig_colorbar(fig,collections,*args,**kwargs):
     fig.subplots_adjust(right=0.8)
     cax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    fig.colorbar(collections, cax)
+    fig.colorbar(collections, cax, *args, **kwargs)
+    plt.pause(.01)

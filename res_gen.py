@@ -35,37 +35,39 @@ def comp_dists(XX,YY):
 
 def gen_surfs(n,Cov):
     M = len(Cov)
-    SS = Cov @ randn((M,n))
+    SS = sla.sqrtm(Cov).real @ randn((M,n))
 
     # Normalize
     # Don't know why the surfaces get such high amplitudes.
     # In any case, gotta keep em within [0,1]
-    SS /= (SS.max(axis=0) - SS.min(axis=0)) # make max spread 1
+    normfactor = SS.max() - SS.min()
+    SS /= normfactor # make max spread 1
     SS -= SS.min(axis=0)
-    return SS
+    return SS, normfactor
 
 def gen_ens_01(N, grid):
     XX,YY = gen_grid(*grid)
     dd = comp_dists(XX,YY)
-    Cov = 1 - variogram_gauss(dd,.2)
-    SS = gen_surfs(N,Cov)
-    return SS
+    Cov = 1 - variogram_gauss(dd,.5)
+    SS, normfactor = gen_surfs(N,Cov)
+    return SS, Cov/normfactor**2
 
 def gen_ens(N,grid,sill):
-    SS = gen_ens_01(N, grid)
+    # Return ensemble of fields, and its true covariance
+    SS, Cov = gen_ens_01(N, grid)
     SS *= sill # set amplitude/sill
-    return SS.T
+    return SS.T, Cov*sill**2
 
 
 ## Plot
 if __name__ == "__main__":
     np.random.seed(9)
 
-    N = 12
+    N = 100
     sill = 0.7
-    SS = gen_ens(N,grid,sill)
+    SS, Cov = gen_ens(N,grid,sill)
 
-    fig, axs = freshfig(21,nrows=3,ncols=int(N/3),sharex=True,sharey=True)
+    fig, axs = freshfig(21,nrows=3,ncols=int(12/3),sharex=True,sharey=True)
     CC = []
     for i, (ax, S) in enumerate(zip(axs.ravel(),SS)):
         ax.set_title(i)

@@ -172,39 +172,21 @@ def liveplot(S,t,dt_pause):
             ax.collections.remove(c)
 
     # Plot
-    liveplot.CC = plot_field(ax, 1-S, vmin=0)
+    liveplot.CC = plot_field(ax, 1-S, vmin=0, vmax=1)
 
     # Adjust plot
     ax.set_title("Oil saturation, t = %.1f"%(t))
     if not hasattr(liveplot,'ax'):
         liveplot.ax = ax
 
+        plot_wells(ax, injectors)
+        plot_wells(ax, producers, False)
+
         fig.colorbar(liveplot.CC)
         ax.set_xlabel("x")
         ax.set_ylabel("y")
-        ax.plot(*injectors.T[:2], "v", ms=16)
-        ax.plot(*producers.T[:2], "^", ms=16)
-        for i,w in enumerate(injectors):
-            ax.text(w[0]-.01, w[1]-.01, 1+i, color="w")
-        for i,w in enumerate(producers):
-            ax.text(w[0]-.01, w[1]-.02, 1+i)
         # ax.set_aspect("equal")
     plt.pause(dt_pause)
-
-def prod_plot(production, dt, nT, obs=None):
-    fig, ax = freshfig(2)
-    tt = dt*(1+arange(nT))
-    hh = []
-    for i,p in enumerate(1-production.T):
-        hh += ax.plot(tt,p,"-",label=1+i)
-
-    if obs is not None:
-        for i,y in enumerate(1-obs.T):
-            ax.plot(tt,y,"*",c=hh[i].get_color())
-
-    ax.legend(title="(Production)\nwell num.")
-    ax.set_ylabel("Oil saturation (rel. production)")
-    ax.set_xlabel("Time")
 
 
 def setup_wells(wells):
@@ -217,8 +199,8 @@ def setup_wells(wells):
 
 ## Global params. Available also when this module is imported.
 np.random.seed(9)
-injectors = rand((3,7)).T
-producers = rand((3,5)).T
+injectors = rand((3,5)).T
+producers = rand((3,10)).T
 
 # injectors = [[0,0,1]]
 # producers = [[1,1,-1]]
@@ -229,11 +211,13 @@ Q = Qi - Qp
 
 if __name__ == "__main__":
 
-    S0 = gen_ens(1,grid,0.7).squeeze()
+    S0, Cov = gen_ens(1,grid,0.7)
+    S0 = S0.squeeze()
+
     # S0 = np.zeros(M)
 
     dt = 0.025
     nT = 28
     saturation,production = simulate(nT,S0,dt,dt_plot=.01)
 
-    prod_plot(production,dt,nT)
+    hh = plot_prod(production,dt,nT)

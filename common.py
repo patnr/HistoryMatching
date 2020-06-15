@@ -38,6 +38,36 @@ from scipy import sparse
 from scipy.sparse.linalg import spsolve
 
 
+class JsonDict(dict):
+    """Provide json pretty-printing"""
+    def __str__(self): return repr(self)
+    def __repr__(self):
+        s = json.dumps(self, indent=4, sort_keys=False, default=str)
+        crop = lambda t: t[:80] + ("" if len(t)<80 else "...")
+        s = "\n".join([crop(ln) for ln in s.split("\n")])
+        return s
+
+class Bunch(JsonDict):
+    """A dict that also has attribute (dot) access.
+
+    Benefit compared to a dict:
+
+     - Verbosity of ``mycontainer.a`` vs. ``mycontainer['a']``.
+     - Includes JsonDict.
+
+    As seen from its creation in ``__init__``,
+     - Bunch is not very hackey.
+     - Bunch is also quite robust.
+
+    Source: stackoverflow.com/a/14620633
+
+    Similar constructs are quite common, eg IPython/utils/ipstruct.py.
+    """
+    def __init__(self,*args,**kwargs):
+        "Init like a normal dict."
+        super(Bunch, self).__init__(*args,**kwargs) # Make a (normal) dict
+        self.__dict__ = self                        # assign it to self.__dict__
+
 from mpl_tools.misc import *
 
 # Profiling

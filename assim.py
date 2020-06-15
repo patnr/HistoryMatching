@@ -27,10 +27,11 @@ E0, Cov = gen_ens(N+1,model.grid,sill)
 x0, E0 = E0[0], E0[1:]
 vm = (1-x0.max(),1)
 if True:
-    plot_realizations(23,E0,"Initial",vm)
+    fig, axs = freshfig(23,nrows=3,ncols=4,sharex=True,sharey=True)
+    plot_realizations(axs,E0,"Initial",vm)
 
 
-##
+## Inspect eigenvalue specturm
 eigs = nla.eigvalsh(Cov)[::-1]
 fig, ax = freshfig(21)
 # ax.loglog(eigs)
@@ -52,7 +53,8 @@ print("Error for Krig.: %.4f"%norm(x0-Kriged))
 # TODO: use Kriged (ie. best) covariance to generate spread
 Eb = Kriged + 0.4*center(E0)
 if True:
-    plot_realizations(24,Eb,"Krig/Prior",vm)
+    fig, axs = freshfig(24,nrows=3,ncols=4,sharex=True,sharey=True)
+    plot_realizations(axs,Eb,"Krig/Prior",vm)
 
 
 ## Simulate truth
@@ -71,7 +73,8 @@ for iT in range(nT):
     yy[iT] += R @ randn(p)
 
 if True:
-    hh_y = plot_prod(production,dt,nT,obs=yy)
+    fig, ax = freshfig(2)
+    hh_y = plot_prod(ax,production,dt,nT,obs=yy)
 
 
 
@@ -178,8 +181,10 @@ if True:
         ax.plot(*xy, '*k',ms=4)
 
 if True:
-    plot_realizations(26,ES,"ES",vm)
-    plot_realizations(27,EnKS,"EnKS",vm)
+    fig, axs = freshfig(25,nrows=3,ncols=4,sharex=True,sharey=True)
+    plot_realizations(axs,ES,"ES",vm)
+    fig, axs = freshfig(26,nrows=3,ncols=4,sharex=True,sharey=True)
+    plot_realizations(axs,EnKS,"EnKS",vm)
 
 
 ## EnKS production plot

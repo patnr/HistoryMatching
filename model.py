@@ -203,4 +203,5 @@ if __name__ == "__main__":
     nT = 28
     saturation,production = simulate(nT,S0,dt,dt_plot=.01)
 
-    hh = plot_prod(production,dt,nT)
+    fig, ax = freshfig(2)
+    hh = plot_prod(ax,production,dt,nT)

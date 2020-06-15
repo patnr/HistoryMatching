@@ -127,12 +127,12 @@ def plot_corr_field(ax,A,b,title=""):
     ax.set(title=f"Correlations for {title}")
     return plot_field(ax, corrs, cmap=mpl.cm.bwr, vmax=1, vmin=-1)
 
-def plot_realizations(fignum,E,title="",vm=None):
-    fig, axs = freshfig(fignum,nrows=3,ncols=4,sharex=True,sharey=True)
-    fig.suptitle(f"Some realizations -- {title}")
+def plot_realizations(axs,E,title="",vm=None):
+    fig = axs.ravel()[0].figure
     for i, (ax, S) in enumerate(zip(axs.ravel(),E)):
-        ax.text(0,.85*Ny,str(i),c="w",size=12)
+        # ax.text(0,.85*Ny,str(i),c="w",size=12) # yields enormous top margin in jupyter
         collections = plot_field(ax, 1-S, vm=vm)
+    fig.suptitle(f"Some realizations -- {title}")
     fig_colorbar(fig, collections)
     plt.pause(.01)
 
@@ -147,10 +147,8 @@ def plot_wells(ax, ww, inj=True):
     ax.plot(*ww.T[:2], "v" if inj else "^", ms=16)
     for i,w in enumerate(ww):
         ax.text(*w[:2], i, color="w" if inj else "k", ha="center", va="center")
-    plt.pause(.01)
 
-def plot_prod(production, dt, nT, obs=None):
-    fig, ax = freshfig(2)
+def plot_prod(ax, production, dt, nT, obs=None):
     tt = dt*(1+arange(nT))
     hh = []
     for i,p in enumerate(1-production.T):

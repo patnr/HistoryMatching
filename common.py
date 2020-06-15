@@ -65,6 +65,23 @@ Fluid = Bunch(
 )
 
 
+def normalize_wellset(ww):
+    ww = array(ww,float).T
+    ww[0] *= Dx
+    ww[1] *= Dy
+    ww[2] /= ww[2].sum()
+    return ww.T
+
+def init_Q(injectors,producers):
+    Q = np.zeros(M) # source FIELD
+    injectors = normalize_wellset(injectors)
+    producers = normalize_wellset(producers)
+    for x,y,q in injectors: Q[xy2i(x,y)] = +q
+    for x,y,q in producers: Q[xy2i(x,y)] = -q
+    return injectors, producers, Q
+
+
+
 def norm(xx):
     # return nla.norm(xx/xx.size)
     return np.sqrt(np.sum(xx@xx)/xx.size)

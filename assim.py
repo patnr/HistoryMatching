@@ -1,8 +1,7 @@
 """DA/HM example"""
 
 from common import *
-import simulation as model
-from simulation import init_Q
+import model
 from res_gen import gen_ens
 
 np.random.seed(1)
@@ -60,6 +59,8 @@ if True:
 dt = 0.025
 nT = 28
 saturation,production = model.simulate(nT,x0,dt,dt_plot=None)
+xx = saturation
+
 
 ## Noisy obs
 p = len(model.producers)
@@ -133,7 +134,8 @@ if True:
     chxx = plot_field(axs[0,0], 1-x0               , vm); axs[0,0].set_title("Truth")
     chE0 = plot_field(axs[0,1], 1-Eb  .mean(axis=0), vm); axs[0,1].set_title("Prior mean")
     chEa = plot_field(axs[1,0], 1-ES  .mean(axis=0), vm); axs[1,0].set_title("ES")
-    chEr = plot_field(axs[1,1], 1-EnKS.mean(axis=0), vm); axs[1,1].set_title("EnKS")
+    # chEr = plot_field(axs[1,1], 1-EnKS.mean(axis=0), vm); axs[1,1].set_title("EnKS")
+    chEr = plot_field(axs[1,1], 1-xx[-1]           , vm); axs[1,1].set_title("Truth t=end")
     plot_wells(axs[0,0], model.injectors)
     plot_wells(axs[0,0], model.producers, False)
     axs[0,0].plot(*array([ind2xy(j) for j in inds_krigin]).T, 'w.',ms=3)
@@ -143,9 +145,9 @@ if True:
 if True:
     fig, axs = freshfig(22, figsize=(8,8), nrows=2, ncols=2, sharex=True, sharey=True)
     xy = model.producers[4,:2]
-    z = plot_corr_field_vs(axs[0,0],E0 ,xy,"Initial")
-    z = plot_corr_field_vs(axs[0,1],Eb,xy,"Kriged")
-    z = plot_corr_field_vs(axs[1,0],ES ,xy,"ES")
+    z = plot_corr_field_vs(axs[0,0],E0   ,xy,"Initial")
+    z = plot_corr_field_vs(axs[0,1],Eb   ,xy,"Kriged")
+    z = plot_corr_field_vs(axs[1,0],ES   ,xy,"ES")
     z = plot_corr_field_vs(axs[1,1],EnKS ,xy,"EnKS")
     fig_colorbar(fig, z)
 

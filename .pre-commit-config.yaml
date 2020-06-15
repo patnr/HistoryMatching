@@ -4,11 +4,7 @@ repos:
     hooks:
     -   id: check-yaml
     -   id: end-of-file-fixer
-    -   id: trailing-whitespace
-#-   repo: https://github.com/psf/black
-    #rev: 19.3b0
-    #hooks:
-    #-   id: black
+    #-   id: trailing-whitespace
 
 #https://github.com/pre-commit/pre-commit/issues/761#issuecomment-394167542
 # -   repo: local

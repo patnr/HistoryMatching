@@ -17,28 +17,16 @@ fig_placement_load()
 # Repeat for many experiments
 
 # Ensure uniformity of colorbars
-p01 = lambda ax, z: plot_field(ax, z, cmap=mpl.cm.viridis,
-                                   vmin=1-sill,vmax=1)
-pkg = lambda ax, z, kg: plot_field(ax, z, cmap=mpl.cm.PiYG_r,
-                                   vmin=kg.min(), vmax=kg.max())
-
-def plot_realizations(fignum,E,title=""):
-    fig, axs = freshfig(fignum,nrows=3,ncols=4,sharex=True,sharey=True)
-    fig.suptitle(f"Some realizations -- {title}")
-    for i, (ax, S) in enumerate(zip(axs.ravel(),E)):
-        ax.text(0,.85*Ny,str(i),c="w",size=12)
-        collections = p01(ax, 1-S)
-    fig_colorbar(fig, collections)
-    plt.pause(.01)
-
 
 ## Gen surfaces of S0
 N = 40
 sill = 0.7
 E0, Cov = gen_ens(N+1,grid,sill)
-xx, E0 = E0[0], E0[1:]
+x0, E0 = E0[0], E0[1:]
+vm = (1-x0.max(),1)
 if True:
-    plot_realizations(23,E0,"Initial")
+    plot_realizations(23,E0,"Initial",vm)
+
 
 ##
 eigs = nla.eigvalsh(Cov)[::-1]
@@ -51,27 +39,27 @@ ax.set(xlabel="eigenvalue #",ylabel="var.",title="Spectrum of initial, true cov"
 
 
 ## Initial Kriging/ES
-jj = linspace(0, M-1, 10).astype(int)
-yy = xx[jj]
-Cxy = Cov[:,jj]
-Cyy = Cov[jj][:,jj]
+inds_krigin = linspace(0, M-1, 10).astype(int)
+yy = x0[inds_krigin]
+Cxy = Cov[:,inds_krigin]
+Cyy = Cov[inds_krigin][:,inds_krigin]
 Reg = Cxy @ nla.pinv(Cyy)
-Kriged = xx.mean() + Reg @ (yy-xx.mean())
+Kriged = x0.mean() + Reg @ (yy-x0.mean())
 
-print("Error for Krig.: %.4f"%norm(xx-Kriged))
+print("Error for Krig.: %.4f"%norm(x0-Kriged))
 # TODO: use Kriged (ie. best) covariance to generate spread
-EK = Kriged + 0.4*(E0-E0.mean(axis=0))
+Eb = Kriged + 0.4*center(E0)
 if True:
-    plot_realizations(24,EK,"Krig/Prior")
+    plot_realizations(24,Eb,"Krig/Prior",vm)
 
 
 ## Simulate truth
 dt = 0.025
 nT = 28
-saturation,production = simulate(nT,xx,dt,dt_plot=None)
-p = len(producers)
+saturation,production = simulate(nT,x0,dt,dt_plot=None)
 
 ## Noisy obs
+p = len(producers)
 R = 0.01**2 * np.eye(p)
 RR = sp.linalg.block_diag(*[R]*nT)
 yy = np.copy(production)
@@ -79,7 +67,7 @@ for iT in range(nT):
     yy[iT] += R @ randn(p)
 
 if True:
-    hh = plot_prod(production,dt,nT,obs=yy)
+    hh_y = plot_prod(production,dt,nT,obs=yy)
 
 
 
@@ -87,27 +75,27 @@ if True:
 
 # Forecast
 Eo = np.zeros((N,nT*p))
-for n,xn in enumerate(EK):
+for n,xn in enumerate(Eb):
     saturation,production = simulate(nT,xn,dt,dt_plot=None)
     Eo[n] = production.ravel()
 
 # Analysis
-Y  = Eo - Eo.mean(axis=0)
-X  = EK - EK.mean(axis=0)
+Y  = center(Eo)
+X  = center(Eb)
 D  = randn((N, p*nT)) @ sqrt(RR)
 
 XY = X.T @ Y
 CY = Y.T @ Y + RR*(N-1)
-KS = XY @ nla.pinv(CY)
+KG_ES = XY @ nla.pinv(CY)
+ES = Eb + (yy.ravel() - (Eo+D)) @ KG_ES.T
 
-ES = EK + (yy.ravel() - (Eo+D)) @ KS.T
+print("Error for prior: %.4f"%norm(x0-Eb.mean(axis=0)))
+print("Error for ES   : %.4f"%norm(x0-ES .mean(axis=0)))
 
-print("Error for prior: %.4f"%norm(xx-EK.mean(axis=0)))
-print("Error for ES   : %.4f"%norm(xx-ES.mean(axis=0)))
 
 ## Assimilate w/ EnKS
-EF = EK.copy()
-E  = EK.copy()
+EnKS = Eb.copy()
+E    = Eb.copy()
 
 EnKS_production = []
 for iT in range(nT):
@@ -118,55 +106,58 @@ for iT in range(nT):
     EnKS_production.append(Eo)
 
     # Obs ens
-    Y  = Eo - Eo.mean(axis=0)
+    Y  = center(Eo)
     D  = randn((N, p)) @ sqrt(R)
     CY = Y.T @ Y + R*(N-1)
     Ci = nla.pinv(CY)
 
     # Analysis filter
-    X  = E - E.mean(axis=0)
+    X = center(E)
     XY = X.T @ Y
-    KF = XY @ Ci
-    E  = E + (yy[iT] - (Eo+D)) @ KF.T
+    KG_EnKS = XY @ Ci
+    E = E + (yy[iT] - (Eo+D)) @ KG_EnKS.T
 
     # Analysis smoother
-    XK = EF - EF.mean(axis=0)
+    XK = center(EnKS)
     XY = XK.T @ Y
-    KF = XY @ Ci
-    EF = EF + (yy[iT] - (Eo+D)) @ KF.T
+    KG_EnKS = XY @ Ci
+    EnKS = EnKS + (yy[iT] - (Eo+D)) @ KG_EnKS.T
 
 ##
-print("Error for EnKS : %.4f"%norm(xx-EF.mean(axis=0)))
+print("Error for EnKS : %.4f"%norm(x0-EnKS.mean(axis=0)))
 if True:
     fig, axs = freshfig(25,figsize=(8,8),nrows=2,ncols=2,sharey=True,sharex=True)
-    chxx = p01(axs[0,0], 1 - xx             );  axs[0,0].set_title("Truth")
-    chE0 = p01(axs[0,1], 1 - EK.mean(axis=0));  axs[0,1].set_title("Prior mean")
-    chEa = p01(axs[1,0], 1 - ES.mean(axis=0));  axs[1,0].set_title("ES")
-    chEr = p01(axs[1,1], 1 - EF.mean(axis=0));  axs[1,1].set_title("EnKS")
+    chxx = plot_field(axs[0,0], 1-x0               , vm); axs[0,0].set_title("Truth")
+    chE0 = plot_field(axs[0,1], 1-Eb  .mean(axis=0), vm); axs[0,1].set_title("Prior mean")
+    chEa = plot_field(axs[1,0], 1-ES  .mean(axis=0), vm); axs[1,0].set_title("ES")
+    chEr = plot_field(axs[1,1], 1-EnKS.mean(axis=0), vm); axs[1,1].set_title("EnKS")
     plot_wells(axs[0,0], injectors)
     plot_wells(axs[0,0], producers, False)
-    axs[0,0].plot(*array([ind2xy(j) for j in jj]).T, 'w.',ms=3)
+    axs[0,0].plot(*array([ind2xy(j) for j in inds_krigin]).T, 'w.',ms=3)
     fig_colorbar(fig, chxx)
 
 ## Correlations
 if True:
     fig, axs = freshfig(22, figsize=(8,8), nrows=2, ncols=2, sharex=True, sharey=True)
     xy = producers[4,:2]
-    z = plot_corr_field_vs(axs[0,0],E0,xy,"Initial")
-    z = plot_corr_field_vs(axs[0,1],EK,xy,"Kriged")
-    z = plot_corr_field_vs(axs[1,0],ES,xy,"ES")
-    z = plot_corr_field_vs(axs[1,1],EF,xy,"EnKS")
+    z = plot_corr_field_vs(axs[0,0],E0 ,xy,"Initial")
+    z = plot_corr_field_vs(axs[0,1],Eb,xy,"Kriged")
+    z = plot_corr_field_vs(axs[1,0],ES ,xy,"ES")
+    z = plot_corr_field_vs(axs[1,1],EnKS ,xy,"EnKS")
     fig_colorbar(fig, z)
 
 ## Kalman gains
 if True:
     fig, axs = freshfig(33, figsize=(8,8), nrows=2, ncols=2, sharex=True, sharey=True)
+    def pkg(ax, z):
+        a, b = KG_EnKS.min(), KG_EnKS.max()
+        return plot_field(ax, z, cmap=mpl.cm.PiYG_r, vmin=a, vmax=b)
     i_well = 4
     i_last = i_well + (nT-1)*p
-    collections = pkg(axs[0,0], KS.T[i_well], KF)
-    collections = pkg(axs[0,1], KS.T[i_last], KF)
-    collections = pkg(axs[1,1], KF.T[i_well], KF)
-    # Turn off EnKS/initial
+    collections = pkg(axs[0,0], KG_ES  .T[i_well])
+    collections = pkg(axs[0,1], KG_ES  .T[i_last])
+    collections = pkg(axs[1,1], KG_EnKS.T[i_well])
+    # Turn off EnKS/initial axis
     for s in axs[1,0].spines.values(): s.set_color("w")
     axs[1,0].tick_params(colors="w")
 
@@ -182,8 +173,8 @@ if True:
         ax.plot(*xy, '*k',ms=4)
 
 if True:
-    plot_realizations(26,ES,"ES")
-    plot_realizations(27,EF,"EnKS")
+    plot_realizations(26,ES,"ES",vm)
+    plot_realizations(27,EnKS,"EnKS",vm)
 
 
 ## EnKS production plot
@@ -191,22 +182,22 @@ if True:
     fig, ax = freshfig(35)
     tt = dt*(1+arange(nT))
     for iw, Ew in enumerate(1-np.moveaxis(array(EnKS_production),2,0)):
-        ax.plot(tt, Ew, color=hh[iw].get_color(), alpha=0.2)
+        ax.plot(tt, Ew, color=hh_y[iw].get_color(), alpha=0.2)
 
-## Forecast production
-E2 = E.copy()
-
-prod2 = []
-for iT in range(nT):
-    # Forecast
-    Eo = np.zeros((N,p))
-    for n,xn in enumerate(E2):
-        E2[n],Eo[n] = simulate(1,xn,dt,dt_plot=None)
-    prod2.append(Eo)
-
+## Forecast production from filter analysis
 if True:
-    tt2 = tt[-1] + dt*(1+arange(nT))
-    for iw, Ew in enumerate(1-np.moveaxis(array(prod2),2,0)):
-        ax.plot(tt2, Ew, color=hh[iw].get_color(), alpha=0.2)
+    Ef = E.copy()
+    prodf = []
 
-    ax.axvspan(tt2[0],tt2[-1], alpha=.1, color="b")
+    for iT in range(nT):
+        # Forecast
+        Eo = np.zeros((N,p))
+        for n,xn in enumerate(Ef):
+            Ef[n],Eo[n] = simulate(1,xn,dt,dt_plot=None)
+        prodf.append(Eo)
+
+    ttf = tt[-1] + dt*(1+arange(nT))
+    for iw, Ew in enumerate(1-np.moveaxis(array(prodf),2,0)):
+        ax.plot(ttf, Ew, color=hh_y[iw].get_color(), alpha=0.2)
+
+    ax.axvspan(ttf[0],ttf[-1], alpha=.1, color="b")

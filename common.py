@@ -72,25 +72,33 @@ def normalize_wellset(ww):
     ww[2] /= ww[2].sum()
     return ww.T
 
-def plot_field(ax, field, *args, **kwargs):
-    # Needed to transpose coz contour() uses
-    # the same orientation as array printing.
-    field = field.reshape(gridshape).T
+def norm(xx):
+    # return nla.norm(xx/xx.size)
+    return np.sqrt(np.sum(xx@xx)/xx.size)
+
+def center(E):
+    return E - E.mean(axis=0)
+
+def plot_field(ax, field, vm=None, **kwargs):
+    if vm is not None: kwargs["vmin"], kwargs["vmax"] = vm
+
     # Center nodes (coz finite-volume)
     xx = linspace(0,Dx-hx,Nx)+hx/2
     yy = linspace(0,Dy-hy,Ny)+hy/2
+
+    # Need to transpose coz contour() uses
+    # the same orientation as array printing.
+    field = field.reshape(gridshape).T
+
     # ax.imshow(field[::-1])
-    collections = ax.contourf(xx, yy, field,
-        *args, levels=21, **kwargs)
+    collections = ax.contourf(xx, yy, field, levels=21, **kwargs)
+
     ax.set(xlim=(0,1),ylim=(0,1))
     # ax.set(xlim=(hx/2,1-hx/2),ylim=(hy/2,1-hy/2)) # tight
     if ax.is_first_col(): ax.set_ylabel("y")
     if ax.is_last_row (): ax.set_xlabel("x")
-    return collections
 
-def norm(xx):
-    # return nla.norm(xx/xx.size)
-    return np.sqrt(np.sum(xx@xx)/xx.size)
+    return collections
 
 def plot_corr_field(ax,A,b,title=""):
     N = len(b)
@@ -107,7 +115,16 @@ def plot_corr_field(ax,A,b,title=""):
     corrs = covs/sqrt(varb)/sqrt(varA)
 
     ax.set(title=f"Correlations for {title}")
-    return plot_field(ax, corrs, cmap=mpl.cm.bwr,vmax=1,vmin=-1)
+    return plot_field(ax, corrs, cmap=mpl.cm.bwr, vmax=1, vmin=-1)
+
+def plot_realizations(fignum,E,title="",vm=None):
+    fig, axs = freshfig(fignum,nrows=3,ncols=4,sharex=True,sharey=True)
+    fig.suptitle(f"Some realizations -- {title}")
+    for i, (ax, S) in enumerate(zip(axs.ravel(),E)):
+        ax.text(0,.85*Ny,str(i),c="w",size=12)
+        collections = plot_field(ax, 1-S, vm=vm)
+    fig_colorbar(fig, collections)
+    plt.pause(.01)
 
 def plot_corr_field_vs(ax,E,xy,title=""):
     i = xy2i(*xy)

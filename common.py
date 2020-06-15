@@ -65,13 +65,6 @@ Fluid = Bunch(
 )
 
 
-def normalize_wellset(ww):
-    ww = array(ww,float).T
-    ww[0] *= Dx
-    ww[1] *= Dy
-    ww[2] /= ww[2].sum()
-    return ww.T
-
 def norm(xx):
     # return nla.norm(xx/xx.size)
     return np.sqrt(np.sum(xx@xx)/xx.size)

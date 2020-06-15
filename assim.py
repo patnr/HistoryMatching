@@ -1,9 +1,12 @@
 """DA/HM example"""
 
 from common import *
-from simulation import *
+import simulation as model
+from simulation import init_Q
 from res_gen import gen_ens
-np.random.seed(9)
+
+np.random.seed(1)
+model.injectors, model.producers, model.Q = init_Q(rand((3,5)).T, rand((3,10)).T)
 
 fig_placement_load()
 
@@ -21,7 +24,7 @@ fig_placement_load()
 ## Gen surfaces of S0
 N = 40
 sill = 0.7
-E0, Cov = gen_ens(N+1,grid,sill)
+E0, Cov = gen_ens(N+1,model.grid,sill)
 x0, E0 = E0[0], E0[1:]
 vm = (1-x0.max(),1)
 if True:
@@ -56,10 +59,10 @@ if True:
 ## Simulate truth
 dt = 0.025
 nT = 28
-saturation,production = simulate(nT,x0,dt,dt_plot=None)
+saturation,production = model.simulate(nT,x0,dt,dt_plot=None)
 
 ## Noisy obs
-p = len(producers)
+p = len(model.producers)
 R = 0.01**2 * np.eye(p)
 RR = sp.linalg.block_diag(*[R]*nT)
 yy = np.copy(production)
@@ -76,7 +79,7 @@ if True:
 # Forecast
 Eo = np.zeros((N,nT*p))
 for n,xn in enumerate(Eb):
-    saturation,production = simulate(nT,xn,dt,dt_plot=None)
+    saturation,production = model.simulate(nT,xn,dt,dt_plot=None)
     Eo[n] = production.ravel()
 
 # Analysis
@@ -102,7 +105,7 @@ for iT in range(nT):
     # Forecast
     Eo = np.zeros((N,p))
     for n,xn in enumerate(E):
-        E[n],Eo[n] = simulate(1,xn,dt,dt_plot=None)
+        E[n],Eo[n] = model.simulate(1,xn,dt,dt_plot=None)
     EnKS_production.append(Eo)
 
     # Obs ens
@@ -131,15 +134,15 @@ if True:
     chE0 = plot_field(axs[0,1], 1-Eb  .mean(axis=0), vm); axs[0,1].set_title("Prior mean")
     chEa = plot_field(axs[1,0], 1-ES  .mean(axis=0), vm); axs[1,0].set_title("ES")
     chEr = plot_field(axs[1,1], 1-EnKS.mean(axis=0), vm); axs[1,1].set_title("EnKS")
-    plot_wells(axs[0,0], injectors)
-    plot_wells(axs[0,0], producers, False)
+    plot_wells(axs[0,0], model.injectors)
+    plot_wells(axs[0,0], model.producers, False)
     axs[0,0].plot(*array([ind2xy(j) for j in inds_krigin]).T, 'w.',ms=3)
     fig_colorbar(fig, chxx)
 
 ## Correlations
 if True:
     fig, axs = freshfig(22, figsize=(8,8), nrows=2, ncols=2, sharex=True, sharey=True)
-    xy = producers[4,:2]
+    xy = model.producers[4,:2]
     z = plot_corr_field_vs(axs[0,0],E0 ,xy,"Initial")
     z = plot_corr_field_vs(axs[0,1],Eb,xy,"Kriged")
     z = plot_corr_field_vs(axs[1,0],ES ,xy,"ES")
@@ -168,7 +171,7 @@ if True:
     fig.suptitle(f"KG for a given well obs.\n"
                  "Note how the impact is displaced in time.")
     fig_colorbar(fig, collections)
-    i = xy2i(*producers[i_well,:2])
+    i = xy2i(*model.producers[i_well,:2])
     for ax in axs.ravel():
         ax.plot(*xy, '*k',ms=4)
 
@@ -193,7 +196,7 @@ if True:
         # Forecast
         Eo = np.zeros((N,p))
         for n,xn in enumerate(Ef):
-            Ef[n],Eo[n] = simulate(1,xn,dt,dt_plot=None)
+            Ef[n],Eo[n] = model.simulate(1,xn,dt,dt_plot=None)
         prodf.append(Eo)
 
     ttf = tt[-1] + dt*(1+arange(nT))

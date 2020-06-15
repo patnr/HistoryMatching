@@ -10,6 +10,7 @@ Translated to python by Patrick N. Raanes.
 from common import *
 from res_gen import gen_ens
 
+
 ## Functions
 def RelPerm(s,Fluid,nargout_is_4=False):
     """Rel. permeabilities of oil and water."""
@@ -189,27 +190,25 @@ def liveplot(S,t,dt_pause):
     plt.pause(dt_pause)
 
 
-def setup_wells(wells):
-    wells = normalize_wellset(wells)
-    # Add to source field
-    Q = np.zeros(M)
-    for x,y,q in wells: Q[xy2i(x,y)] = +q
-    return wells, Q
+def normalize_wellset(ww):
+    ww = array(ww,float).T
+    ww[0] *= Dx
+    ww[1] *= Dy
+    ww[2] /= ww[2].sum()
+    return ww.T
 
+def init_Q(injectors,producers):
+    Q = np.zeros(M) # source FIELD
+    injectors = normalize_wellset(injectors)
+    producers = normalize_wellset(producers)
+    for x,y,q in injectors: Q[xy2i(x,y)] = +q
+    for x,y,q in producers: Q[xy2i(x,y)] = -q
+    return injectors, producers, Q
 
-## Global params. Available also when this module is imported.
-np.random.seed(9)
-injectors = rand((3,5)).T
-producers = rand((3,10)).T
-
-# injectors = [[0,0,1]]
-# producers = [[1,1,-1]]
-
-injectors, Qi = setup_wells(injectors)
-producers, Qp = setup_wells(producers)
-Q = Qi - Qp
 
 if __name__ == "__main__":
+    np.random.seed(9)
+    injectors, producers, Q = init_Q(rand((3,5)).T, rand((3,10)).T)
 
     S0, Cov = gen_ens(1,grid,0.7)
     S0 = S0.squeeze()

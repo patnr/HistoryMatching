@@ -30,12 +30,12 @@ np.set_printoptions(suppress=True,threshold=200,precision=6)
 # Instead of set_np_linewidth, just let terminal do wrapping:
 np.set_printoptions(linewidth=9999)
 
+import matplotlib as mpl
+from matplotlib import pyplot as plt
 
-## Others
-from scipy import sparse
-# from scipy.special import errstate
-# from scipy.linalg import solve_banded
-from scipy.sparse.linalg import spsolve
+# I think this makes sense,
+# since pylib is only meant for toying around.
+plt.ion()
 
 
 class JsonDict(dict):
@@ -68,7 +68,15 @@ class Bunch(JsonDict):
         super(Bunch, self).__init__(*args,**kwargs) # Make a (normal) dict
         self.__dict__ = self                        # assign it to self.__dict__
 
+
+## Others
+from scipy import sparse
+# from scipy.special import errstate
+# from scipy.linalg import solve_banded
+from scipy.sparse.linalg import spsolve
+
 from mpl_tools.misc import *
+
 
 # Profiling
 try:

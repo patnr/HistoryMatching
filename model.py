@@ -106,6 +106,7 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
     """Explicit upwind finite-volume discretisation of CoM."""
     pv = h2*Gridded['por'].ravel() # pore volume=cell volume*porosity
 
+    # __import__('ipdb').set_trace()
     fi = q.clip(min=0)# inflow from wells
 
     XP=V.x.clip(min=0); XN=V.x.clip(max=0) # influx and outflux, x-faces
@@ -190,9 +191,16 @@ def liveplot(S,t,dt_pause):
     plt.pause(dt_pause)
 
 
+
 if __name__ == "__main__":
-    np.random.seed(9)
-    injectors, producers, Q = init_Q(rand((3,5)).T, rand((3,10)).T)
+
+    np.random.seed(1)
+    # injectors = [[0,0,1]]
+    # producers = [[1,1,-1]]
+    injectors = rand((5,3))
+    producers = rand((10,3))
+
+    injectors, producers, Q = init_Q(injectors, producers)
 
     S0, Cov = gen_ens(1,grid,0.7)
     S0 = S0.squeeze()

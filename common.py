@@ -138,13 +138,21 @@ def normalize_wellset(ww):
     return ww.T
 
 def init_Q(injectors,producers):
-    Q = np.zeros(M) # source FIELD
+
     injectors = normalize_wellset(injectors)
     producers = normalize_wellset(producers)
-    for x,y,q in injectors: Q[xy2i(x,y)] = +q
-    for x,y,q in producers: Q[xy2i(x,y)] = -q
-    return injectors, producers, Q
 
+    # Scale production so as to equal injection.
+    # Otherwise, model will silently input deficit from SW corner.
+    # producers[:,2] *= injectors[:,2].sum() / producers[:,2].sum()
+
+    # Insert in source FIELD
+    Q = np.zeros(M)
+    for x,y,q in injectors: Q[xy2i(x,y)] += q
+    for x,y,q in producers: Q[xy2i(x,y)] -= q
+
+    assert np.isclose(Q.sum(),0)
+    return injectors, producers, Q
 
 
 def norm(xx):
@@ -189,7 +197,7 @@ def plot_corr_field(ax,A,b,title=""):
     varb  = np.sum(b*b,0) / (N-1)
     corrs = covs/sqrt(varb)/sqrt(varA)
 
-    ax.set(title=f"Correlations for {title}")
+    ax.set(title=f"Corr. for {title}")
     return plot_field(ax, corrs, cmap=mpl.cm.bwr, vmax=1, vmin=-1)
 
 def plot_realizations(axs,E,title="",vm=None):
@@ -217,7 +225,7 @@ def plot_prod(ax, production, dt, nT, obs=None):
     tt = dt*(1+arange(nT))
     hh = []
     for i,p in enumerate(1-production.T):
-        hh += ax.plot(tt,p,"-",label=1+i)
+        hh += ax.plot(tt,p,"-",label=i)
 
     if obs is not None:
         for i,y in enumerate(1-obs.T):

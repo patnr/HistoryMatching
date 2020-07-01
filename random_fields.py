@@ -7,7 +7,8 @@ import scipy.stats as ss
 from pylib.all import *
 from mpl_tools.misc import *
 
-from common import grid, gridshape, randn, fig_colorbar
+from common import randn, fig_colorbar
+from model import grid, gridshape
 
 ## Functions
 
@@ -38,17 +39,20 @@ def gen_surfs(n,Cov):
     SS = sla.sqrtm(Cov).real @ randn((M,n))
 
     # Normalize
-    # Don't know why the surfaces get such high amplitudes.
+    # Don't know why the random fields get such high amplitudes.
     # In any case, gotta keep em within [0,1]
     normfactor = SS.max() - SS.min()
     SS /= normfactor # make max spread 1
     SS -= SS.min(axis=0)
     return SS, normfactor
 
-def gen_ens_01(N, grid):
+def gen_cov(grid,radius=0.5):
     XX,YY = gen_grid(*grid)
     dd = comp_dists(XX,YY)
-    Cov = 1 - variogram_gauss(dd,.5)
+    return 1 - variogram_gauss(dd,radius)
+
+def gen_ens_01(N, grid):
+    Cov = gen_cov(grid)
     SS, normfactor = gen_surfs(N,Cov)
     return SS, Cov/normfactor**2
 

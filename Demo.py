@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py:light
+#     formats: ipynb,py:nomarker
 #     text_representation:
 #       extension: .py
-#       format_name: light
-#       format_version: '1.5'
+#       format_name: nomarker
+#       format_version: '1.0'
 #       jupytext_version: 1.5.0
 #   kernelspec:
 #     display_name: Python 3
@@ -14,300 +15,410 @@
 # ---
 
 # # History matching tutorial
+#
+# Copyright Patrick N. Raanes, NORCE, 2020.
+#
 # This notebook presents a tutorial on history matching (HM) using ensemble methods.
-# It is a work in progress.
+#
+# This is a work in progress. Details may be lacking. Don't hesitate to send me an email with any questions you have.
 
-# Import tools, model, and ensemble-generator
 from common import *
 import model
-from res_gen import gen_ens
-
-try:
-    __IPYTHON__
-    from IPython import get_ipython
-    is_notebook_or_qt = 'zmq' in str(type(get_ipython())).lower()
-except (NameError,ImportError):
-    is_notebook_or_qt = False
+import plots
+import random_fields
 
 if is_notebook_or_qt:
     mpl.rcParams.update({'font.size': 13})
     mpl.rcParams["figure.figsize"] = [8,6]
 else:
+    plt.ion()
     fig_placement_load()
 
-def validate_ens(E):
-    # assert E.max() <= 1 + 1e-10
-    # assert E.min() >= 0 - 1e-10
-    if (E.max() <= 1 + 1e-10) or (E.min() >= 0 - 1e-10):
-        print("Warning: clipping ensemble.")
-        E.clip(0,1,out=E)
-    return E
+np.random.seed(4)
+
+
+# Containers for organizing production and saturation data
+prod = DotDict(
+    initial=DotDict(),
+       past=DotDict(),
+    present=DotDict(),
+     future=DotDict(),
+)
+satu = DotDict(
+    initial=DotDict(),
+       past=DotDict(),
+    present=DotDict(),
+     future=DotDict(),
+)
+
 
 # ## Model and case
-# The reservoir model, which takes $\approx 100$ lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA,
-# grabbed from http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# The reservoir model, which takes up about 100 lines of python code,
+# is a 2D, two-phase, immiscible, incompressible simulator using TPFA.
+# It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 #
 # The model supports inhomogeneous permeabilities and porosities, but to keep things as simple as possible we will only be estimating the water saturation.
 # Specifically, we will focus on the initial saturation, as is commonplace in ensemble HM.
 # The data will be production saturations.
+#
+# The boundary conditions are of the Dirichlet type, specifying zero flux.
+# The source terms must therefore equal the sink terms.
+# This is ensured by the `init_Q` function below.
 
 # Set well locations and relative throughput
-np.random.seed(1)
-# injectors = rand((2,3))
-# producers = rand((4,3))
-injectors = [ [0.1, 0.0, 1.0], [0.9, 0.0, 1.0] ]
-producers = [ [0.1, 0.7, 1.0], [0.9, 1.0, 1.0] , [.5,.2,1]]
-model.injectors, model.producers, model.Q = init_Q(injectors, producers)
-
-# ## Initial ensemble
-# We generate Gaussian fields with a given variogram to provide an initial ensemble, as well as the (statistically indistinguishable) truth. Below we plot some of the realizations.
-
-# +
-## Gen surfaces of water saturation
-N = 40
-sill = 0.7
-E0, Cov = gen_ens(N+1,model.grid,sill)
-
-# Pick first one as "truth"
-x0, E0 = E0[0], E0[1:]
-print("Error Initially: %.4f"%norm(x0-E0.mean(0)))
+model.init_Q(
+    # inj =rand((2,3)), # NB: seed dependent!
+    # prod=rand((4,3))
+    inj =[ [0.10, 0.30, 1.00], [0.90, 0.70, 1.00] ],
+    prod=[
+        # x    y     rate
+        [0.10, 0.10, 1.00],
+        [0.10, 0.50, 1.00],
+        [0.10, 0.90, 1.00],
+        # [0.50, 0.10, 1.00],
+        # [0.50, 0.50, 1.00],
+        # [0.50, 0.90, 1.00],
+        [0.90, 0.10, 1.00],
+        [0.90, 0.50, 1.00],
+        [0.90, 0.90, 1.00],
+    ]
+);
 
 
-# Plot
-vm = (.2,1)
-fig, axs = freshfig(23,nrows=3,ncols=4,sharex=True,sharey=True)
-plot_realizations(axs,E0,"Initial",vm)
-# -
+# ## Surface of water saturation -- True distribution
+# The truth is sampled from a Gaussian field with a given variogram
+
+# Distribution moments -- true
+Mean = 0.5
+Cov = 0.3**2 * random_fields.gen_cov(model.grid, radius=0.5)
+
+# Sample truth
+C12 = sla.sqrtm(Cov).real.T
+satu.initial.Truth = 0.5 + randn(model.M) @ C12
+
+# Truncate to [0,1]
+satu.initial.Truth = truncate_01(satu.initial.Truth)
 
 
 # ## Simulation of the synthetic truth
-# Plotted below is the oil saturation before/after production.
-# Injection wells (numbered) have blue triangle markers, production have orange.
-# The obs. locations used for Kriging are marked with white dots.
 
-# +
 dt = 0.025
-nT = 28
-tt = dt*(1+arange(nT))
-saturation,production = model.simulate(nT,x0,dt,dt_plot=None)
-xx = saturation # "x" for unknown-state
+nTime = 28
 
-# Plot
-fig, axs = freshfig(19,figsize=(12,6),ncols=2,sharey=True)
-chxx = plot_field(axs[0], 1-x0      , vm); axs[0].set_title("Truth")
-chEr = plot_field(axs[1], 1-xx[-1]  , vm); axs[1].set_title("Truth at t=end")
-plot_wells(axs[0], model.injectors)
-plot_wells(axs[0], model.producers, False)
-fig_colorbar(fig, chxx)
-# -
+satu.past.Truth, prod.past.Truth = model.simulate(nTime, satu.initial.Truth,dt)
+
+# # Animation
+# Plotted below is the oil saturation before/after production.
+# Injection (resp. production) wells are marked with triangles pointing down (resp. up).
+#
+#
+# <mark><font size="-1">
+# <em>Warning:</em> takes a while to load.
+# </font></mark>
+#
+
+
+ani = plots.animate1(satu.past.Truth, prod.past.Truth)
+plots.disp(ani)
 
 # ## Noisy obs
-# The observations are corrupted with a little bit of noise.
-
-# +
-p = len(model.producers)
-R = 0.01**2 * np.eye(p)
-RR = sp.linalg.block_diag(*[R]*nT)
-yy = np.copy(production)
-for iT in range(nT):
-    yy[iT] += R @ randn(p)
-
-fig, ax_prod = freshfig(2)
-hh_y = plot_prod(ax_prod,production,dt,nT,obs=yy)
-# -
+# In reality, observations are never perfect.
+# To reflect this, we corrupt the observations by adding a little bit of noise.
 
 
-# Perhaps the ensemble spread is too large for history matching methods to be
-# effective (because they produce too nonlinear behaviours). In that case, we
-# might adjust our test case by reducing the initial (prior) ensemble spread,
-# also adjusting its mean towards the truth. A less artifical means is Kriging
-# (geostatistics), illustrated below. However, with the default parameters,
-# this adjustment is not necessary, but is left for completeness.
-
-# +
-## Initial Kriging/ES
-# kriging_inds = linspace(0, M-1, 10).astype(int)
-# kriging_obs = x0[kriging_inds]
-# Cxy = Cov[:,kriging_inds]
-# Cyy = Cov[kriging_inds][:,kriging_inds]
-# Reg = Cxy @ nla.pinv(Cyy)
-# Kriged = x0.mean() + Reg @ (kriging_obs-x0.mean())
-
-# print("Error for Krig.: %.4f"%norm(x0-Kriged))
-# TODO: use Kriged (ie. best) covariance to generate spread
-
-# Eb = Kriged + 0.4*center(E0)
-# fig, axs = freshfig(24,nrows=3,ncols=4,sharex=True,sharey=True)
-# axs[0,0].plot(*array([ind2xy(j) for j in kriging_inds]).T, 'w.',ms=10)
-# plot_realizations(axs,Eb,"Krig/Prior",vm)
+prod.past.obs  = prod.past.Truth.copy()
+nProd = len(model.producers) # num. of obs (per time)
+R = 0.1**2 * np.eye(nProd)
+for iT in range(nTime):
+    prod.past.obs[iT] += R @ randn(nProd)
 
 
-# TODO
-# Eb = E0 + (Reg @ (kriging_obs-E0[:,kriging_inds]).T).T
-Eb = E0.copy()
-
-Eb = validate_ens(Eb)
-# -
+fig, ax = freshfig(2)
+hh_y = plots.production1(ax, prod.past.Truth, obs=prod.past.obs)
 
 
-# In practice, of course, we would not be using an explicit `Cov` matrix for this, because it would be too large.
-# However, since this synthetic case in being made that way, let's go ahead an inspect what kind of spectrum it has.
+# ## Initial ensemble
+# The initial ensemble is generated in the same manner as the (synthetic) truth,
+# using the same mean and covariance.
+# Thus, the members are "statistically indistinguishable" to the truth.
+# This assumption underlies ensemble methods.
 
-## Inspect eigenvalue specturm
+N = 40
+satu.initial.Prior = 0.5 + randn((N,model.M)) @ C12
+satu.initial.Prior = truncate_01(satu.initial.Prior)
+
+
+#
+# Another assumption underying ensemble methods is that of Gaussianity (Normality).
+# However, saturation, porosity, and other variables (that we may be subjecting to estimation)
+# may only be valid within a certain range.
+# Indeed, that is why we are truncating the truth and ensemble.
+#
+# This makes the field non-Gaussian, which implying an additional approximation to the ensemble methods.
+
+plots.hists(65, satu.initial, "Water saturation (in a given cell)")
+
+
+# Note: the histogram of the truth is liable to vary significantly (from one draw to the next)
+# because of a relatively small (effective/de-correlated) sample size.
+
+# Below we can see some realizations (members) from the ensemble.
+
+
+plots.oilfield_realizations(23,satu.initial,"Prior")
+
+
+# ## Eigenvalue specturm
+# In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.
+# However, since this synthetic case in being made that way, let's inspect its spectrum.
+
 eigs = nla.eigvalsh(Cov)[::-1]
+ii = 1+arange(len(eigs))
 fig, ax = freshfig(21)
-#ax.loglog(eigs)
-ax.semilogx(eigs)
+#ax.loglog(ii,eigs)
+ax.semilogx(ii,eigs)
 ax.grid(True,"minor",axis="x")
 ax.grid(True,"major",axis="y")
 ax.set(xlabel="eigenvalue #",ylabel="var.",title="Spectrum of initial, true cov");
 
-# It appears that the spectrum tails off around $N=30$, so maybe this ensemble size will suffice. However, try plotting the above using `loglog` instead of `semilogx`, and you might not be so convinced. Nevertheless, as we shall see, it does seem to yield tolerable results, even without localization.
+# It appears that the spectrum tails off around $N=30$, so maybe this ensemble size will suffice. However, try plots the above using `loglog` instead of `semilogx`, and you might not be so convinced. Nevertheless, as we shall see, it does seem to yield tolerable results, even without localization.
 
-# ## Assimilate w/ ES
-# First, we assimilate using the batch method: ensemble smoother (ES).
+# ## Assimilation with ES
+# First, we assimilate (history match) using the batch method: ensemble smoother (ES).
 
-# +
-# Forecast
-prior_production = np.zeros((nT,N,p))
-for n,xn in enumerate(Eb):
-    _,prior_production[:,n,:] = model.simulate(nT,xn,dt,dt_plot=None)
+# This involves viewing time series of vector data as larger vectors.
+# Mathematically, this means we augment/concatenate the data vector.
+# Programmatically, it involves vectorization/flattening, i.e. (un)ravelling operations.
 
-# ## Plot prior production
-for iw, Ew in enumerate(1-np.moveaxis(array(prior_production),2,0)):
-    ax_prod.plot(tt, Ew, color=hh_y[iw].get_color(), alpha=0.1)
+def ravel_time(E):
+    nTime,N,M = E.shape
+    return E.swapaxes(0,1).reshape((N,nTime*M))
+def ravel_reverse(E):
+    N,MnTime = E.shape
+    return E.reshape(N,nTime,-1).swapaxes(0,1)
 
-# Analysis
-Eo = prior_production.swapaxes(0,1).reshape((N,nT*p))
-Y  = center(Eo)
-X  = center(Eb)
-D  = randn((N, p*nT)) @ sqrt(RR)
+class EnUpdate:
+    """Prepare the ensemble update/conditioning (Bayes' rule),
+    
+    given a (vector) observations an an ensemble (matrix).
+    
+    # NB: ObsErrCov is treated as diagonal [we don't use sqrtm()]."""
 
-XY = X.T @ Y
-CY = Y.T @ Y + RR*(N-1)
-KG_ES = XY @ nla.pinv(CY)
-ES = Eb + (yy.ravel() - (Eo+D)) @ KG_ES.T
+    def __init__(self, obs, obs_ens, obs_err_cov):
+        Y           = center(obs_ens)
+        obs_cov     = obs_err_cov*(N-1) + Y.T@Y
+        obs_pert    = randn((N, len(obs))) @ sqrt(obs_err_cov)
+        innovations = obs - (obs_ens + obs_pert)
 
-ES = validate_ens(ES)
-# -
+        # (pre-) Kalman gain * Innovations
+        self.KGdY = innovations @ nla.pinv(obs_cov) @ Y.T 
+        # Note: formula is transposed, and reversed (vs. literature standards),
+        # because the members are here stacked as rows (vs. columns).
 
-# ## Assimilate w/ EnKS
-# Next, we test using the EnKS.
+    def apply(self,E):
+        convert_seq_to_batch = E.ndim==3
 
-# +
-EnKS = Eb.copy()
-E    = Eb.copy()
-EnKS_production = np.zeros((nT,N,p))
+        if convert_seq_to_batch:
+            E = ravel_time(E)
 
-for iT in range(nT):
+        # Update
+        E = E + self.KGdY @ center(E)
+
+        # Post-process
+        E = truncate_01(E)
+        # inflate/rotate?
+
+        if convert_seq_to_batch:
+            E = ravel_reverse(E)
+
+        return E
+
+# We now forecast the initial prior ensemble.
+
+def forecast_ensemble(nSteps,saturations0):
+    saturations = np.zeros((nSteps,N,model.M))
+    productions = np.zeros((nSteps,N,nProd))
+    for n,xn in enumerate(progbar(saturations0)):
+        saturations[:,n,:], productions[:,n,:] = model.simulate(nSteps,xn,dt)
+    return saturations, productions
+
+satu.past.Prior, prod.past.Prior = forecast_ensemble(nTime, satu.initial.Prior)
+
+ES_update = EnUpdate(prod.past.obs.ravel(), ravel_time(prod.past.Prior), block_diag(*[R]*nTime))
+
+# The main job of ensemble methods in history matching is
+# to update (i.e. computed the approximate posterior of)
+# the initial conditions (saturation) and any model parameters,
+# here termed `satu.initial.ES` (updated ensemble for t=0).
+#
+# However, ensemble methods are (as linear regression), very extensible.
+# For the purposes of this tutorial, we compute several by-products.
+# One of these is `satu.present.ES`: updated ensemble for t=end.
+
+satu.initial.ES = ES_update.apply(satu.initial.Prior)
+satu.present.ES = ES_update.apply(satu.past.Prior[-1])
+
+# Let's plot the updated, initial ensemble.
+
+plots.oilfield_realizations(27,satu.initial,"ES")
+
+
+# An updated estimate of the production can be obtained by re-running the simulation model.
+
+satu.past.ES, prod.past.ES = forecast_ensemble(nTime, satu.initial.ES)
+
+# Alternatively, we might update the production profiles "directly".
+# We will revisit this strategy below, when discussing prediction.
+
+prod.past.ES_direct = ES_update.apply(prod.past.Prior)
+
+
+# ## Assimilation with EnKS
+# Next, we assimilate (history match) using the EnKS.
+
+satu.initial.EnKS = satu.initial.Prior.copy()
+E                 = satu.initial.Prior.copy()
+Eobs              = np.zeros((N,nProd))
+
+for iT in progbar(range(nTime)):
+
     # Forecast
     for n,xn in enumerate(E):
-        E[n],EnKS_production[iT,n] = model.simulate(1,xn,dt,dt_plot=None)
+        E[n], Eobs[n] = model.simulate(1,xn,dt)
 
-    # Obs ens
-    Eo = EnKS_production[iT]
-    Y  = center(Eo)
-    D  = randn((N, p)) @ sqrt(R)
-    CY = Y.T @ Y + R*(N-1)
-    Ci = nla.pinv(CY)
+    # Analysis
+    Seq_update = EnUpdate( prod.past.obs[iT], Eobs, R)
+    E                 = Seq_update.apply(E)
+    satu.initial.EnKS = Seq_update.apply(satu.initial.EnKS)
 
-    # Analysis filter
-    X = center(E)
-    XY = X.T @ Y
-    KG_EnKS = XY @ Ci
-    E = E + (yy[iT] - (Eo+D)) @ KG_EnKS.T
 
-    # Analysis smoother
-    XK = center(EnKS)
-    XY = XK.T @ Y
-    KG_EnKS = XY @ Ci
-    EnKS = EnKS + (yy[iT] - (Eo+D)) @ KG_EnKS.T
+satu.present.EnKS = E.copy()
 
-print("Error for prior: %.4f"%norm(x0-Eb.mean(axis=0)))
-print("Error for ES   : %.4f"%norm(x0-ES .mean(axis=0)))
-print("Error for EnKS : %.4f"%norm(x0-EnKS.mean(axis=0)))
-# -
+plots.oilfield_realizations(28,satu.initial,"EnKS")
 
-# ## Compare ensemble mean fields
-# Plots of petroleum saturation fields.
 
-fig, axs = freshfig(25,figsize=(8,8),nrows=2,ncols=2,sharey=True,sharex=True)
-chxx = plot_field(axs[0,0], 1-x0               , vm); axs[0,0].set_title("Truth")
-chE0 = plot_field(axs[0,1], 1-Eb  .mean(axis=0), vm); axs[0,1].set_title("Prior mean")
-chEa = plot_field(axs[1,0], 1-ES  .mean(axis=0), vm); axs[1,0].set_title("ES")
-chEr = plot_field(axs[1,1], 1-EnKS.mean(axis=0), vm); axs[1,1].set_title("EnKS")
-fig_colorbar(fig, chxx)
+# An updated estimate of the production can be obtained by re-running the simulation model.
+
+satu.past.EnKS, prod.past.EnKS = forecast_ensemble(nTime, satu.initial.EnKS)
+
+
+# ## Compare error in initial saturation
+# In this synthetic case, we have access to the truth (that generated the observations).
+# We can then compare the actual error.
+# Contrary to just using the data mismatch, overfitting to data will get penalized!
+
+print("Prior: ", Stats(satu.initial.Truth, satu.initial.Prior))
+print("ES   : ", Stats(satu.initial.Truth, satu.initial.ES))
+print("EnKS : ", Stats(satu.initial.Truth, satu.initial.EnKS))
+
+
+# Let's plot mean fields.
+#
+# NB: Caution! Mean fields are liable to be less rugged than the truth.
+# As such, their importance must not be overstated (they're just one esitmator out of many).
+
+plots.oilfield_means(25, satu.initial)
+
 
 # ## Correlation fields
-# Plot of correlation fields (of the saturation at t=0) vs. a specific point
+# Correlation fields (vs. a given variable, i.e. point) show where the ensemble update can have an effect (vs. data at that point).
+#
+# NB: The update (gain) operation (matrix) also involves:
+#  - the sensitivity matrix (the obs. operator)
+#  - the relative weighting of observations
+#  - the relative weighting of the prior vs. the likelihood.
+#
+# Plot of correlation fields vs. a specific point (black point).
 
-fig, axs = freshfig(22, figsize=(8,8), nrows=2, ncols=2, sharex=True, sharey=True)
-i_well = 2
-xy = model.producers[i_well,:2]
-z = plot_corr_field_vs(axs[0,0],E0   ,xy,"Initial")
-# z = plot_corr_field_vs(axs[0,1],Eb   ,xy,"Kriged")
-z = plot_corr_field_vs(axs[1,0],ES   ,xy,"ES")
-z = plot_corr_field_vs(axs[1,1],EnKS ,xy,"EnKS")
-fig_colorbar(fig, z)
+iWell = 0
+xy_coord = model.producers[iWell,:2]
+plots.correlation_fields(22, satu.initial, xy_coord, "Initial")
+plots.correlation_fields(24, satu.present, xy_coord, "Present")
 
-# ## Kalman gains
-# Plot of Kalman gain fields vs. specific observations.
 
-# +
-fig, axs = freshfig(33, figsize=(8,8), nrows=2, ncols=2, sharex=True, sharey=True)
-def pkg(ax, z):
-    a, b = KG_EnKS.min(), KG_EnKS.max()
-    return plot_field(ax, z, cmap=mpl.cm.PiYG_r, vmin=a, vmax=b)
-i_last = i_well + (nT-1)*p
-collections = pkg(axs[0,0], KG_ES  .T[i_well])
-collections = pkg(axs[0,1], KG_ES  .T[i_last])
-collections = pkg(axs[1,1], KG_EnKS.T[i_well])
-# Turn off EnKS/initial axis
-for s in axs[1,0].spines.values(): s.set_color("w")
-axs[1,0].tick_params(colors="w")
+# ## Plot past production
 
-axs[0,0].set_title("t=1")
-axs[0,1].set_title("t=end")
-axs[0,0].set_ylabel("ES")
-axs[1,0].set_ylabel("EnKS")
-for ax in axs.ravel():
-    ax.plot(*model.producers[i_well,:2], '*k',ms=10)
-fig.suptitle(f"KG for a given well obs.\n"
-             "Note how the impact is displaced in time.")
-fig_colorbar(fig, collections)
+#shown = ["Truth","obs","Prior","ES","ES_direct","EnKS"]
+shown = ["Truth","obs","Prior","ES"]
+shown = {k:v for k,v in prod.past.items() if k in shown}
+plots.productions(74, shown, "past")
 
-# -
 
-# ## Posterior realizations
+# ### Comment on the prior
+# Note that the prior "surrounds" the data.
+# This the likely situation in our synthetic case,
+# where the truth was generated by the same random draw process as the ensemble.
+#
+# In practice, this is often not the case.
+# If so, you might want to go back to your geologists and tell them that something is amiss.
+# You should then produce a revised prior with better properties.
+#
+# Note: the above instructions sound like statistical heresy.
+# We are using the data twice over (on the prior, and later to update/condition the prior).
+# However, this is justified to the extent that prior information is difficult to quantify and encode.
+# Too much prior adaptation, however, and you risk overfitting!
+# Ineed, it is a delicate matter.
+#
+#
+# ### Comment on the posteriors
+# If the assumptions (statistical indistinguishability, Gaussianity) are not too far off,
+# then the ensemble posteriors (ES, EnKS, ES_direct) should also surround the data,
+# but with a tighter fit.
 
-fig, axs = freshfig(27,nrows=3,ncols=4,sharex=True,sharey=True)
-plot_realizations(axs,ES,"ES",vm)
+# ## Prediction
+# We now prediction the future production (and saturation fields)
+# by forecasting from the (updated) present saturations.
+# An alternative way is to forecast all the way from the (updated) initial saturations.
 
-fig, axs = freshfig(28,nrows=3,ncols=4,sharex=True,sharey=True)
-plot_realizations(axs,EnKS,"EnKS",vm)
+satu.future.Truth, prod.future.Truth = model.simulate   (nTime, satu.past.Truth[-1], dt)
+satu.future.Prior, prod.future.Prior = forecast_ensemble(nTime, satu.past.Prior[-1])
+satu.future.ES,    prod.future.ES    = forecast_ensemble(nTime, satu.present.ES)
+satu.future.EnKS,  prod.future.EnKS  = forecast_ensemble(nTime, satu.present.EnKS)
 
-# ## Production plots for EnKS
+# Instead of running the model on the posterior/conditonal/updated saturation,
+# we could also condition the future, prior production data directly.
+# Unlike the "past" case, this usually yields worse RMSE values
+# than using the model on the updated saturation ensemble,
+# because reservoir dynamics are nonlinear.
 
-# +
-fig, ax = freshfig(35)
-hh_y = plot_prod(ax,production,dt,nT,obs=yy)
+prod.future.ES_direct = ES_update.apply(prod.future.Prior)
 
-for iw, Ew in enumerate(1-np.moveaxis(array(EnKS_production),2,0)):
-    ax.plot(tt, Ew, color=hh_y[iw].get_color(), alpha=0.1)
-    
-## Forecast production from filter analysis
-Ef = E.copy()
-prodf = []
 
-for iT in range(50):
-    # Forecast
-    Eo = np.zeros((N,p))
-    for n,xn in enumerate(Ef):
-        Ef[n],Eo[n] = model.simulate(1,xn,dt,dt_plot=None)
-    prodf.append(Eo)
+# ## Plot future production
+# Let's see if the posterior predictions are better (improved data match) than the prior predictions.
 
-ttf = tt[-1] + dt*(1+arange(iT+1))
-for iw, Ew in enumerate(1-np.moveaxis(array(prodf),2,0)):
-    ax.plot(ttf, Ew, color=hh_y[iw].get_color(), alpha=0.1)
+#shown = ["Truth","obs","Prior","ES","ES_direct","EnKS"]
+shown = ["Truth","obs","Prior","ES"]
+shown = {k:v for k,v in prod.future.items() if k in shown}
+plots.productions(75, shown, "Future")
 
-ax.axvspan(ttf[0],ttf[-1], alpha=.1, color="b")
+
+# <!--
+# # ! Perhaps the ensemble spread is too large for history matching methods to be
+# # ! effective (because they produce too nonlinear behaviours). In that case, we
+# # ! might adjust our test case by reducing the initial (prior) ensemble spread,
+# # ! also adjusting its mean towards the truth. A less artifical means is Kriging
+# # ! (geostatistics), illustrated below. However, with the default parameters,
+# # ! this adjustment is not necessary, but is left for completeness.
+# # !
+# # ! The obs. locations used for Kriging are marked with white dots.
+# # !
+# # ! kriging_inds = linspace(0, model.M-1, 10).astype(int)
+# # ! kriging_obs = satu.initial.Truth[kriging_inds]
+# # ! Cxy = Cov[:,kriging_inds]
+# # ! Cyy = Cov[kriging_inds][:,kriging_inds]
+# # ! Reg = Cxy @ nla.pinv(Cyy)
+# # ! Kriged = satu.initial.Truth.mean() + Reg @ (kriging_obs-satu.initial.Truth.mean())
+# # !
+# # ! print("Error for Krig.: %.4f"%norm(satu.initial.Truth-Kriged))
+# # !
+# # ! Eb = Kriged + 0.4*center(satu.initial.Prior)
+# # ! fig, axs = freshfig(24,nrows=3,ncols=4,sharex=True,sharey=True)
+# # ! axs[0,0].plot(*array([ind2xy(j) for j in kriging_inds]).T, 'w.',ms=10)
+# # ! plots.realizations(axs,Eb,"Krig/Prior")
+# # !
+# # ! Eb = satu.initial.Prior + (Reg @ (kriging_obs-satu.initial.Prior[:,kriging_inds]).T).T
+# # ! Eb = satu.initial.Prior.copy()
+# # !
+# # ! Eb = truncate_01(Eb)
+# # -->

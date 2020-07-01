@@ -3,12 +3,86 @@
 http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 Translated to python by Patrick N. Raanes.
+
+Programming choices:
+
+- Classes vs modules:
+  https://stackoverflow.com/a/600201/38281
 """
 
-# TODO: 1d case
-
 from common import *
-from res_gen import gen_ens
+
+## __init__
+# Note: x is 1st coord, y is 2nd.
+Dx, Dy    = 1,1    # lengths
+Nx, Ny    = 32, 32 # num. of pts.
+gridshape = Nx,Ny
+grid      = Nx, Ny, Dx, Dy
+M         = np.prod(gridshape)
+sub2ind = lambda ix,iy: np.ravel_multi_index((ix,iy), gridshape)
+xy2sub  = lambda x,y: (int(round( x/Dx*(Nx-1) )),
+                       int(round( y/Dy*(Ny-1) )))
+xy2i    = lambda x,y: sub2ind(*xy2sub(x,y))
+ind2sub = lambda ind: np.unravel_index(ind, gridshape)
+def ind2xy(ind):
+    i,j = ind2sub(ind)
+    x   = i/(Nx-1)*Dx
+    y   = j/(Ny-1)*Dy
+    return x,y
+
+# Resolution
+hx, hy = Dx/Nx, Dy/Ny
+h2 = hx*hy # Cell volumes (could be array?)
+
+Gridded = DotDict(
+      K=np.ones((2,*gridshape)), # permeability in x&y dirs.
+    por=np.ones(gridshape),      # porosity
+)
+
+Fluid = DotDict(
+     vw=1.0,  vo=1.0, # Viscosities
+    swc=0.0, sor=0.0  # Irreducible saturations
+)
+
+def init_Q(inj,prod):
+    # Globals (in python) are actually local to the module,
+    # making them less dangerous.
+    global injectors, producers, Q
+
+    def normalize_wellset(ww):
+        ww = array(ww,float).T
+        ww[0] *= Dx
+        ww[1] *= Dy
+        ww[2] /= ww[2].sum()
+        return ww.T
+
+    injectors = normalize_wellset(inj)
+    producers = normalize_wellset(prod)
+
+    # Scale production so as to equal injection.
+    # Otherwise, model will silently input deficit from SW corner.
+    # producers[:,2] *= injectors[:,2].sum() / producers[:,2].sum()
+
+    # Insert in source FIELD
+    Q = np.zeros(M)
+    for x,y,q in injectors: Q[xy2i(x,y)] += q
+    for x,y,q in producers: Q[xy2i(x,y)] -= q
+
+    assert np.isclose(Q.sum(),0)
+    return injectors, producers, Q
+
+
+# np.random.seed(1)
+# injectors = [[0,0,1]]
+# producers = [[1,1,-1]]
+injectors = [ [0.1, 0.0, 1.0], [0.9, 0.0, 1.0] ]
+producers = [ [0.1, 0.7, 1.0], [0.9, 1.0, 1.0] , [.5,.2,1]]
+# injectors = rand((5,3))
+# producers = rand((10,3))
+init_Q(injectors, producers)
+
+
+
 
 
 ## Functions
@@ -62,17 +136,16 @@ def TPFA(Gridded,K,q):
     # despite it being somewhat convoluted (https://github.com/scipy/scipy/issues/2285)
     # which according to stackexchange (see below) uses the Thomas algorithm,
     # as recommended by Aziz and Settari ("Petro. Res. simulation").
-    # (TODO: How can I specify offset from diagonal?)
+    # Attempt:
     # ab = array([x for (x,M) in zip(DiagVecs,DiagIndx)])
     # u = solve_banded((3,3), ab, q, check_finite=False)
-
     # However, according to https://scicomp.stackexchange.com/a/30074/1740
     # solve_banded does not work well for when the band offsets large,
     # i.e. higher-dimensional problems.
     # Therefore we use sp.sparse.linalg.spsolve, even though it
     # converts DIAgonal formats to CSC (and throws inefficiency warning).
     A = sparse.spdiags(DiagVecs, DiagIndx, M, M)
-    with ignore_inefficiency():
+    with suppress_w(sparse.SparseEfficiencyWarning):
         u = spsolve(A,q)
     # The above is still much more efficient than going to full matrices,
     # indeed I get comparable speed to Matlab.
@@ -83,7 +156,7 @@ def TPFA(Gridded,K,q):
 
     P = u.reshape(gridshape)
 
-    V = Bunch(
+    V = DotDict(
         x = np.zeros((Nx+1,Ny)),
         y = np.zeros((Nx,Ny+1)),
     )
@@ -106,7 +179,6 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
     """Explicit upwind finite-volume discretisation of CoM."""
     pv = h2*Gridded['por'].ravel() # pore volume=cell volume*porosity
 
-    # __import__('ipdb').set_trace()
     fi = q.clip(min=0)# inflow from wells
 
     XP=V.x.clip(min=0); XN=V.x.clip(max=0) # influx and outflux, x-faces
@@ -118,7 +190,7 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
     from numpy import errstate
     with errstate(divide="ignore"):
         pm  = min(pv/(Vi.ravel()+fi)) # estimate of influx
-    cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction # NB: 3-->2 since no z ?
+    cfl = ((1-Fluid.swc-Fluid.sor)/3)*pm # CFL restriction # NB: 3-->2 since no z-dim ?
     Nts = int(np.ceil(T/cfl)) # number of local time steps
     dtx = (T/Nts)/pv # local time steps
 
@@ -126,7 +198,7 @@ def saturation_step(Gridded,S,Fluid,q,V,T):
     A=upwind_diff(Gridded,V,q)     # system matrix
     A=sparse.spdiags(dtx,0,M,M)@A # A * dt/|Omega i|
 
-    for iT in range(1,Nts+1):
+    for iT in range(Nts):
         mw,mo=RelPerm(S,Fluid)  # compute mobilities
         fw = mw/(mw+mo)         # compute fractional flow
         S = S + (A@fw + fi*dtx) # update saturation
@@ -142,74 +214,54 @@ def step(S,dt):
 def obs(S):
     return [S[xy2i(x,y)] for (x,y,_) in producers]
 
-def simulate(nSteps,S,dt_ext=.025,dt_plot=0.01):
-    saturation = []
-    production = []
+def simulate(nSteps,S,dt_ext=.025):
+    saturation = np.zeros((nSteps,)+S.shape)
+    production = np.zeros((nSteps,len(producers)))
 
-    for iT in 1+arange(nSteps):
+    for iT in arange(nSteps):
         S = step(S,dt_ext)
 
-        saturation += [S]
-        production += [obs(S)]
+        saturation[iT] = S
+        production[iT] = obs(S)
 
-        liveplot(S,iT*dt_ext,dt_plot)
+    return saturation, production
 
-    if dt_plot: del liveplot.ax
-    return array(saturation), array(production)
-
-
-def liveplot(S,t,dt_pause):
-
-    # Exit if dt==0 or None
-    if not dt_pause: return
-
-    if not hasattr(liveplot,'ax'):
-        # Init fig
-        plt.ion()
-        fig, ax = freshfig(1)
-    else:
-        # Clear plot
-        ax = liveplot.ax
-        for c in liveplot.CC.collections:
-            ax.collections.remove(c)
-
-    # Plot
-    liveplot.CC = plot_field(ax, 1-S, vmin=0, vmax=1)
-
-    # Adjust plot
-    ax.set_title("Oil saturation, t = %.1f"%(t))
-    if not hasattr(liveplot,'ax'):
-        liveplot.ax = ax
-
-        plot_wells(ax, injectors)
-        plot_wells(ax, producers, False)
-
-        fig.colorbar(liveplot.CC)
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        # ax.set_aspect("equal")
-    plt.pause(dt_pause)
 
 
 
 if __name__ == "__main__":
+    # ICs
 
-    np.random.seed(1)
-    # injectors = [[0,0,1]]
-    # producers = [[1,1,-1]]
-    injectors = rand((5,3))
-    producers = rand((10,3))
+    # Gen. random field
+    # np.random.seed(1)
+    from random_fields import gen_cov
+    Cov = 0.3**2 * gen_cov(grid, radius=0.5)
+    C12 = sla.sqrtm(Cov).real.T
+    surf  = 0.5 + randn(M) @ C12
+    surf  = truncate_01(surf)
 
-    injectors, producers, Q = init_Q(injectors, producers)
+    # IC saturation
+    # Varying 
+    # S0 = surf
+    # Constant
+    S0 = np.zeros(M)
 
-    S0, Cov = gen_ens(1,grid,0.7)
-    S0 = S0.squeeze()
+    # Varying permeability
+    surf  = 0.5 + 2*randn(M) @ C12
+    surf = surf.clip(.01,1)
+    surf = surf.reshape(gridshape)
+    Gridded.K = np.stack([surf,surf])
 
-    # S0 = np.zeros(M)
+    fig, (ax1,ax2) = freshfig(47,figsize=(8,4), ncols=2)
+    cc = ax1.contourf(surf)
+    fig.colorbar(cc)
+    ax2.hist(surf.ravel())
+
 
     dt = 0.025
-    nT = 28
-    saturation,production = simulate(nT,S0,dt,dt_plot=.01)
+    nTime = 28
+    saturation,production = simulate(nTime,S0,dt)
 
-    fig, ax = freshfig(2)
-    hh = plot_prod(ax,production,dt,nT)
+    from plots import animate1
+    ani = animate1(saturation,production)
+    plt.show(block=False)

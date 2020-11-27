@@ -6,12 +6,12 @@ from mpl_tools.misc import freshfig, is_notebook_or_qt, axprops, fig_colorbar
 import model
 from tools import center
 
-from IPython.display import HTML, display
+import IPython.display as ipy_disp
 
 
-def disp(animation):
+def display(animation):
     if is_notebook_or_qt:
-        display(HTML(animation.to_jshtml()))
+        ipy_disp.display(ipy_disp.HTML(animation.to_jshtml()))
     else:
         plt.show(block=False)
 

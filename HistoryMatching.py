@@ -224,7 +224,7 @@ satu.past.Truth, prod.past.Truth = \
 
 
 ani = plots.animate1(satu.past.Truth, prod.past.Truth)
-plots.disp(ani)
+plots.display(ani)
 
 
 # #### Noisy obs

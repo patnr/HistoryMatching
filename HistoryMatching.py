@@ -160,12 +160,8 @@ satu = DotDict(
 # giving their placement and flux.
 
 model.init_Q(
-    # NB: seed dependent!
-    # inj =rand(2,3),
-    # prod=rand(4,3)
-
+    #     x    y     rate
     inj =[
-        # x    y     rate
         [0.10, 0.30, 1.00],
         [0.90, 0.70, 1.00]],
     prod=[
@@ -180,6 +176,12 @@ model.init_Q(
         [0.90, 0.90, 1.00],
     ]
 );
+#
+# Random ( => seed dependent! ) wells:
+# model.init_Q(
+#     inj =rand(2,3),
+#     prod=rand(4,3)
+# );
 
 
 # #### Surface of water saturation -- True distribution

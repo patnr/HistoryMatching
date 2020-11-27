@@ -1,8 +1,6 @@
 """Common tools."""
 
 import numpy as np
-import scipy.stats as ss
-from mpl_tools.misc import is_notebook_or_qt
 
 
 def norm(xx):

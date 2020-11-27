@@ -100,12 +100,12 @@ import scipy.linalg as sla
 from numpy.random import randn
 from pylib.std import DotDict
 from tqdm.auto import tqdm as progbar
-from mpl_tools.misc import freshfig, fig_placement_load
+from mpl_tools.misc import freshfig, fig_placement_load, is_notebook_or_qt
 
 import model
 import plots
 import random_fields
-from common import is_notebook_or_qt, center, Stats
+from tools import center, Stats
 
 if is_notebook_or_qt:
     mpl.rcParams.update({'font.size': 13})

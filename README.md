@@ -1,6 +1,6 @@
 This repository holds the Jupyter turorials on history matching.
 It is a placeholder repository, because the tutorial will later be integrated into
-https://github.com/nansencenter/DA-tutorials
+<https://github.com/nansencenter/DA-tutorials>
 
 
 1. **Prerequisite**: Python 3.8.  
@@ -18,4 +18,5 @@ https://github.com/nansencenter/DA-tutorials
 3. **Launch the Jupyter notebooks**:  
    `$ jupyter-notebook`  
    This will open up a page in your web browser that is a file navigator.  
-   Click on a `Demo.ipynb`.
+   Click on a `HistoryMatching.py`.  
+   (The jupyter extension `jupytext` will convert it to the notebook format)

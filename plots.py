@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from mpl_tools.misc import freshfig, is_notebook_or_qt, axprops, fig_colorbar
 
 import model
-from common import center
+from tools import center
 
 from IPython.display import HTML, display
 

@@ -155,6 +155,24 @@ satu = DotDict(
 # The source terms must therefore equal the sink terms.
 # This is ensured by the `init_Q` function below.
 
+# #### Surface of water saturation -- True distribution
+# The truth is sampled from a Gaussian field with a given variogram,
+# yielding the following moments
+
+Mean = 0.5
+Cov = 0.3**2 * random_fields.gen_cov(model.grid, radius=0.5)
+
+
+# We use this to sample the true saturation ("truth") ...
+
+C12 = sla.sqrtm(Cov).real.T
+satu.initial.Truth = 0.5 + randn(model.M) @ C12
+
+# which we then truncate to [0,1]
+
+satu.initial.Truth = model.truncate_01(satu.initial.Truth)
+
+
 # #### Well specification
 # We here specify the wells as point sources and sinks,
 # giving their placement and flux.
@@ -184,23 +202,12 @@ model.init_Q(
 # );
 
 
-# #### Surface of water saturation -- True distribution
-# The truth is sampled from a Gaussian field with a given variogram,
-# yielding the following moments
+# #### Plot
 
-Mean = 0.5
-Cov = 0.3**2 * random_fields.gen_cov(model.grid, radius=0.5)
-
-
-# We use this to sample the true saturation ("truth") ...
-
-C12 = sla.sqrtm(Cov).real.T
-satu.initial.Truth = 0.5 + randn(model.M) @ C12
-
-# which we then truncate to [0,1]
-
-satu.initial.Truth = model.truncate_01(satu.initial.Truth)
-
+fig, ax = freshfig(134)
+plots.oilfield(ax, satu.initial.Truth)
+plots.well_scatter(ax, model.producers, inj=True)
+plots.well_scatter(ax, model.injectors, inj=False)
 
 # #### Simulation to generate the synthetic truth
 
@@ -215,14 +222,12 @@ satu.past.Truth, prod.past.Truth = \
     model.simulate(nTime, satu.initial.Truth, dt)
 
 # ##### Animation
-# Plotted below is the oil saturation before/after production.
+# Run the code cell below to get an animation of the oil saturation evoluation.
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 #
-#
 # <mark><font size="-1">
-# <em>Warning:</em> takes a while to load.
+# <em>Note:</em> takes a while to load.
 # </font></mark>
-#
 
 
 ani = plots.animate1(satu.past.Truth, prod.past.Truth)
@@ -304,34 +309,22 @@ ax.set(xlabel="eigenvalue #", ylabel="var.",
 # even without localization.
 
 # ## Assimilation
-# We now forecast the prior ensemble from the initial time
-# until the current time.
+#
+# The following function forecast the ensemble a certain number of steps.
 # Note that this for-loop is "embarrasingly parallelizable",
 # because each iterate is complete indepdendent
 # (requires no communication) from the others.
 
 def forecast_ensemble(nSteps, sat0):
-    satu = np.zeros((nSteps, N, model.M))
-    prod = np.zeros((nSteps, N, nProd))
+    saturation = np.zeros((nSteps, N, model.M))
+    production = np.zeros((nSteps, N, nProd))
     for n, xn in enumerate(progbar(sat0)):
         s, p = model.simulate(nSteps, xn, dt, pbar=False)
-        satu[:, n, :] = s
-        prod[:, n, :] = p
-    return satu, prod
+        saturation[:, n, :] = s
+        production[:, n, :] = p
+    return saturation, production
 
-satu.past.Prior, prod.past.Prior = forecast_ensemble(nTime, satu.initial.Prior)
-
-
-# ### Assimilation with ES
-# First, we assimilate (history match) using the batch method: ensemble smoother (ES).
-
-# This involves "stringing-out / concatenating" a multivariate timeseries
-# into one, long vector.
-#
-# - Mathematically, we often call this augmentation approach.
-# - Programmatically, we call it "flattening/(un)ravelling".
-#   It is implemented in the cell below.
-
+# This class prepares the ensemble update. The instances can be called as functions, which will then apply the update.
 
 class EnUpdate:
     """Prepare the update/conditioning (Bayes' rule) for an ensemble,
@@ -353,7 +346,7 @@ class EnUpdate:
         # Note: formula is transposed, and reversed (vs. literature standards),
         # because the members are here stacked as rows (vs. columns).
 
-    def apply(self, E):
+    def __call__(self, E):
         # Update
         E = E + self.KGdY @ center(E)
 
@@ -364,24 +357,36 @@ class EnUpdate:
 
         return E
 
+# ### Assimilation with ES
+# First, we assimilate (history match) using the batch method: ensemble smoother (ES).
+
+# This involves "stringing-out / concatenating" a multivariate timeseries
+# into one, long vector.
+#
+# - Mathematically, we often call this augmentation approach.
+# - Programmatically, we call it "flattening/(un)ravelling".
+#   It is implemented in the cell below.
+
 
 def unfold_time(EE):
     nTime, N, M = EE.shape
     return EE.swapaxes(0, 1).reshape((N, nTime*M))
 
-def as_batch(apply, EE):
+def as_batch(update, EE):
     nTime, N, M = EE.shape
 
     # Concatenate time to make batch
     E = unfold_time(EE)
 
     # Apply update to batch
-    E = apply(E)
+    E = update(E)
 
     # Re-shape into time-series
     EE = E.reshape(N, nTime, -1).swapaxes(0, 1)
 
     return EE
+
+satu.past.Prior, prod.past.Prior = forecast_ensemble(nTime, satu.initial.Prior)
 
 ES_update = EnUpdate(
     prod.past.obs.ravel(),
@@ -393,13 +398,7 @@ ES_update = EnUpdate(
 # the initial conditions (saturation) and any model parameters,
 # here termed `satu.initial.ES` (updated ensemble for t=0).
 
-satu.initial.ES = ES_update.apply(satu.initial.Prior)
-
-# However, ensemble methods are very extensible (same as linear regression).
-# For the purposes of this tutorial, we compute several by-products.
-# One of these is `satu.present.ES`: updated ensemble at the current time.
-
-satu.present.ES = ES_update.apply(satu.past.Prior[-1])
+satu.initial.ES = ES_update(satu.initial.Prior)
 
 # Let's plot the updated, initial ensemble.
 
@@ -410,39 +409,35 @@ plots.oilfields(27, satu.initial, "ES")
 
 satu.past.ES, prod.past.ES = forecast_ensemble(nTime, satu.initial.ES)
 
-# Alternatively, we might update the production profiles "directly".
-# We will revisit this strategy below, when discussing prediction.
-
-prod.past.ES_direct = as_batch(ES_update.apply, prod.past.Prior)
-
-
 # ### Assimilation with EnKS
 # Next, we assimilate (history match) using the EnKS.
 
-satu.initial.EnKS = satu.initial.Prior.copy()
-E                 = satu.initial.Prior.copy()
-Eobs              = np.zeros((N, nProd))
+# Allocation
+Eobs = np.zeros((N, nProd))
+# Note that EnKS does two-things:
+E0   = satu.initial.Prior.copy()  # 1. fixed-point smoothing
+E    = satu.initial.Prior.copy()  # 2. filtering (same as EnKF outputs)
 
 for iT in progbar(range(nTime)):
 
     # Forecast
     for n, xn in enumerate(E):
-        E[n], Eobs[n] = model.simulate(1, xn, dt)
+        E[n], Eobs[n] = model.simulate(1, xn, dt, pbar=False)
 
     # Analysis
-    Seq_update        = EnUpdate(prod.past.obs[iT], Eobs, R)
-    E                 = Seq_update.apply(E)
-    satu.initial.EnKS = Seq_update.apply(satu.initial.EnKS)
+    update = EnUpdate(prod.past.obs[iT], Eobs, R)
+    E      = update(E)
+    E0     = update(E0)
 
-
-satu.present.EnKS = E.copy()
+satu.initial.EnKS = E0
+satu.present.EnKS = E
 
 # Let's plot the updated, initial ensemble.
 
 plots.oilfields(28, satu.initial, "EnKS")
 
-# An updated estimate of the production can be obtained by
-# re-running the simulation model.
+# An updated estimate of the production can be obtained
+# by re-running the simulation model.
 
 satu.past.EnKS, prod.past.EnKS = forecast_ensemble(nTime, satu.initial.EnKS)
 
@@ -468,6 +463,23 @@ print("EnKS : ", Stats(satu.initial.Truth, satu.initial.EnKS))
 plots.oilfield_means(25, satu.initial)
 
 
+# # Comparison to "direct" updates
+
+# If you're going to make a prediction based on the EnKS,
+# you should initialize it from `satu.present.EnKS`.
+# We can also compute `satu.present.ES` by using the `ES_update`
+# on `satu.past.Prior[-1]` instead of just `satu.initial.Prior`.
+
+satu.present.ES = ES_update(satu.past.Prior[-1])
+
+# Alternatively, we might update the **production** profiles.
+# We will revisit this strategy below, when discussing prediction.
+
+prod.past.ES_direct = as_batch(ES_update, prod.past.Prior)
+
+
+# ## Diagnostics
+
 # ### Correlation fields
 # Correlation fields (vs. a given variable, i.e. point) show where
 # the ensemble update can have an effect (vs. data at that point).
@@ -486,7 +498,6 @@ xy_coord = model.producers[iWell, :2]
 plots.correlation_fields(22, satu.initial, xy_coord, "Initial corr.")
 plots.correlation_fields(24, satu.present, xy_coord, "Present corr.")
 
-# ## Diagnostics
 
 # ### Plot past production
 
@@ -520,7 +531,7 @@ plots.productions(74, shown, "past")
 # are not too far off, then the ensemble posteriors (ES, EnKS, ES_direct)
 # should also surround the data, but with a tighter fit.
 
-# ### Prediction
+# ## Prediction
 # We now prediction the future production (and saturation fields)
 # by forecasting from the (updated) present saturations.
 # An alternative way is to forecast all the way from the
@@ -537,10 +548,10 @@ satu.future.EnKS,  prod.future.EnKS  = forecast_ensemble(nTime, satu.present.EnK
 # than using the model on the updated saturation ensemble,
 # because reservoir dynamics are nonlinear.
 
-prod.future.ES_direct = as_batch(ES_update.apply, prod.future.Prior)
+prod.future.ES_direct = as_batch(ES_update, prod.future.Prior)
 
 
-# ### Plot future production
+# #### Plot future production
 # Let's see if the posterior predictions are better
 # (improved data match) than the prior predictions.
 

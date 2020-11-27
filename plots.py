@@ -193,7 +193,7 @@ def productions(fignum, water_prod_series, title=""):
                 ln.set(alpha=1, linewidth=1)
 
 
-def oilfield_realizations(fignum, water_sat_fields, label="", **kwargs):
+def oilfields(fignum, water_sat_fields, label="", **kwargs):
     fig, axs = freshfig(fignum, nrows=3, ncols=4, sharex=True, sharey=True)
 
     for i, (ax, water_sat) in enumerate(zip(axs.ravel(), water_sat_fields[label])):

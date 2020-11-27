@@ -275,8 +275,7 @@ plots.hists(65, satu.initial, "Water saturation")
 
 # Below we can see some realizations (members) from the ensemble.
 
-
-plots.oilfield_realizations(23, satu.initial, "Prior")
+plots.oilfields(23, satu.initial, "Prior")
 
 
 # #### Eigenvalue specturm
@@ -402,8 +401,7 @@ satu.present.ES = ES_update.apply(satu.past.Prior[-1])
 
 # Let's plot the updated, initial ensemble.
 
-plots.oilfield_realizations(27, satu.initial, "ES")
-
+plots.oilfields(27, satu.initial, "ES")
 
 # An updated estimate of the production can be obtained
 # by re-running the simulation model.
@@ -437,8 +435,9 @@ for iT in progbar(range(nTime)):
 
 satu.present.EnKS = E.copy()
 
-plots.oilfield_realizations(28, satu.initial, "EnKS")
+# Let's plot the updated, initial ensemble.
 
+plots.oilfields(28, satu.initial, "EnKS")
 
 # An updated estimate of the production can be obtained by
 # re-running the simulation model.

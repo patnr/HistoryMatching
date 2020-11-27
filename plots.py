@@ -248,7 +248,7 @@ def correlation_fields(fignum, field_ensembles, xy_coord, title=""):
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
 
 
-def animate1(saturation, production):
+def animate1(saturation, production, pause=200):
     fig, axs = freshfig(19, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023
@@ -293,7 +293,7 @@ def animate1(saturation, production):
 
     from matplotlib import animation
     ani = animation.FuncAnimation(
-        fig, animate, len(tt), blit=False, interval=200)
+        fig, animate, len(tt), blit=False, interval=pause)
 
     return ani
 

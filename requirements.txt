@@ -1,8 +1,10 @@
 jupyter
+jupytext
+ipython
 ipdb
+pdbpp
+tqdm
 pytest
 scipy
 matplotlib
-ipython
-mpl-tools
-pylib
+-e /Users/patricknraanes/Dropbox/py/mpl-tools

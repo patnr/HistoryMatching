@@ -12,6 +12,11 @@ def center(E):
     return E - E.mean(axis=0)
 
 
+def sigmoid(x):
+    """The logistic function."""
+    return 1/(1+np.exp(-x))
+
+
 class Stats:
     """RMSE & STDDEV"""
 

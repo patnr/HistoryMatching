@@ -45,6 +45,7 @@ from pylib.std import DotDict, suppress_w
 from mpl_tools.misc import freshfig
 from tqdm.auto import tqdm as progbar
 from numpy import errstate
+from tools import sigmoid
 
 # __init__
 Dx, Dy    = 1, 1  # lengths
@@ -356,13 +357,15 @@ if __name__ == "__main__":
 
     # Varying grid params
     surf = 0.5 + 2*randn(M) @ C12
-    surf = surf.clip(.01, 1)
+    # surf = surf.clip(.01, 1)
+    surf = sigmoid(surf)
     surf = surf.reshape(gridshape)
 
     # Rectangles
-    i1, j1 = xy2sub(0, .4)
-    i2, j2 = xy2sub(0.6, .45)
-    surf[i1:i2, j1:j2] = 1e-3
+    # i1, j1 = xy2sub(0, .4)
+    # i2, j2 = xy2sub(0.6, .45)
+    # surf[i1:i2, j1:j2] = 1e-3
+    surf[:20,10] = 0.01
 
     Gridded.K = np.stack([surf, surf])
 

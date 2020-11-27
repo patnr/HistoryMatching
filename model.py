@@ -38,6 +38,7 @@ array([ True,  True])
 
 import numpy as np
 import scipy.sparse as sparse
+from scipy.sparse.linalg import spsolve
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
 from pylib.std import DotDict, suppress_w
@@ -241,11 +242,11 @@ def TPFA(Gridded, K, q):
     # However, according to https://scicomp.stackexchange.com/a/30074/1740
     # solve_banded does not work well for when the band offsets large,
     # i.e. higher-dimensional problems.
-    # Therefore we use sp.sparse.linalg.spsolve, even though it
+    # Therefore we use spsolve, even though it
     # converts DIAgonal formats to CSC (and throws inefficiency warning).
     A = sparse.spdiags(DiagVecs, DiagIndx, M, M)
     with suppress_w(sparse.SparseEfficiencyWarning):
-        u = sparse.linalg.spsolve(A, q)
+        u = spsolve(A, q)
     # The above is still much more efficient than going to full matrices,
     # indeed I get comparable speed to Matlab.
     # A = A.toarray()

@@ -37,14 +37,15 @@ array([ True,  True])
 """
 
 import numpy as np
-import scipy.sparse as sparse
-from scipy.sparse.linalg import spsolve
 import scipy.linalg as sla
+import scipy.sparse as sparse
 from matplotlib import pyplot as plt
-from pylib.std import DotDict, suppress_w
 from mpl_tools.misc import freshfig
-from tqdm.auto import tqdm as progbar
 from numpy import errstate
+from pylib.std import DotDict, suppress_w
+from scipy.sparse.linalg import spsolve
+from tqdm.auto import tqdm as progbar
+
 from tools import sigmoid
 
 # __init__
@@ -338,9 +339,10 @@ def simulate(nSteps, S, dt_ext=.025, pbar=True):
 
 
 if __name__ == "__main__":
-    from random_fields import gen_cov
     from numpy.random import randn
+
     import plots
+    from random_fields import gen_cov
 
     np.random.seed(3000)
 
@@ -365,7 +367,7 @@ if __name__ == "__main__":
     # i1, j1 = xy2sub(0, .4)
     # i2, j2 = xy2sub(0.6, .45)
     # surf[i1:i2, j1:j2] = 1e-3
-    surf[:20,10] = 0.01
+    surf[:20, 10] = 0.01
 
     Gridded.K = np.stack([surf, surf])
 

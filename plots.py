@@ -1,12 +1,11 @@
+import IPython.display as ipy_disp
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_tools.misc import freshfig, is_notebook_or_qt, axprops, fig_colorbar
+from mpl_tools.misc import axprops, fig_colorbar, freshfig, is_notebook_or_qt
 
 import model
 from tools import center
-
-import IPython.display as ipy_disp
 
 
 def display(animation):

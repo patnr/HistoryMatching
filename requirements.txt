@@ -1,10 +1,10 @@
+-e /Users/patricknraanes/Dropbox/py/mpl-tools
+ipdb
+ipython
 jupyter
 jupytext
-ipython
-ipdb
+matplotlib
 pdbpp
-tqdm
 pytest
 scipy
-matplotlib
--e /Users/patricknraanes/Dropbox/py/mpl-tools
+tqdm

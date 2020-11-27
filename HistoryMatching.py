@@ -69,22 +69,22 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 
 # Use numpy's arrays for vectors and matrices. Example constructions:
-a = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
-I = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
+a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
+Id = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
 
 print("Indexing examples:")
-print("a        =", a)
-print("a[3]     =", a[3])
-print("a[0:3]   =", a[0:3])
-print("a[:3]    =", a[:3])
-print("a[3:]    =", a[3:])
-print("a[-1]    =", a[-1])
-print("I[:3,:3] =", I[:3, :3], sep="\n")
+print("a         =", a)
+print("a[3]      =", a[3])
+print("a[0:3]    =", a[0:3])
+print("a[:3]     =", a[:3])
+print("a[3:]     =", a[3:])
+print("a[-1]     =", a[-1])
+print("Id[:3,:3] =", Id[:3, :3], sep="\n")
 
 print("\nLinear algebra examples:")
-print("100+a =", 100+a)
-print("I@a   =", I@a)
-print("I*a   =", I*a, sep="\n")
+print("100+a  =", 100+a)
+print("Id@a   =", Id@a)
+print("Id*a   =", Id*a, sep="\n")
 
 plt.title("Plotting example")
 plt.ylabel("$i \\, x^2$")
@@ -97,7 +97,7 @@ plt.legend();
 # and initialize some data containers.
 
 import scipy.linalg as sla
-from numpy.random import randn, rand
+from numpy.random import randn, rand  # noqa
 from pylib.std import DotDict
 from tqdm.auto import tqdm as progbar
 from mpl_tools.misc import freshfig, fig_placement_load, is_notebook_or_qt
@@ -118,18 +118,18 @@ else:
 np.random.seed(4)
 
 # Containers for organizing production and saturation data
-#prod = DotDict
-#satu = DotDict
-#for dct in [prod, satu]:
-#    for timespan in ["initial", "past", "present", "future"]:
-#        dct[timespan] = DotDict
-#        for conditioning in ["Truth", "Prior", "ES", "ES_direct", "EnKS"]:
-#             DotDict[timespan][conditioning] = None
+# prod = DotDict
+# satu = DotDict
+# for dct in [prod, satu]:
+#     for timespan in ["initial", "past", "present", "future"]:
+#         dct[timespan] = DotDict
+#         for conditioning in ["Truth", "Prior", "ES", "ES_direct", "EnKS"]:
+#              DotDict[timespan][conditioning] = None
 prod = DotDict(
-    initial = DotDict(), # Estimates at time 0
-    past    = DotDict(), # Estimates from 0 to nTime (the present)
-    present = DotDict(), # Estimates at nTime, but without re-runs
-    future  = DotDict(), # Predictions for time > nTime
+    initial = DotDict(),  # Estimates at time 0
+    past    = DotDict(),  # Estimates from 0 to nTime (the present)
+    present = DotDict(),  # Estimates at nTime, but without re-runs
+    future  = DotDict(),  # Predictions for time > nTime
 )
 satu = DotDict(
     initial = DotDict(),
@@ -324,7 +324,9 @@ def forecast_ensemble(nSteps, sat0):
         production[:, n, :] = p
     return saturation, production
 
-# This class prepares the ensemble update. The instances can be called as functions, which will then apply the update.
+# This class prepares the ensemble update.
+# The instances can be called as functions,
+# which will then apply the update.
 
 class EnUpdate:
     """Prepare the update/conditioning (Bayes' rule) for an ensemble,

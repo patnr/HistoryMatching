@@ -3,10 +3,9 @@
 
 import numpy as np
 import scipy.linalg as sla
-from numpy.random import randn
-
-from mpl_tools.misc import freshfig, fig_colorbar
 from matplotlib import pyplot as plt
+from mpl_tools.misc import fig_colorbar, freshfig
+from numpy.random import randn
 
 from model import grid, gridshape, mesh_coords
 

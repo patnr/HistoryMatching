@@ -33,7 +33,7 @@ ignore=E24,W503,E123,E226,E704,E121,W504,E126,
 ; so I guess it doesn't matter.
 per-file-ignores=
     tests/test_*.py:E501
-    common.py:F401
+    HistoryMatching.py:E501
 
 exclude=
     scripts/*

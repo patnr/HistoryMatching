@@ -97,7 +97,7 @@ plt.legend();
 # and initialize some data containers.
 
 import scipy.linalg as sla
-from numpy.random import randn
+from numpy.random import randn, rand
 from pylib.std import DotDict
 from tqdm.auto import tqdm as progbar
 from mpl_tools.misc import freshfig, fig_placement_load, is_notebook_or_qt

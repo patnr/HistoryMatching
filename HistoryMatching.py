@@ -481,9 +481,8 @@ plots.oilfield_means(25, satu.initial)
 
 iWell = 0
 xy_coord = model.producers[iWell, :2]
-plots.correlation_fields(22, satu.initial, xy_coord, "Initial")
-plots.correlation_fields(24, satu.present, xy_coord, "Present")
-
+plots.correlation_fields(22, satu.initial, xy_coord, "Initial corr.")
+plots.correlation_fields(24, satu.present, xy_coord, "Present corr.")
 
 # ## Diagnostics
 

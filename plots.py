@@ -93,7 +93,7 @@ def corr_field(ax, A, b, title="", **kwargs):
     varb  = np.sum(b*b, 0) / (N-1)
     corrs = covs/np.sqrt(varb)/np.sqrt(varA)
 
-    ax.set(title=f"Corr. for {title}")
+    ax.set(title=title)
     cc = field(ax, corrs, levels=np.linspace(-1, 1, 11), cmap=mpl.cm.bwr, **kwargs)
     return cc
 
@@ -101,7 +101,7 @@ def corr_field(ax, A, b, title="", **kwargs):
 def corr_field_vs(ax, E, xy, title="", **kwargs):
     i = model.xy2ind(*xy)
     b = E[:, i]
-    cc = corr_field(ax, E, b, f"{title}", **kwargs)
+    cc = corr_field(ax, E, b, title, **kwargs)
     ax.plot(*xy, '*k', ms=4)
     return cc
 

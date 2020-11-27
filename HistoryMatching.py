@@ -41,9 +41,9 @@ for i, c in enumerate(name):
 # You will likely be more efficient if you know these
 # **keyboard shortcuts** to interact with cells:
 #
-# | Navigate                      | Edit              | Exit           | Run                              | Run & go to next                  |
-# | -------------                 | : ------------- : | -------------  | : --- :                          | : ------------- :                 |
-# | <kbd>↓</kbd> and <kbd>↑</kbd> | <kbd>Enter</kbd>  | <kbd>Esc</kbd> | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
+# | Navigate                      |    | Edit              |    | Exit           |    | Run                              |    | Run & go to next                  |
+# | -------------                 | -- | ----------------- | -- | --------       | -- | -------                          | -- | -----------------                 |
+# | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
 #
 # When you open a notebook it starts a **session (kernel/runtime)**
 # of Python in the background.

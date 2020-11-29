@@ -1,10 +1,11 @@
+"""Plot functions for reservoir model"""
+
 import IPython.display as ipy_disp
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_tools.misc import axprops, fig_colorbar, freshfig, is_notebook_or_qt
 
-import model
 from tools import center
 
 
@@ -15,17 +16,12 @@ def display(animation):
         plt.show(block=False)
 
 
-# These do not get updated with model
-Nx, Ny, Dx, Dy = model.grid
-hx, hy = Dx/Nx, Dy/Ny
-
-
-def field(ax, zz, **kwargs):
+def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
 
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
-    Z = zz.reshape(model.gridshape).T
+    Z = zz.reshape(self.gridshape).T
 
     ax.set(**axprops(kwargs))
 
@@ -73,12 +69,12 @@ cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
 # cm_ow = mpl.cm.viridis
 
 
-def oilfield(ax, ss, **kwargs):
+def oilfield(self, ax, ss, **kwargs):
     levels = np.linspace(0 - 1e-7, 1 + 1e-7, 11)
-    return field(ax, 1-ss, levels=levels, cmap=cm_ow, **kwargs)
+    return field(self, ax, 1-ss, levels=levels, cmap=cm_ow, **kwargs)
 
 
-def corr_field(ax, A, b, title="", **kwargs):
+def corr_field(self, ax, A, b, title="", **kwargs):
     N = len(b)
     # CovMat = X.T @ X / (N-1)
     # CovMat = np.cov(E.T)
@@ -93,19 +89,20 @@ def corr_field(ax, A, b, title="", **kwargs):
     corrs = covs/np.sqrt(varb)/np.sqrt(varA)
 
     ax.set(title=title)
-    cc = field(ax, corrs, levels=np.linspace(-1, 1, 11), cmap=mpl.cm.bwr, **kwargs)
+    cc = field(self, ax, corrs, levels=np.linspace(-1, 1, 11),
+               cmap=mpl.cm.bwr, **kwargs)
     return cc
 
 
-def corr_field_vs(ax, E, xy, title="", **kwargs):
-    i = model.xy2ind(*xy)
+def corr_field_vs(self, ax, E, xy, title="", **kwargs):
+    i = self.xy2ind(*xy)
     b = E[:, i]
-    cc = corr_field(ax, E, b, title, **kwargs)
+    cc = corr_field(self, ax, E, b, title, **kwargs)
     ax.plot(*xy, '*k', ms=4)
     return cc
 
 
-def well_scatter(ax, ww, inj=True):
+def well_scatter(self, ax, ww, inj=True):
     if inj:
         c = "w"
         d = "k"
@@ -142,7 +139,7 @@ def production1(ax, production, obs=None):
 
 def productions(fignum, water_prod_series, title=""):
     """Plot production series, including ensembles. 1 well/axes."""
-    nAx   = len(model.producers)
+    nAx   = len(water_prod_series.T)
     ncols = 4
     nrows = int(np.ceil(nAx/ncols))
     fig, axs = freshfig(fignum, figsize=(16, 7),
@@ -192,19 +189,23 @@ def productions(fignum, water_prod_series, title=""):
                 ln.set(alpha=1, linewidth=1)
 
 
-def oilfields(fignum, water_sat_fields, label="", **kwargs):
+def oilfields(self, fignum, water_sat_fields, label="", **kwargs):
     fig, axs = freshfig(fignum, nrows=3, ncols=4, sharex=True, sharey=True)
 
     for i, (ax, water_sat) in enumerate(zip(axs.ravel(), water_sat_fields[label])):
-        ax.text(0, .85*Dy, str(i), c="w", size=12)
+        ax.text(0, .85*self.Ly, str(i), c="w", size=12)
 
-        cc = oilfield(ax, water_sat, xticks=[0, Dx], yticks=[0, Dy], **kwargs)
+        cc = oilfield(self,
+                      ax, water_sat,
+                      xticks=[0, self.Lx],
+                      yticks=[0, self.Ly],
+                      **kwargs)
 
     fig.suptitle(f"Oil saturation (some realizations) - {label}")
     fig_colorbar(fig, cc)
 
 
-def oilfield_means(fignum, water_sat_fields, title=""):
+def oilfield_means(self, fignum, water_sat_fields, title=""):
     ncols = 2
     nAx   = len(water_sat_fields)
     nrows = int(np.ceil(nAx/ncols))
@@ -219,12 +220,12 @@ def oilfield_means(fignum, water_sat_fields, title=""):
         if field.ndim == 2:
             field = field.mean(axis=0)
 
-        handle = oilfield(ax, field, title=label)
+        handle = oilfield(self, ax, field, title=label)
 
     fig_colorbar(fig, handle)
 
 
-def correlation_fields(fignum, field_ensembles, xy_coord, title=""):
+def correlation_fields(self, fignum, field_ensembles, xy_coord, title=""):
     field_ensembles = {k: v for k, v in field_ensembles.items() if v.ndim == 2}
 
     ncols = 2
@@ -242,12 +243,12 @@ def correlation_fields(fignum, field_ensembles, xy_coord, title=""):
         else:
             label  = list(field_ensembles)[i]
             field  = field_ensembles[label]
-            handle = corr_field_vs(ax, field, xy_coord, label)
+            handle = corr_field_vs(self, ax, field, xy_coord, label)
 
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
 
 
-def animate1(saturation, production, pause=200):
+def animate1(self, saturation, production, pause=200):
     fig, axs = freshfig(19, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023
@@ -255,12 +256,12 @@ def animate1(saturation, production, pause=200):
     tt = 1+np.arange(len(saturation))
 
     axs[0, 0].set_title("Oil saturation (Initial)")
-    axs[0, 0].cc = oilfield(axs[0, 0], saturation[0])
+    axs[0, 0].cc = oilfield(self, axs[0, 0], saturation[0])
 
     axs[0, 1].set_title("Oil saturation")
-    axs[0, 1].cc = oilfield(axs[0, 1], saturation[-1])
-    well_scatter(axs[0, 1], model.injectors)
-    well_scatter(axs[0, 1], model.producers, False)
+    axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[-1])
+    well_scatter(self, axs[0, 1], self.injectors)
+    well_scatter(self, axs[0, 1], self.producers, False)
 
     axs[1, 0].set_title("Saturation (production)")
     axs[1, 0].set(ylim=(0, 1))
@@ -270,9 +271,11 @@ def animate1(saturation, production, pause=200):
 
     axs[1, 1].set_title("Saturation (production)")
     scat_handles = axs[1, 1].scatter(
-        *model.producers.T[:2], 24**2, 1-production[-1],
+        *self.producers.T[:2], 24**2, 1-production[-1],
         marker="^", clip_on=False, cmap=cm_ow, vmin=0, vmax=1)
-    axs[1, 1].set(xlim=(0, Dx), ylim=(0, Dy))
+    axs[1, 1].set(
+        xlim=(0, self.Lx),
+        ylim=(0, self.Ly))
 
     fig.tight_layout()
     fig_colorbar(fig, axs[0, 0].cc)
@@ -283,7 +286,7 @@ def animate1(saturation, production, pause=200):
                 axs[0, 1].collections.remove(c)
             except ValueError:
                 pass  # occurs when re-running script
-        axs[0, 1].cc = oilfield(axs[0, 1], saturation[iT])
+        axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[iT])
 
         for h, p in zip(prod_handles, 1-production.T):
             h.set_data(tt[:iT], p[:iT])

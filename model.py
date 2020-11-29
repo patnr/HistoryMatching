@@ -14,27 +14,10 @@ we need to make copies (members) of the entire model.
 => Use OOP.
 
 Note: Index ordering/labels: `x` is 1st coord., `y` is 2nd.
-  This is hardcoded in the model code, in what takes place
-  **between** `np.ravel` and `np.reshape` (using standard "C" ordering).
-  It also means that the letters `x` and `y` tend to occur in alphabetic order.
-
-Example:
->>> (Nx, Ny), (Dx, Dy) = (2, 5), (4, 10)
->>> X, Y = mesh_coords();
->>> X
-array([[1., 1., 1., 1., 1.],
-       [3., 3., 3., 3., 3.]])
->>> Y
-array([[1., 3., 5., 7., 9.],
-       [1., 3., 5., 7., 9.]])
-
->>> XY = np.stack((X, Y), axis=-1)
->>> xy2sub(*XY[1,3])
-(1, 3)
-
->>> sub2xy(1,3) == XY[1,3]
-array([ True,  True])
+See grid.py for more info.
 """
+
+from functools import wraps
 
 import numpy as np
 # import matplotlib as mpl
@@ -45,29 +28,21 @@ from pylib.std import suppress_w
 from scipy.sparse.linalg import spsolve
 from tqdm.auto import tqdm as progbar
 
+from grid import Grid2D
+
 # TODO
-# - Monkey patch geometry functions
-# - Rename Dx Lx
-# - Protect Nx, Ny
+# - Protect Nx, Ny, gridshape, etc?
 # - Nx/Ny = 2
 # - Can the cell volumnes (h2) be arrays?
 
-class ResSim(NicePrint):
+class ResSim(NicePrint, Grid2D):
     """Reservoir simulator."""
 
-    def __init__(self, Dx=1, Dy=1, Nx=32, Ny=32):
-        self.Dx = Dx
-        self.Dy = Dy
-        self.Nx = Nx
-        self.Ny = Ny
+    @wraps(Grid2D.__init__)
+    def __init__(self, *args, **kwargs):
 
-        self.gridshape = Nx, Ny
-        self.grid      = Nx, Ny, Dx, Dy
-        self.M         = np.prod(self.gridshape)
-
-        # Resolution
-        self.hx, self.hy = Dx/Nx, Dy/Ny
-        self.h2 = self.hx*self.hy
+        # Init grid
+        super().__init__(*args, **kwargs)
 
         self.Gridded = DotDict(
             K  =np.ones((2, *self.gridshape)),  # permeability in x&y dirs.
@@ -87,8 +62,8 @@ class ResSim(NicePrint):
 
         def normalize_wellset(ww):
             ww = np.array(ww, float).T
-            ww[0] *= self.Dx
-            ww[1] *= self.Dy
+            ww[0] *= self.Lx
+            ww[1] *= self.Ly
             ww[2] /= ww[2].sum()
             return ww.T
 
@@ -104,57 +79,8 @@ class ResSim(NicePrint):
         assert np.isclose(Q.sum(), 0)
 
         self.Q = Q
-        return injectors, producers
-
-    def mesh_coords(self, centered=True):
-        """Generate 2D coordinate grids."""
-
-        xx = np.linspace(0, self.Dx, self.Nx, endpoint=False)
-        yy = np.linspace(0, self.Dy, self.Ny, endpoint=False)
-
-        if centered:
-            xx += self.hx/2
-            yy += self.hy/2
-
-        return np.meshgrid(xx, yy, indexing="ij")
-
-    def sub2ind(self, ix, iy):
-        """Convert index `(ix, iy)` to index in flattened array."""
-        idx = np.ravel_multi_index((ix, iy), self.gridshape)
-        return idx
-
-    def ind2sub(self, ind):
-        """Inv. of `self.sub2ind`."""
-        ix, iy = np.unravel_index(ind, self.gridshape)
-        return ix, iy
-
-    def xy2sub(self, x, y):
-        """Convert physical coordinate tuple to tuple `(ix, iy)`."""
-        # ix = int(round(x/self.Dx*(self.Nx-1)))
-        # iy = int(round(y/self.Dy*(self.Ny-1)))
-        ix = (np.array(x) / self.Dx*(self.Nx-1)).round().astype(int)
-        iy = (np.array(y) / self.Dy*(self.Ny-1)).round().astype(int)
-        return ix, iy
-
-    def sub2xy(self, ix, iy):
-        """Approximate inverse of `self.xy2sub`.
-
-        Approx. because `self.xy2sub` aint injective, so we map to cell centres.
-        """
-        x = self.Dx * (ix + .5)/self.Nx
-        y = self.Dy * (iy + .5)/self.Ny
-        return x, y
-
-    def xy2ind(self, x, y):
-        """Convert physical coordinates to flattened array index."""
-        return self.sub2ind(*self.xy2sub(x, y))
-
-    def ind2xy(self, ind):
-        """Inv. of `self.xy2ind`."""
-        i, j = self.ind2sub(ind)
-        x    = i/(self.Nx-1)*self.Dx
-        y    = j/(self.Ny-1)*self.Dy
-        return x, y
+        self.injectors = injectors
+        self.producers = producers
 
     def spdiags(self, data, diags, format=None):
         return sparse.spdiags(data, diags, self.M, self.M, format)
@@ -324,16 +250,16 @@ def simulate(model_step, obs, nSteps, x0, dt=.025, pbar=True):
 
     return xx, yy
 
-model = ResSim(Dx=1, Dy=1, Nx=32, Ny=32)
-
 if __name__ == "__main__":
-    # from matplotlib import pyplot as plt
     import scipy.linalg as sla
+    from matplotlib import pyplot as plt
+    from mpl_tools.misc import freshfig
 
-    # from mpl_tools.misc import fig_placement_load, freshfig, is_notebook_or_qt
-    # import plots
+    import plots
     from random_fields import gen_cov
     from tools import sigmoid
+
+    model = ResSim(Lx=1, Ly=1, Nx=32, Ny=32)
 
     # injectors = [[0,0,1]]
     # producers = [[1,1,-1]]
@@ -343,11 +269,11 @@ if __name__ == "__main__":
     # injectors = rand(5,3)
     # producers = rand(10,3)
 
-    injectors, producers = model.init_Q(injectors, producers)
+    model.init_Q(injectors, producers)
 
     # Random field cov
     np.random.seed(3000)
-    Cov = 0.3**2 * gen_cov(model.grid, radius=0.5)
+    Cov = 0.3**2 * gen_cov(model, radius=0.5)
     C12 = sla.sqrtm(Cov).real.T
     S0 = np.zeros(model.M)
 
@@ -362,11 +288,26 @@ if __name__ == "__main__":
 
     model.Gridded.K = np.stack([surf, surf])
 
-    obs_inds = [model.xy2ind(x, y) for (x, y, _) in producers]
+    obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 
     def obs(saturation):
         return [saturation[i] for i in obs_inds]
-    obs.length = len(producers)
+    obs.length = len(obs_inds)
 
     nTime = 28
     saturation, production = simulate(model.step, obs, nTime, S0, 0.025)
+
+    # Test
+    assert(
+        repr(saturation[-1]) ==
+        "array([0.9438 , 0.93396, 0.92199, ..., 0.63152, 0.56095, 0.29336])")
+
+    # Plot
+    fig, (ax1, ax2) = freshfig(47, figsize=(8, 4), ncols=2)
+    contours = plots.field(model, ax1, surf)
+    # fig.colorbar(contours)
+    ax2.hist(surf.ravel())
+
+    # Animation
+    ani = plots.animate1(model, saturation, production)
+    plt.pause(.1)

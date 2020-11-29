@@ -7,9 +7,7 @@ from matplotlib import pyplot as plt
 from mpl_tools.misc import fig_colorbar, freshfig
 from numpy.random import randn
 
-from model import model
-
-grid, gridshape, mesh_coords = model.grid, model.gridshape, model.mesh_coords
+from grid import Grid2D
 
 
 def variogram_gauss(xx, r, n=0, a=1/3):
@@ -58,20 +56,20 @@ def gen_surfs(n, Cov):
 
 
 def gen_cov(grid, radius=0.5):
-    XX, YY = mesh_coords()
+    XX, YY = grid.mesh_coords()
     dd = comp_dists(XX, YY)
     return 1 - variogram_gauss(dd, radius)
 
 
-def gen_ens_01(N, grid):
+def gen_ens_01(grid, N):
     Cov = gen_cov(grid)
     SS, normfactor = gen_surfs(N, Cov)
     return SS, Cov/normfactor**2
 
 
-def gen_ens(N, grid, sill):
+def gen_ens(grid, N, sill):
     # Return ensemble of fields, and its true covariance
-    SS, Cov = gen_ens_01(N, grid)
+    SS, Cov = gen_ens_01(grid, N)
     SS *= sill  # set amplitude/sill
     return SS.T, Cov*sill**2
 
@@ -82,7 +80,9 @@ if __name__ == "__main__":
     ## 2D
     N = 100
     sill = 0.7
-    SS, Cov = gen_ens(N, grid, sill)
+
+    grid = Grid2D(Lx=4, Ly=10, Nx=2, Ny=5)
+    SS, Cov = gen_ens(grid, N, sill)
 
     fig, axs = freshfig(21, nrows=3, ncols=int(12/3),
                         sharex=True, sharey=True)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     for i, (ax, S) in enumerate(zip(axs.ravel(), SS)):
         ax.set_title(i)
         CC.append(ax.contourf(
-            1 - S.reshape(gridshape).T,
+            1 - S.reshape(grid.gridshape).T,
             levels=21, vmin=1-sill, vmax=1))
     fig_colorbar(fig, CC[0])
 

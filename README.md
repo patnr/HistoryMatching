@@ -1,22 +1,31 @@
-This repository holds the Jupyter turorials on history matching.
-It is a placeholder repository, because the tutorial will later be integrated into
-<https://github.com/nansencenter/DA-tutorials>
+# History matching tutorial
 
+## Installation
 
-1. **Prerequisite**: Python 3.8.  
-   If you're not a python expert:  
-   1a. Install Python via [Anaconda](https://www.anaconda.com/download).  
-   1b. Use the [Anaconda terminal](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#starting-conda) to run the commands below.  
-   1c. (Optional) [Create & activate a new Python environment](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#managing-environments).  
-   If the installation (below) fails, try doing step 1c first.
+### Prerequisite: Python>=3.7
 
-2. **Install**:  
-   Run these commands in the terminal (excluding the `$` sign):  
-   `$ git clone https://github.com/patricknraanes/HistoryMatching.git`  
-   `$ pip install -r DA-tutorials/requirements.txt`  
+If you're not an admin or expert:  
 
-3. **Launch the Jupyter notebooks**:  
-   `$ jupyter-notebook`  
-   This will open up a page in your web browser that is a file navigator.  
-   Click on a `HistoryMatching.py`.  
-   (The jupyter extension `jupytext` will convert it to the notebook format)
+- Install [Anaconda](https://www.anaconda.com/download).
+- Open the [Anaconda terminal](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#starting-conda)
+  and run the following commands:
+
+      conda create --yes --name my-env python=3.8
+      conda activate my-env
+      python -c 'import sys; print("Version:", sys.version.split()[0])'
+
+  Ensure the output at the end gives a version bigger than 3.7.  
+  Keep using the same terminal for the commands below. 
+
+### Install
+
+- Download and unzip (or `git clone`) this repository.
+- Move the resulting folder wherever you like,  
+  and `cd` into it
+- Install requirements:
+  `pip install -r path/to/requirements.txt`.
+- Launch Jupyter:  
+  `jupyter-notebook`.  
+  This will open up a page in your web browser that is a file navigator.  
+  Click on a `placeholder.py`.  
+  (The jupyter extension `jupytext` will convert it to the notebook format)

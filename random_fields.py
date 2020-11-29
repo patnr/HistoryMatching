@@ -7,7 +7,9 @@ from matplotlib import pyplot as plt
 from mpl_tools.misc import fig_colorbar, freshfig
 from numpy.random import randn
 
-from model import grid, gridshape, mesh_coords
+from model import model
+
+grid, gridshape, mesh_coords = model.grid, model.gridshape, model.mesh_coords
 
 
 def variogram_gauss(xx, r, n=0, a=1/3):

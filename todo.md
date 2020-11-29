@@ -1,4 +1,6 @@
 - HM Perm
+    - Sigmoid tranform?
+    - Transform covs
 - iEnS
 - EnOpt
 - Colab

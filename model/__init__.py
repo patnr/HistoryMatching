@@ -28,7 +28,7 @@ from pylib.std import suppress_w
 from scipy.sparse.linalg import spsolve
 from tqdm.auto import tqdm as progbar
 
-from grid import Grid2D
+from .grid import Grid2D
 
 # TODO
 # - Protect Nx, Ny, gridshape, etc?
@@ -36,7 +36,16 @@ from grid import Grid2D
 # - Can the cell volumnes (h2) be arrays?
 
 class ResSim(NicePrint, Grid2D):
-    """Reservoir simulator."""
+    """Reservoir simulator.
+
+    Example:
+    >>> model = ResSim(Lx=1, Ly=1, Nx=32, Ny=32)
+    >>> model.init_Q([[0, 0, 1]], [[1, 1, -1]])
+    >>> S0 = np.zeros(model.M)
+    >>> saturation = simulate(model.step, 3, S0, 0.025)
+    >>> saturation[-1, :3]
+    array([0.9884098 , 0.97347222, 0.95294563])
+    """
 
     @wraps(Grid2D.__init__)
     def __init__(self, *args, **kwargs):
@@ -220,6 +229,31 @@ class ResSim(NicePrint, Grid2D):
         return S
 
 
+def simulate(model_step, nSteps, x0, dt=.025, obs=None, pbar=True):
+
+    # Range with or w/o progbar
+    rge = np.arange(nSteps)
+    if pbar:
+        rge = progbar(rge)
+
+    # Init
+    xx = np.zeros((nSteps+1,)+x0.shape)
+    xx[0] = x0
+
+    # Step
+    for iT in rge:
+        xx[iT+1] = model_step(xx[iT], dt)
+
+    if obs is None:
+        return xx
+
+    # Observe
+    yy = np.zeros((nSteps,)+(obs.length,))
+    for iT in rge:
+        yy[iT] = obs(xx[iT+1])
+    return xx, yy
+
+
 def truncate_01(self, E, warn=""):
     """Saturations should be between 0 and 1."""
     # assert E.max() <= 1 + 1e-10
@@ -229,85 +263,3 @@ def truncate_01(self, E, warn=""):
             print(f"Warning -- {warn}: needed to truncate ensemble.")
         E = E.clip(0, 1)
     return E
-
-
-def simulate(model_step, obs, nSteps, x0, dt=.025, pbar=True):
-
-    # Range with or w/o progbar
-    rge = np.arange(nSteps)
-    if pbar:
-        rge = progbar(rge)
-
-    # Init
-    xx = np.zeros((nSteps+1,)+x0.shape)
-    yy = np.zeros((nSteps,)+(obs.length,))
-    xx[0] = x0
-
-    # Loop
-    for iT in rge:
-        xx[iT+1] = model_step(xx[iT], dt)
-        yy[iT] = obs(xx[iT+1])
-
-    return xx, yy
-
-if __name__ == "__main__":
-    import scipy.linalg as sla
-    from matplotlib import pyplot as plt
-    from mpl_tools.misc import freshfig
-
-    import plots
-    from random_fields import gen_cov
-    from tools import sigmoid
-
-    model = ResSim(Lx=1, Ly=1, Nx=32, Ny=32)
-
-    # injectors = [[0,0,1]]
-    # producers = [[1,1,-1]]
-    injectors = [[0.1, 0.0, 1.0], [0.9, 0.0, 1.0]]
-    producers = [[0.1, 0.7, 1.0], [0.9, 1.0, 1.0], [.5, .2, 1]]
-    # np.random.seed(1)
-    # injectors = rand(5,3)
-    # producers = rand(10,3)
-
-    model.init_Q(injectors, producers)
-
-    # Random field cov
-    np.random.seed(3000)
-    Cov = 0.3**2 * gen_cov(model, radius=0.5)
-    C12 = sla.sqrtm(Cov).real.T
-    S0 = np.zeros(model.M)
-
-    # Varying grid params
-    surf = 0.5 + 2*np.random.randn(model.M) @ C12
-    # surf = surf.clip(.01, 1)
-    surf = sigmoid(surf)
-    surf = surf.reshape(model.gridshape)
-
-    # Rectangles
-    surf[:20, 10] = 0.01
-
-    model.Gridded.K = np.stack([surf, surf])
-
-    obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
-
-    def obs(saturation):
-        return [saturation[i] for i in obs_inds]
-    obs.length = len(obs_inds)
-
-    nTime = 28
-    saturation, production = simulate(model.step, obs, nTime, S0, 0.025)
-
-    # Test
-    assert(
-        repr(saturation[-1]) ==
-        "array([0.9438 , 0.93396, 0.92199, ..., 0.63152, 0.56095, 0.29336])")
-
-    # Plot
-    fig, (ax1, ax2) = freshfig(47, figsize=(8, 4), ncols=2)
-    contours = plots.field(model, ax1, surf)
-    # fig.colorbar(contours)
-    ax2.hist(surf.ravel())
-
-    # Animation
-    ani = plots.animate1(model, saturation, production)
-    plt.pause(.1)

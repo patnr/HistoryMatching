@@ -27,5 +27,5 @@ If you're not an admin or expert:
 - Launch Jupyter:  
   `jupyter-notebook`.  
   This will open up a page in your web browser that is a file navigator.  
-  Click on a `placeholder.py`.  
+  Click on a `notebook1.py`.  
   (The jupyter extension `jupytext` will convert it to the notebook format)

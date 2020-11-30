@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from mpl_tools.misc import fig_colorbar, freshfig
 from numpy.random import randn
 
-from grid import Grid2D
+from model.grid import Grid2D
 
 
 def variogram_gauss(xx, r, n=0, a=1/3):

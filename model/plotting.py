@@ -6,7 +6,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_tools.misc import axprops, fig_colorbar, freshfig, is_notebook_or_qt
 
-from tools import center
+
+def center(E):
+    return E - E.mean(axis=0)
 
 
 def display(animation):
@@ -15,6 +17,15 @@ def display(animation):
     else:
         plt.show(block=False)
 
+COORD_TYPE = "relative"
+def lims(self):
+    if "rel" in COORD_TYPE:
+        Lx, Ly = 1, 1
+    elif "abs" in COORD_TYPE:
+        Lx, Ly = self.Lx, self.Ly
+    elif "ind" in COORD_TYPE:
+        Lx, Ly = self.Nx, self.Ny
+    return Lx, Ly
 
 def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
@@ -22,6 +33,8 @@ def field(self, ax, zz, **kwargs):
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
     Z = zz.reshape(self.gridshape).T
+
+    Lx, Ly = lims(self)
 
     ax.set(**axprops(kwargs))
 
@@ -34,10 +47,10 @@ def field(self, ax, zz, **kwargs):
         # except manually padding Z on all sides, or using origin=None
         # (the mpl default), which would be wrong because it merely
         # stretches rather than pads.
-        origin="lower", extent=(0, 1, 0, 1))
+        origin="lower", extent=(0, Lx, 0, Ly))
 
-    ax.set_xlim((0, 1))
-    ax.set_ylim((0, 1))
+    ax.set_xlim((0, Lx))
+    ax.set_ylim((0, Ly))
 
     if ax.is_first_col():
         ax.set_ylabel("y")
@@ -101,8 +114,26 @@ def corr_field_vs(self, ax, E, xy, title="", **kwargs):
     ax.plot(*xy, '*k', ms=4)
     return cc
 
+def scale_well_geometry(self, ww):
+    """
+    Wells use absolute scaling.
+    Scale to coord_type instead.
+    """
+    ww = ww.copy()  # dont overwrite
+    if "rel" in COORD_TYPE:
+        s = 1/self.Lx, 1/self.Ly
+    elif "abs" in COORD_TYPE:
+        s = 1, 1
+    elif "ind" in COORD_TYPE:
+        s = self.Nx/self.Lx, self.Ny/self.Ly
+    ww[:, :2] = ww[:, :2] * s
+    return ww
 
-def well_scatter(self, ax, ww, inj=True):
+
+def well_scatter(self, ax, ww, inj=True, text=True):
+    ww = scale_well_geometry(self, ww)
+
+    # Style
     if inj:
         c = "w"
         d = "k"
@@ -111,13 +142,16 @@ def well_scatter(self, ax, ww, inj=True):
         c = "k"
         d = "w"
         m = "^"
-    # Marker
+
+    # Markers
     ax.plot(*ww.T[:2], m+c, ms=16, mec="k", clip_on=False)
-    # Text
-    if not inj:
-        ww.T[1] -= 0.01
-    for i, w in enumerate(ww):
-        ax.text(*w[:2], i, color=d, ha="center", va="center")
+
+    # Text labels
+    if text:
+        if not inj:
+            ww.T[1] -= 0.01
+        for i, w in enumerate(ww):
+            ax.text(*w[:2], i, color=d, ha="center", va="center")
 
 
 def production1(ax, production, obs=None):
@@ -193,19 +227,16 @@ def oilfields(self, fignum, water_sat_fields, label="", **kwargs):
     fig, axs = freshfig(fignum, nrows=3, ncols=4, sharex=True, sharey=True)
 
     for i, (ax, water_sat) in enumerate(zip(axs.ravel(), water_sat_fields[label])):
-        ax.text(0, .85*self.Ly, str(i), c="w", size=12)
+        Lx, Ly = lims(self)
+        ax.text(0, .85*Ly, str(i), c="w", size=12)
 
-        cc = oilfield(self,
-                      ax, water_sat,
-                      xticks=[0, self.Lx],
-                      yticks=[0, self.Ly],
-                      **kwargs)
+        cc = oilfield(self, ax, water_sat, **kwargs)
 
     fig.suptitle(f"Oil saturation (some realizations) - {label}")
     fig_colorbar(fig, cc)
 
 
-def oilfield_means(self, fignum, water_sat_fields, title=""):
+def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
     ncols = 2
     nAx   = len(water_sat_fields)
     nrows = int(np.ceil(nAx/ncols))
@@ -220,12 +251,12 @@ def oilfield_means(self, fignum, water_sat_fields, title=""):
         if field.ndim == 2:
             field = field.mean(axis=0)
 
-        handle = oilfield(self, ax, field, title=label)
+        handle = oilfield(self, ax, field, title=label, **kwargs)
 
     fig_colorbar(fig, handle)
 
 
-def correlation_fields(self, fignum, field_ensembles, xy_coord, title=""):
+def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwargs):
     field_ensembles = {k: v for k, v in field_ensembles.items() if v.ndim == 2}
 
     ncols = 2
@@ -243,23 +274,24 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title=""):
         else:
             label  = list(field_ensembles)[i]
             field  = field_ensembles[label]
-            handle = corr_field_vs(self, ax, field, xy_coord, label)
+            handle = corr_field_vs(self, ax, field, xy_coord, label, **kwargs)
 
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
 
 
-def animate1(self, saturation, production, pause=200):
+def animate1(self, saturation, production, pause=200, **kwargs):
     fig, axs = freshfig(19, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023
 
-    tt = 1+np.arange(len(saturation))
+    tt = np.arange(len(saturation))
 
     axs[0, 0].set_title("Oil saturation (Initial)")
-    axs[0, 0].cc = oilfield(self, axs[0, 0], saturation[0])
+    axs[0, 0].cc = oilfield(self, axs[0, 0], saturation[0], **kwargs)
+    axs[0, 0].set_ylabel(f"y ({COORD_TYPE})")
 
     axs[0, 1].set_title("Oil saturation")
-    axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[-1])
+    axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[-1], **kwargs)
     well_scatter(self, axs[0, 1], self.injectors)
     well_scatter(self, axs[0, 1], self.producers, False)
 
@@ -267,31 +299,34 @@ def animate1(self, saturation, production, pause=200):
     axs[1, 0].set(ylim=(0, 1))
     prod_handles = production1(axs[1, 0], production)
     axs[1, 0].legend(loc="upper right", title="Well num.")
-    axs[1, 0].set(ylabel=None)
 
     axs[1, 1].set_title("Saturation (production)")
+    Lx, Ly = lims(self)
+    ww = scale_well_geometry(self, self.producers)
     scat_handles = axs[1, 1].scatter(
-        *self.producers.T[:2], 24**2, 1-production[-1],
+        *ww.T[:2], 24**2, 1-production[-1],
         marker="^", clip_on=False, cmap=cm_ow, vmin=0, vmax=1)
-    axs[1, 1].set(
-        xlim=(0, self.Lx),
-        ylim=(0, self.Ly))
+    axs[1, 1].set(xlim=(0, Lx), ylim=(0, Ly), xlabel=f"x ({COORD_TYPE})")
 
     fig.tight_layout()
     fig_colorbar(fig, axs[0, 0].cc)
 
     def animate(iT):
+        # Update field
         for c in axs[0, 1].cc.collections:
             try:
                 axs[0, 1].collections.remove(c)
             except ValueError:
                 pass  # occurs when re-running script
-        axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[iT])
+        axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[iT], **kwargs)
 
-        for h, p in zip(prod_handles, 1-production.T):
-            h.set_data(tt[:iT], p[:iT])
+        # Update production lines
+        if iT >= 1:
+            for h, p in zip(prod_handles, 1-production.T):
+                h.set_data(tt[:iT-1], p[:iT-1])
 
-        scat_handles.set_array(1-production[iT])
+            # Color wells
+            scat_handles.set_array(1-production[iT-1])
 
     from matplotlib import animation
     ani = animation.FuncAnimation(

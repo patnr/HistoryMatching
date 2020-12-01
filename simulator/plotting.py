@@ -226,14 +226,15 @@ def productions(fignum, water_prod_series, title=""):
 def oilfields(self, fignum, water_sat_fields, label="", **kwargs):
     fig, axs = freshfig(fignum, nrows=3, ncols=4, sharex=True, sharey=True)
 
-    for i, (ax, water_sat) in enumerate(zip(axs.ravel(), water_sat_fields[label])):
-        Lx, Ly = lims(self)
-        ax.text(0, .85*Ly, str(i), c="w", size=12)
+    if label:
+        water_sat_fields = water_sat_fields[label]
 
-        cc = oilfield(self, ax, water_sat, **kwargs)
+    for i, (ax, ws) in enumerate(zip(axs.ravel(), water_sat_fields)):
+        ax.text(0, .85, i, c="w", size=12, transform=ax.transAxes)
+        collections = oilfield(self, ax, ws, **kwargs)
 
     fig.suptitle(f"Oil saturation (some realizations) - {label}")
-    fig_colorbar(fig, cc)
+    fig_colorbar(fig, collections)
 
 
 def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):

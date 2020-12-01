@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import simulator.plotting as plots
-from random_fields import gaussian_fields
+from geostat import gaussian_fields
 from simulator import ResSim, simulate
 from tools import sigmoid
 

@@ -1,4 +1,4 @@
-"""Generate initial reservoir realisations.
+"""Generate initial reservoir realisations with geostatistical methods.
 """
 
 import numpy as np

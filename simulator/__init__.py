@@ -252,14 +252,3 @@ def simulate(model_step, nSteps, x0, dt=.025, obs=None, pbar=True):
     for iT in rge:
         yy[iT] = obs(xx[iT+1])
     return xx, yy
-
-
-def truncate_01(self, E, warn=""):
-    """Saturations should be between 0 and 1."""
-    # assert E.max() <= 1 + 1e-10
-    # assert E.min() >= 0 - 1e-10
-    if (E.max() - 1e-10 >= 1) or (E.min() + 1e-10 <= 0):
-        if warn:
-            print(f"Warning -- {warn}: needed to truncate ensemble.")
-        E = E.clip(0, 1)
-    return E

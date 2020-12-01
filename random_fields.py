@@ -4,17 +4,19 @@
 import numpy as np
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
-from mpl_tools.misc import fig_colorbar, freshfig
+from mpl_tools.misc import freshfig
 from numpy.random import randn
 
-from model.grid import Grid2D
+from simulator import plotting as plots
+from simulator.grid import Grid2D
+from tools import truncate_01  # noqa
 
 
 def variogram_gauss(xx, r, n=0, a=1/3):
-    """Compute the Gaussian variogram for the  points xx.
+    """Compute the Gaussian variogram for the 1D points xx.
 
     Params:
-    radius r, nugget n, and a
+    range r, nugget n, and a
 
     Ref:
     https://en.wikipedia.org/wiki/Variogram#Variogram_models
@@ -33,77 +35,55 @@ def variogram_gauss(xx, r, n=0, a=1/3):
     return gamma
 
 
-def comp_dists(XX, YY):
-    """Compute distances."""
-    GG = np.vstack((XX.ravel(), YY.ravel())).T  # shape (M,2)
-    diff = GG[:, None, :] - GG                  # shape (M,M,2)
-    d2 = np.sum(diff**2, axis=-1)               # shape (M,M)
-    dd = np.sqrt(d2)
-    return dd
+def vectorize(*XYZ):
+    """Reshape coordinate points.
+
+    Input: `nDim` arrays with equal `shape`.
+    Let `nPt = np.prod(shape)`
+    Output: array of shape `(nPt, nDim)`."""
+    return np.stack(XYZ).reshape((len(XYZ), -1)).T
 
 
-def gen_surfs(n, Cov):
-    M = len(Cov)
-    SS = sla.sqrtm(Cov).real @ randn(M, n)
+def dist_euclid(X):
+    """Compute distances.
 
-    # Normalize
-    # TODO Don't know why the random fields get such high amplitudes.
-    # In any case, gotta keep em within [0,1]
-    normfactor = SS.max() - SS.min()
-    SS /= normfactor  # make max spread 1
-    SS -= SS.min(axis=0)
-    return SS, normfactor
+    X must be a 2D-array of shape `(nPt, nDim)`.
 
-
-def gen_cov(grid, radius=0.5):
-    XX, YY = grid.mesh_coords()
-    dd = comp_dists(XX, YY)
-    return 1 - variogram_gauss(dd, radius)
+    Note: not periodic.
+    """
+    diff = X[:, None, :] - X
+    d2 = np.sum(diff**2, axis=-1)
+    return np.sqrt(d2)
 
 
-def gen_ens_01(grid, N):
-    Cov = gen_cov(grid)
-    SS, normfactor = gen_surfs(N, Cov)
-    return SS, Cov/normfactor**2
+def gaussian_fields(pts, N=1, r=0.2):
+    """Random field generation.
 
-
-def gen_ens(grid, N, sill):
-    # Return ensemble of fields, and its true covariance
-    SS, Cov = gen_ens_01(grid, N)
-    SS *= sill  # set amplitude/sill
-    return SS.T, Cov*sill**2
+    Uses:
+    - Gaussian variogram.
+    - Gaussian distributions.
+    """
+    dists  = dist_euclid(vectorize(*pts))
+    Cov    = 1 - variogram_gauss(dists, r)
+    C12    = sla.sqrtm(Cov).real
+    fields = randn(N, len(dists)) @ C12.T
+    return fields
 
 
 if __name__ == "__main__":
-    np.random.seed(9)
-
-    ## 2D
-    N = 100
-    sill = 0.7
-
-    grid = Grid2D(Lx=4, Ly=10, Nx=2, Ny=5)
-    SS, Cov = gen_ens(grid, N, sill)
-
-    fig, axs = freshfig(21, nrows=3, ncols=int(12/3),
-                        sharex=True, sharey=True)
-    CC = []
-    for i, (ax, S) in enumerate(zip(axs.ravel(), SS)):
-        ax.set_title(i)
-        CC.append(ax.contourf(
-            1 - S.reshape(grid.gridshape).T,
-            levels=21, vmin=1-sill, vmax=1))
-    fig_colorbar(fig, CC[0])
+    np.random.seed(3000)
+    plt.ion()
+    N = 15  # ensemble size
 
     ## 1D
-    M  = 201
-    xx = np.linspace(0, 1, M)
-    vv = variogram_gauss(xx, .2, n=0.1)
-
-    # Distances
-    dd = comp_dists(xx, np.zeros_like(xx))
-    C  = 1 - variogram_gauss(dd, .2)
-    SS = C @ randn(M, 10)
-
+    xx = np.linspace(0, 1, 201)
+    fields = gaussian_fields((xx,), N)
     fig, ax = freshfig(1)
-    ax.plot(xx, SS)
-    plt.pause(.01)
+    ax.plot(xx, fields.T, lw=2)
+
+    ## 2D
+    grid   = Grid2D(Lx=1, Ly=1, Nx=20, Ny=20)
+    fields = gaussian_fields(grid.mesh(), N)
+    fields = 0.5 + .2*fields
+    # fields = truncate_01(fields)
+    plots.oilfields(grid, 2, fields)

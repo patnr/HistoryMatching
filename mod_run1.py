@@ -1,10 +1,9 @@
 import numpy as np
-import scipy.linalg as sla
 from matplotlib import pyplot as plt
 
-import model.plotting as plots
-from model import ResSim, simulate
-from random_fields import gen_cov
+import simulator.plotting as plots
+from random_fields import gaussian_fields
+from simulator import ResSim, simulate
 from tools import sigmoid
 
 # from mpl_tools.misc import freshfig
@@ -22,21 +21,18 @@ producers = [[0.1, 0.7, 100.0], [0.9, 1.0, 1.0], [.5, .2, 1]]
 
 model.init_Q(injectors, producers)
 
-# Random field cov
-np.random.seed(3000)
-Cov = 0.3**2 * gen_cov(model, radius=0.5)
-C12 = sla.sqrtm(Cov).real.T
-S0 = np.zeros(model.M)
-
 # Varying grid params
-surf = 0.5 + 2*np.random.randn(model.M) @ C12
-# surf = surf.clip(.01, 1)
+np.random.seed(3000)
+surf = gaussian_fields(model.mesh(), 1)
+surf = 0.5 + .2*surf
+# surf = truncate_01(surf)
 surf = sigmoid(surf)
-surf = surf.reshape(model.gridshape)
-
-# Rectangles
+surf = surf.reshape(model.shape)
+# Insert barrier
 surf[:model.Nx//2, model.Ny//3] = 0.001
 
+# Set permeabilities to surf.
+# Alternative: set S0 to it.
 model.Gridded.K = np.stack([surf, surf])
 
 # Define obs operator
@@ -46,6 +42,7 @@ def obs(saturation):
 obs.length = len(obs_inds)
 
 # Simulate
+S0 = np.zeros(model.M)
 nTime = 28
 saturation, production = simulate(model.step, nTime, S0, 0.025, obs)
 

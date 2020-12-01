@@ -15,7 +15,7 @@ x from left to right, and y from bottom to top.
 
 Example:
 >>> grid = Grid2D(Lx=4, Ly=10, Nx=2, Ny=5)
->>> X, Y = grid.mesh_coords();
+>>> X, Y = grid.mesh();
 >>> X
 array([[1., 1., 1., 1., 1.],
        [3., 3., 3., 3., 3.]])
@@ -44,15 +44,15 @@ class Grid2D:
     Ny: int = 32
 
     def __post_init__(self):
-        self.gridshape = self.Nx, self.Ny
-        self.grid      = self.Nx, self.Ny, self.Lx, self.Ly
-        self.M         = np.prod(self.gridshape)
+        self.shape = self.Nx, self.Ny
+        self.grid  = self.shape + (self.Lx, self.Ly)
+        self.M     = np.prod(self.shape)
 
         # Resolution
         self.hx, self.hy = self.Lx/self.Nx, self.Ly/self.Ny
         self.h2 = self.hx*self.hy
 
-    def mesh_coords(self, centered=True):
+    def mesh(self, centered=True):
         """Generate 2D coordinate grids."""
 
         xx = np.linspace(0, self.Lx, self.Nx, endpoint=False)
@@ -66,12 +66,12 @@ class Grid2D:
 
     def sub2ind(self, ix, iy):
         """Convert index `(ix, iy)` to index in flattened array."""
-        idx = np.ravel_multi_index((ix, iy), self.gridshape)
+        idx = np.ravel_multi_index((ix, iy), self.shape)
         return idx
 
     def ind2sub(self, ind):
         """Inv. of `self.sub2ind`."""
-        ix, iy = np.unravel_index(ind, self.gridshape)
+        ix, iy = np.unravel_index(ind, self.shape)
         return ix, iy
 
     def xy2sub(self, x, y):

@@ -32,7 +32,7 @@ def field(self, ax, zz, **kwargs):
 
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
-    Z = zz.reshape(self.gridshape).T
+    Z = zz.reshape(self.shape).T
 
     Lx, Ly = lims(self)
 

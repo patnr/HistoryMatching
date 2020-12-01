@@ -31,8 +31,7 @@ from tqdm.auto import tqdm as progbar
 from .grid import Grid2D
 
 # TODO
-# - Protect Nx, Ny, gridshape, etc?
-# - Nx/Ny = 2
+# - Protect Nx, Ny, shape, etc?
 # - Can the cell volumnes (h2) be arrays?
 
 class ResSim(NicePrint, Grid2D):
@@ -53,9 +52,10 @@ class ResSim(NicePrint, Grid2D):
         # Init grid
         super().__init__(*args, **kwargs)
 
+        # Gridded properties
         self.Gridded = DotDict(
-            K  =np.ones((2, *self.gridshape)),  # permeability in x&y dirs.
-            por=np.ones(self.gridshape),        # porosity
+            K  =np.ones((2, *self.shape)),  # permeability in x&y dirs.
+            por=np.ones(self.shape),        # porosity
         )
 
         self.Fluid = DotDict(
@@ -169,7 +169,7 @@ class ResSim(NicePrint, Grid2D):
 
         # Other options to consider: scipy.sparse.linalg.lsqr, etc.
 
-        P = u.reshape(self.gridshape)
+        P = u.reshape(self.shape)
 
         V = DotDict(
             x = np.zeros((self.Nx+1, self.Ny)),
@@ -184,7 +184,7 @@ class ResSim(NicePrint, Grid2D):
         # Compute K*lambda(S)
         Mw, Mo = self.RelPerm(S)
         Mt = Mw+Mo
-        Mt = Mt.reshape(self.gridshape)
+        Mt = Mt.reshape(self.shape)
         KM = Mt*self.Gridded.K
         # Compute pressure and extract fluxes
         [P, V] = self.TPFA(KM, q)

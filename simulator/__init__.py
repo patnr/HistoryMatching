@@ -23,8 +23,8 @@ import numpy as np
 # import matplotlib as mpl
 import scipy.sparse as sparse
 from numpy import errstate
-from pylib.dict_tools import DotDict, NicePrint
-from pylib.std import suppress_w
+from patlib.dict_tools import DotDict, NicePrint
+from patlib.std import suppress_w
 from scipy.sparse.linalg import spsolve
 from tqdm.auto import tqdm as progbar
 

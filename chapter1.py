@@ -34,7 +34,7 @@ for i, c in enumerate(name):
 # of Python in the background.
 # All of the Python code cells (in a given notebook) are connected
 # (they use the same Python kernel and thus share variables, functions, and classes).
-# Thus, the **order** in which you run the cells matters. For example:
+# Thus, the **order** in which you run the cells matters.
 
 # !wget -qO- https://raw.githubusercontent.com/patricknraanes/HistoryMatching/master/colab_bootstrap.sh | bash -s
 

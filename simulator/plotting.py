@@ -4,8 +4,19 @@ import IPython.display as ipy_disp
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_tools.misc import axprops, fig_colorbar, freshfig, is_notebook_or_qt
+from mpl_tools.misc import (axprops, fig_colorbar, fig_placement_load,
+                            freshfig, is_notebook_or_qt)
+from pylib.dict_tools import DotDict
 
+
+def setup():
+    if is_notebook_or_qt:
+        mpl.rcParams.update({'font.size': 13})
+        mpl.rcParams["figure.figsize"] = [9, 7]
+    else:
+        mpl.use("Qt5Agg")
+        plt.ion()
+        fig_placement_load()
 
 def center(E):
     return E - E.mean(axis=0)
@@ -58,6 +69,70 @@ def field(self, ax, zz, **kwargs):
         ax.set_xlabel("x")
 
     return collections
+
+
+def nRowCol(nTotal, wh_ratio=None):
+    "Return `int` nrows and ncols such that `nTotal ≈ nrows*ncols`."
+
+    # Aspect ratio: default from mpl.rc.figsize
+    if wh_ratio is None:
+        w, h = mpl.rcParams["figure.figsize"]
+        wh_ratio = w/h
+
+    nrows = int(np.sqrt(nTotal)//wh_ratio)
+    ncols = nTotal//nrows
+
+    if nrows*ncols < nTotal:
+        ncols += 1
+
+    return nrows, ncols
+
+
+def subplots(self,
+             fignum, plotter, ZZ,
+             figsize=None,
+             title="",
+             ax_text_color="w",
+             colorbar=True,
+             **kwargs):
+
+    nrows, ncols = nRowCol(min(12, len(ZZ)))
+
+    fig, axs = freshfig(fignum, figsize=figsize,
+                        nrows=nrows, ncols=ncols,
+                        sharex=True, sharey=True)
+
+    # Turn off redundant axes
+    for ax in axs[len(ZZ):]:
+        ax.set_visible(False)
+
+    hh = []
+    for i, (ax, Z) in enumerate(zip(axs.ravel(), ZZ)):
+
+        # See if ZZ is list/array or dict
+        if isinstance(ZZ, dict):
+            label = Z
+            Z = ZZ[Z]
+        else:
+            label = i
+
+        # Label
+        ax.text(0, 1, label, ha="left", va="top",
+                c=ax_text_color, size=12, transform=ax.transAxes)
+
+        # Call plotter
+        hh.append(plotter(self, ax, Z, **kwargs))
+
+    if colorbar:
+        fig_colorbar(fig, hh[0])
+
+    if title:
+        fig.suptitle(title)
+
+    return fig, axs, hh
+
+def oilfields(self, fignum, water_sat_fields, **kwargs):
+    return subplots(self, fignum, oilfield, **kwargs)
 
 
 # Colormap for saturation
@@ -130,7 +205,7 @@ def scale_well_geometry(self, ww):
     return ww
 
 
-def well_scatter(self, ax, ww, inj=True, text=True):
+def well_scatter(self, ax, ww, inj=True, text=True, color=None):
     ww = scale_well_geometry(self, ww)
 
     # Style
@@ -143,8 +218,14 @@ def well_scatter(self, ax, ww, inj=True, text=True):
         d = "w"
         m = "^"
 
+    if color:
+        c = color
+
     # Markers
-    ax.plot(*ww.T[:2], m+c, ms=16, mec="k", clip_on=False)
+    # sh = ax.plot(*ww.T[:2], m+c, ms=16, mec="k", clip_on=False)
+    sh = ax.scatter(*ww.T[:2], s=16**2, c=c, marker=m, clip_on=False,
+                    zorder=1.5  # required on Jupypter
+                    )
 
     # Text labels
     if text:
@@ -152,6 +233,8 @@ def well_scatter(self, ax, ww, inj=True, text=True):
             ww.T[1] -= 0.01
         for i, w in enumerate(ww):
             ax.text(*w[:2], i, color=d, ha="center", va="center")
+
+    return sh
 
 
 def production1(ax, production, obs=None):
@@ -164,77 +247,63 @@ def production1(ax, production, obs=None):
         for i, y in enumerate(1-obs.T):
             ax.plot(tt, y, "*", c=hh[i].get_color())
 
-    ax.legend(title="Prod.\nwell #.")
+    ax.legend(title="Prod.\nwell #.", loc="upper left", bbox_to_anchor=(1, 1), ncol=3)
     ax.set_ylabel("Oil saturation (rel. production)")
     ax.set_xlabel("Time index")
     ax.set_ylim(-0.01, 1.01)
     return hh
 
+# TODO: implement with plotting.subplots
+def productions(fignum, dct, nProd=None, figsize=None, title=""):
+    if nProd is None:
+        nProd = dct.Truth.shape[1]
+        nProd = min(24, nProd)
+    nrows, ncols = nRowCol(nProd)
+    fig, axs = freshfig(fignum, figsize=figsize,
+                        ncols=ncols, nrows=nrows,
+                        sharex=True, sharey=True)
+    fig.suptitle("Oil productions " + title)
 
-def productions(fignum, water_prod_series, title=""):
-    """Plot production series, including ensembles. 1 well/axes."""
-    nAx   = len(water_prod_series.T)
-    ncols = 4
-    nrows = int(np.ceil(nAx/ncols))
-    fig, axs = freshfig(fignum, figsize=(16, 7),
-                        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
+    # Turn off redundant axes
+    for ax in axs.ravel()[nProd-1:]:
+        ax.set_visible(False)
 
-    # Plot properties
-    props = dict(
-        color  = dict(default="k",  pri="C0", ES="C1", EnKS="C2", ES_dir="C6"),
-        alpha  = dict(default=1.0,  pri=.20, ES=.20, EnKS=.20, ES_dir=.20),
-        lw     = dict(default=0.5,  tru=2.0),
-        ls     = dict(default="-",  obs=""),
-        marker = dict(default="",   obs="*"),
-    )
-
-    def pprop(label):
-        """Fuzzy lookup of property."""
-        out = dict(label=label)
-        for a in props:
-            dct = props[a]
-            out[a] = dct["default"]
-            for key in dct:
-                if key.lower() in label.lower():
-                    out[a] = dct[key]
-        return out
+    # Line styling
+    def style(label):
+        style = DotDict(
+            label=label,
+            c="k", alpha=1.0, lw=0.5,
+            ls="-", marker="", ms=4,
+        )
+        if label == "Truth":
+            style.lw     = 2
+            style.zorder = 2
+        if label == "Noisy":
+            style.ls     = ""
+            style.marker = "*"
+        if label == "Prior":
+            style.c     = "C0"
+            style.alpha = .2
+        if label == "ES":
+            style.c     = "C1"
+            style.alpha = .2
+        return style
 
     # For each well
-    for i, ax in enumerate(axs.ravel()):
+    for i in range(nProd-1):
+        ax = axs.ravel()[i]
+        ax.text(1, 1, f"Well {i}" if i == 0 else i, c="k", size=12,
+                ha="right", va="top", transform=ax.transAxes)
 
-        if i == 0:
-            fig.suptitle("Oil saturations -- " + title)
-        if i >= nAx:
-            ax.set_visible(False)
-            continue
-
-        # Well number
-        ax.text(1, 1, f"Well #{i}", ha="right", va="top", transform=ax.transAxes)
-
-        # Plot
-        for label, series in water_prod_series.items():
-            ll = ax.plot(1 - series.T[i].T, **pprop(label))
+        for label, series in dct.items():
+            ll = ax.plot(1 - series.T[i], **style(label))
             plt.setp(ll[1:], label="_nolegend_")
 
         # Legend
-        if i == nAx-1:
+        if i == nProd-2:
             leg = ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
             for ln in leg.get_lines():
-                ln.set(alpha=1, linewidth=1)
-
-
-def oilfields(self, fignum, water_sat_fields, label="", **kwargs):
-    fig, axs = freshfig(fignum, nrows=3, ncols=4, sharex=True, sharey=True)
-
-    if label:
-        water_sat_fields = water_sat_fields[label]
-
-    for i, (ax, ws) in enumerate(zip(axs.ravel(), water_sat_fields)):
-        ax.text(0, .85, i, c="w", size=12, transform=ax.transAxes)
-        collections = oilfield(self, ax, ws, **kwargs)
-
-    fig.suptitle(f"Oil saturation (some realizations) - {label}")
-    fig_colorbar(fig, collections)
+                ln.set(alpha=1, linewidth=max(1, ln.get_linewidth()))
 
 
 def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
@@ -280,8 +349,8 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
 
 
-def animate1(self, saturation, production, pause=200, **kwargs):
-    fig, axs = freshfig(19, ncols=2, nrows=2, figsize=(12, 10))
+def dashboard(self, saturation, production, pause=200, animate=True, title="", **kwargs):
+    fig, axs = freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023
 
@@ -294,55 +363,40 @@ def animate1(self, saturation, production, pause=200, **kwargs):
     axs[0, 1].set_title("Oil saturation")
     axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[-1], **kwargs)
     well_scatter(self, axs[0, 1], self.injectors)
-    well_scatter(self, axs[0, 1], self.producers, False)
+    well_scatter(self, axs[0, 1], self.producers, False,
+                 color=[f"C{i}" for i in range(len(self.producers))])
 
     axs[1, 0].set_title("Saturation (production)")
     axs[1, 0].set(ylim=(0, 1))
     prod_handles = production1(axs[1, 0], production)
-    axs[1, 0].legend(loc="upper right", title="Well num.")
+    axs[1, 0].legend(title="Well num.", loc="upper left", bbox_to_anchor=(1, 1), ncol=3)
 
-    axs[1, 1].set_title("Saturation (production)")
-    Lx, Ly = lims(self)
-    ww = scale_well_geometry(self, self.producers)
-    scat_handles = axs[1, 1].scatter(
-        *ww.T[:2], 24**2, 1-production[-1],
-        marker="^", clip_on=False, cmap=cm_ow, vmin=0, vmax=1)
-    axs[1, 1].set(xlim=(0, Lx), ylim=(0, Ly), xlabel=f"x ({COORD_TYPE})")
+    axs[1, 1].set_visible(False)
 
-    fig.tight_layout()
+    # fig.tight_layout()
     fig_colorbar(fig, axs[0, 0].cc)
 
-    def animate(iT):
-        # Update field
-        for c in axs[0, 1].cc.collections:
-            try:
-                axs[0, 1].collections.remove(c)
-            except ValueError:
-                pass  # occurs when re-running script
-        axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[iT], **kwargs)
+    if title:
+        fig.suptitle(title)
 
-        # Update production lines
-        if iT >= 1:
-            for h, p in zip(prod_handles, 1-production.T):
-                h.set_data(tt[:iT-1], p[:iT-1])
+    if animate:
+        from matplotlib import animation
 
-            # Color wells
-            scat_handles.set_array(1-production[iT-1])
+        def update_fig(iT):
+            # Update field
+            for c in axs[0, 1].cc.collections:
+                try:
+                    axs[0, 1].collections.remove(c)
+                except ValueError:
+                    pass  # occurs when re-running script
+            axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[iT], **kwargs)
 
-    from matplotlib import animation
-    ani = animation.FuncAnimation(
-        fig, animate, len(tt), blit=False, interval=pause)
+            # Update production lines
+            if iT >= 1:
+                for h, p in zip(prod_handles, 1-production.T):
+                    h.set_data(tt[:iT-1], p[:iT-1])
 
-    return ani
+        ani = animation.FuncAnimation(
+            fig, update_fig, len(tt), blit=False, interval=pause)
 
-
-def hists(fignum, samples, xlabel=""):
-    fig, ax = freshfig(fignum, figsize=(8, 4))
-    for label in samples:
-        sample = samples[label].ravel()
-        ax.hist(sample, density=True, alpha=0.4, bins=20, label=label)
-    ax.legend()
-    ax.set(xlabel=xlabel, ylabel=(
-        "Rel. frequency\n"
-        "(over all members and all cells)"
-    ))
+        return ani

@@ -28,12 +28,12 @@ def sigmoid(x):
     return 1/(1+np.exp(-x))
 
 
-class Stats:
-    """RMSE & STDDEV"""
+class RMS:
+    """RMS error & dev."""
 
     def __init__(self, truth, ensemble):
-        self.x = truth
-        self.E = ensemble
+        self.x = truth.reshape(-1)
+        self.E = ensemble.reshape((len(ensemble), -1))
 
     def __str__(self):
         err = self.x - self.E.mean(axis=0)

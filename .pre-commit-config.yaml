@@ -34,11 +34,11 @@ repos:
     -   id: flake8
         args: [--max-line-length=88]  # default of Black
 
--   repo: https://github.com/timothycrosley/isort
-    rev: 5.6.4
-    hooks:
-    -   id: isort
-        exclude: |
-            (?x)^(
-                HistoryMatching.py
-            )$
+#-   repo: https://github.com/timothycrosley/isort
+#    rev: 5.6.4
+#    hooks:
+#    -   id: isort
+#        exclude: |
+#            (?x)^(
+#                HistoryMatching.py
+#            )$

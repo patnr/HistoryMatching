@@ -28,6 +28,8 @@ ignore=E24,W503,E123,E226,E704,E121,W504,E126,
     E222
     E302, E305, E703, E402
     E303
+    E703
+    E501
 
 
 ; Doesn't work with autopep8 (only flake8),

@@ -1,5 +1,11 @@
 # History matching tutorial
 
+## Jump right in
+
+using Google colab (requires login):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patricknraanes/HistoryMatching/blob/Colab)
+
 ## Installation
 
 ### Prerequisite: Python>=3.7

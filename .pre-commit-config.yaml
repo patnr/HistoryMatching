@@ -13,7 +13,7 @@ repos:
         # let flake8 deal with py => dont treat docstrings.
         exclude_types: ['html','python']
     -   id: check-added-large-files
-    -   id: check-ast
+    #-   id: check-ast
     -   id: check-json
     -   id: check-merge-conflict
     -   id: check-xml

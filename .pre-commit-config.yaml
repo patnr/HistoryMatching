@@ -18,7 +18,7 @@ repos:
     -   id: check-merge-conflict
     -   id: check-xml
     -   id: check-yaml
-    -   id: debug-statements
+    #-   id: debug-statements
     -   id: detect-aws-credentials  # Notifies if you DONT have credentials
         args:
         - --allow-missing-credentials
@@ -28,11 +28,11 @@ repos:
     -   id: mixed-line-ending
         args: ['--fix=no']
 
--   repo: https://gitlab.com/PyCQA/flake8
-    rev: 3.8.3
-    hooks:
-    -   id: flake8
-        args: [--max-line-length=88]  # default of Black
+#-   repo: https://gitlab.com/PyCQA/flake8
+#    rev: 3.8.3
+#    hooks:
+#    -   id: flake8
+#        args: [--max-line-length=88]  # default of Black
 
 #-   repo: https://github.com/timothycrosley/isort
 #    rev: 5.6.4

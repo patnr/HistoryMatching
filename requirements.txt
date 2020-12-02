@@ -4,6 +4,7 @@ jupyter
 jupytext
 matplotlib
 mpl-tools==0.1.11
+patlib==0.1.2
 pdbpp
 pytest
 scipy

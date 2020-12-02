@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_tools.misc import (axprops, fig_colorbar, fig_placement_load,
                             freshfig, is_notebook_or_qt)
-from pylib.dict_tools import DotDict
+from patlib.dict_tools import DotDict
 
 
 def setup():

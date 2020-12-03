@@ -2,7 +2,7 @@
 
 ## Run in the cloud
 
-using Google colab (requires no installation, but Google login):
+using Colab (requires no installation, but Google login):
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patricknraanes/HistoryMatching/blob/Colab)
 

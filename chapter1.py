@@ -77,10 +77,6 @@ for i in range(4):
 plt.legend();
 
 # ## Setup
-# Run this to download and install the project's requirements:
-
-# !wget -qO- https://raw.githubusercontent.com/patricknraanes/HistoryMatching/master/colab_bootstrap.sh | bash -s
-
 # Run the following cells to import some tools...
 
 from copy import deepcopy

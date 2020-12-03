@@ -14,6 +14,7 @@ setup () {
     URL=https://github.com/patricknraanes/HistoryMatching.git
     if [[ ! -d REPO ]]; then git clone --depth=1 $URL REPO; fi
     pip install -r REPO/requirements.txt
+    cp -r REPO ./
 }
 
 # Only run if we're on colab

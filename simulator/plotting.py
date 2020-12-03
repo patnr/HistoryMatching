@@ -14,9 +14,12 @@ def setup():
         mpl.rcParams.update({'font.size': 13})
         mpl.rcParams["figure.figsize"] = [9, 7]
     else:
-        mpl.use("Qt5Agg")
-        plt.ion()
-        fig_placement_load()
+        try:
+            import google.colab  # noqa
+        except ImportError:
+            mpl.use("Qt5Agg")
+            plt.ion()
+            fig_placement_load()
 
 def center(E):
     return E - E.mean(axis=0)

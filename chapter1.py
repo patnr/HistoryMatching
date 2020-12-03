@@ -88,7 +88,7 @@ import scipy.linalg as sla
 from matplotlib import pyplot as plt
 from mpl_tools.misc import freshfig
 from numpy.random import randn
-from pylib.dict_tools import DotDict
+from patlib.dict_tools import DotDict
 from tqdm.auto import tqdm as progbar
 
 # and the model, ...

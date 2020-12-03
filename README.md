@@ -35,3 +35,7 @@ If you're not an admin or expert:
   This will open up a page in your web browser that is a file navigator.  
   Click on a `chapter1.py`.  
   (The jupyter extension `jupytext` will convert it to the notebook format)
+
+
+## Contributions
+<img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" height="200">

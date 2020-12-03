@@ -36,8 +36,6 @@ for i, c in enumerate(name):
 # (they use the same Python kernel and thus share variables, functions, and classes).
 # Thus, the **order** in which you run the cells matters.
 
-# !wget -qO- https://raw.githubusercontent.com/patricknraanes/HistoryMatching/master/colab_bootstrap.sh | bash -s
-
 # One thing you must know is how to **restart** the Python session,
 # which clears all of your variables, functions, etc,
 # so that you can start over.

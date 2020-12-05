@@ -3,6 +3,8 @@ ipython
 jupyter
 jupytext
 matplotlib
+# -e /home/pnr/Dropbox/py/mpl-tools
+# -e /home/pnr/Dropbox/py/patlib
 mpl-tools==0.1.11
 patlib==0.1.2
 pdbpp

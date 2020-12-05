@@ -1,35 +1,15 @@
 """Plot functions for reservoir model"""
 
-import IPython.display as ipy_disp
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_tools.misc import (axprops, fig_colorbar, fig_placement_load,
+from mpl_tools.misc import (axprops, fig_colorbar,
                             freshfig, is_notebook_or_qt)
 from patlib.dict_tools import DotDict
-
-
-def setup():
-    if is_notebook_or_qt:
-        mpl.rcParams.update({'font.size': 13})
-        mpl.rcParams["figure.figsize"] = [9, 7]
-    else:
-        try:
-            import google.colab  # noqa
-        except ImportError:
-            mpl.use("Qt5Agg")
-            plt.ion()
-            fig_placement_load()
 
 def center(E):
     return E - E.mean(axis=0)
 
-
-def display(animation):
-    if is_notebook_or_qt:
-        ipy_disp.display(ipy_disp.HTML(animation.to_jshtml()))
-    else:
-        plt.show(block=False)
 
 COORD_TYPE = "relative"
 def lims(self):
@@ -95,7 +75,7 @@ def subplots(self,
              fignum, plotter, ZZ,
              figsize=None,
              title="",
-             ax_text_color="w",
+             txt_color="w",
              colorbar=True,
              **kwargs):
 
@@ -121,7 +101,7 @@ def subplots(self,
 
         # Label
         ax.text(0, 1, label, ha="left", va="top",
-                c=ax_text_color, size=12, transform=ax.transAxes)
+                c=txt_color, size=12, transform=ax.transAxes)
 
         # Call plotter
         hh.append(plotter(self, ax, Z, **kwargs))
@@ -318,7 +298,7 @@ def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
 
     fig.subplots_adjust(hspace=.3)
     fig.suptitle(f"Oil saturation (mean fields) - {title}")
-    for i, (ax, label) in enumerate(zip(axs.ravel(), water_sat_fields)):
+    for ax, label in zip(axs.ravel(), water_sat_fields):
 
         field = water_sat_fields[label]
         if field.ndim == 2:

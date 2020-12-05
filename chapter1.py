@@ -51,6 +51,8 @@ for i, c in enumerate(name):
 
 import numpy as np
 from matplotlib import pyplot as plt
+import mpl_setup
+mpl_setup.init()
 
 # Use numpy's arrays for vectors and matrices. Example constructions:
 a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
@@ -97,9 +99,7 @@ import simulator.plotting as plots
 from simulator import simulate
 from tools import RMS, center
 
-
 plots.COORD_TYPE = "rel"
-plots.setup()
 
 # ... and initialize some data containers.
 
@@ -129,13 +129,9 @@ wsat = DotDict(
 seed = np.random.seed(5)  # harder
 
 # ## Model and case specification
-# The reservoir model, which takes up about 100 lines of python code,
-# is a 2D, two-phase, immiscible, incompressible simulator using TPFA.
-# It was translated from the matlab code here
-# http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 #
-# We will estimate the log permeability field and (TODO).
-# The data will consist in the production saturations.
+# We will estimate the log permeability field and (TODO). The data will consist in the production saturations.
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -145,10 +141,6 @@ model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 def sample_log_perm(N=1):
     lperms = geostat.gaussian_fields(model.mesh(), N, 0.8)
     return lperms
-
-def log2perm(lperms):
-    # return np.exp(3*lperms)
-    return 0.5 + .1*lperms
 
 # The transformation of the parameters to model input is effectively part of the forward model.
 
@@ -164,12 +156,9 @@ perm.Truth = sample_log_perm()
 set_perm(model, perm.Truth)
 
 # #### Well specification
-# We here specify the wells as point sources and sinks,
-# giving their placement and flux.
+# We here specify the wells as point sources and sinks, giving their placement and flux.
 #
-# The boundary conditions are of the Dirichlet type, specifying zero flux.
-# The source terms must therefore equal the sink terms.
-# This is ensured by the `init_Q` function used below.
+# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `init_Q` function used below.
 
 # +
 # Manual well specification
@@ -201,7 +190,7 @@ model.init_Q(
     prod=well_grid
 );
 
-# # Random setting
+# # Random well configuration
 # model.init_Q(
 #     inj =rand(1, 3),
 #     prod=rand(8, 3)
@@ -245,13 +234,12 @@ wsat.past.Truth, prod.past.Truth = simulate(
 
 from matplotlib import rc
 rc('animation', html="jshtml")
-ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=True, title="Truth");
+ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=False, title="Truth");
 ani
 
 
 # #### Noisy obs
-# In reality, observations are never perfect.
-# To reflect this, we corrupt the observations by adding a bit of noise.
+# In reality, observations are never perfect. To reflect this, we corrupt the observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd = len(model.producers)  # num. of obs (per time)
@@ -266,10 +254,7 @@ fig, ax = freshfig(120)
 hh_y = plots.production1(ax, prod.past.Truth, obs=prod.past.Noisy)
 
 # ## Prior
-# The prior ensemble is generated in the same manner as the (synthetic) truth,
-# using the same mean and covariance.
-# Thus, the members are "statistically indistinguishable" to the truth.
-# This assumption underlies ensemble methods.
+# The prior ensemble is generated in the same manner as the (synthetic) truth, using the same mean and covariance.  Thus, the members are "statistically indistinguishable" to the truth. This assumption underlies ensemble methods.
 
 N = 100
 perm.Prior = sample_log_perm(N)
@@ -284,7 +269,7 @@ ax.legend();
 
 # Below we can see some realizations (members) from the ensemble.
 
-plots.subplots(model, 140, plots.field, perm.Prior,
+plots.subplots(model, 140, plots.field, perm.Prior, text_color="C1",
                figsize=(14, 5), title="Prior -- some realizations");
 
 # #### Eigenvalue specturm
@@ -384,7 +369,7 @@ perm.ES = ES(
 
 # Let's plot the updated, initial ensemble.
 
-plots.subplots(model, 160, plots.field, perm.ES,
+plots.subplots(model, 160, plots.field, perm.ES, text_color="C1",
                figsize=(14, 5), title="ES posterior -- some realizations");
 
 
@@ -397,16 +382,12 @@ print("ES   : ", RMS(perm.Truth, perm.ES))
 # #### Plot of means
 # Let's plot mean fields.
 #
-# NB: Caution! Mean fields are liable to be less rugged than the truth.
-# As such, their importance must not be overstated
-# (they're just one esitmator out of many).
-# Instead, whenever a decision is to be made,
-# all of the members should be included in the decision-making process.
+# NB: Caution! Mean fields are liable to be less rugged than the truth. As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process.
 
 perm._means = DotDict((k, perm[k].mean(axis=0)) for k in perm
                       if not k.startswith("_"))
 
-plots.subplots(model, 170, plots.field, perm._means,
+plots.subplots(model, 170, plots.field, perm._means, text_color="C1",
                figsize=(14, 4), title="Particular fields.");
 
 # ## Correlations
@@ -429,8 +410,7 @@ plots.subplots(model, 170, plots.field, perm._means,
 
 # ## Past production (data mismatch)
 
-# We already have the past true and prior production profiles.
-# Let's add to that the production profiles of the posterior.
+# We already have the past true and prior production profiles. Let's add to that the production profiles of the posterior.
 
 wsat.past.ES, prod.past.ES = forecast(nTime, wsat.initial.Prior, perm.ES)
 

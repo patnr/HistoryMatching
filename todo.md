@@ -6,3 +6,4 @@
 - Colab
 - Localisation
 - Improve writing
+- Correlation/sensitivity plot with sliders

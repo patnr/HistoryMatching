@@ -33,7 +33,7 @@ surf[:model.Nx//2, model.Ny//3] = 0.001
 
 # Set permeabilities to surf.
 # Alternative: set S0 to it.
-model.Gridded.K = np.stack([surf, surf])
+model.Gridded.K = np.stack([surf, surf])  # type: ignore
 
 # Define obs operator
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
@@ -42,7 +42,7 @@ def obs(saturation):
 obs.length = len(obs_inds)
 
 # Simulate
-S0 = np.zeros(model.M)
+S0 = np.zeros(model.M)  # type: ignore
 nTime = 28
 saturation, production = simulate(model.step, nTime, S0, 0.025, obs)
 

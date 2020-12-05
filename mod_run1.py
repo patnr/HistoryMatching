@@ -54,5 +54,5 @@ saturation, production = simulate(model.step, nTime, S0, 0.025, obs)
 
 # Animation
 plots.COORD_TYPE = "index"
-ani = plots.animate1(model, saturation, production)
+ani = plots.dashboard(model, saturation, production)
 plt.pause(.1)

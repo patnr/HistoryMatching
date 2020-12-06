@@ -20,8 +20,8 @@
 
 name = "Batman"
 print("Hello world! I'm " + name)
-for i, c in enumerate(name):
-    print(i, c)
+# for i, c in enumerate(name):
+#     print(i, c)
 
 # You will likely be more efficient if you know these
 # **keyboard shortcuts** to interact with cells:
@@ -85,7 +85,7 @@ from copy import deepcopy
 
 import numpy as np
 import scipy.linalg as sla
-from matplotlib import pyplot as plt
+from matplotlib import ticker
 from mpl_tools.misc import freshfig
 from numpy.random import randn
 from patlib.dict_tools import DotDict
@@ -97,9 +97,10 @@ import geostat
 import simulator
 import simulator.plotting as plots
 from simulator import simulate
-from tools import RMS, center
+from tools import RMS_all, center
 
-plots.COORD_TYPE = "rel"
+plots.COORD_TYPE = "absolute"
+cmap = plt.get_cmap("jet")
 
 # ... and initialize some data containers.
 
@@ -123,10 +124,20 @@ wsat = DotDict(
 
 # Enable exact reproducibility by setting random generator seed.
 
-# seed = np.random.seed(10)  # easy
-# seed = np.random.seed(22)  # easy
-# seed = np.random.seed(30)  # easy
-seed = np.random.seed(5)  # harder
+# With r=0.8
+# seed = np.random.seed(1)  # easy
+# seed = np.random.seed(2)  # harder
+# seed = np.random.seed(3)  # harder
+# seed = np.random.seed(4)  # very easy
+# seed = np.random.seed(5)  # harder
+# seed = np.random.seed(6)  # easy
+# seed = np.random.seed(7)  # medium
+seed = np.random.seed(30)  # easy
+
+# With r=1.4
+# seed = np.random.seed(100)  #
+# seed = np.random.seed(101)  #
+# seed = np.random.seed(107)  #
 
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
@@ -139,14 +150,17 @@ model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 # We work with log permeabilities, which can (in principle) be Gaussian.
 
 def sample_log_perm(N=1):
-    lperms = geostat.gaussian_fields(model.mesh(), N, 0.8)
+    lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
     return lperms
 
 # The transformation of the parameters to model input is effectively part of the forward model.
 
+def f_perm(x):
+    return .1 + np.exp(5*x)
+    # return 1000*np.exp(3*x)
+
 def set_perm(model, log_perm_array):
-    # p = np.exp(3*log_perm_array)
-    p = 0.5 + .1*log_perm_array
+    p = f_perm(log_perm_array)
     p = p.reshape(model.shape)
     model.Gridded.K = np.stack([p, p])
 
@@ -181,7 +195,7 @@ set_perm(model, perm.Truth)
 # );
 
 # Wells on a grid
-well_grid = np.linspace(0.1, .9, 6)
+well_grid = np.linspace(0.1, .9, 2)
 well_grid = np.meshgrid(well_grid, well_grid)
 well_grid = np.stack(well_grid + [np.ones_like(well_grid[0])])
 well_grid = well_grid.T.reshape((-1, 3))
@@ -200,12 +214,13 @@ model.init_Q(
 # #### Plot true field
 
 fig, ax = freshfig(110)
-cs = plots.field(model, ax, perm.Truth)
-# cs = plots.field(model, ax, log2perm(perm.Truth), locator=ticker.LogLocator())
+# cs = plots.field(model, ax, perm.Truth)
+cs = plots.field(model, ax, f_perm(perm.Truth), locator=ticker.LogLocator())
 plots.well_scatter(model, ax, model.producers, inj=False)
 plots.well_scatter(model, ax, model.injectors, inj=True)
 fig.colorbar(cs)
 fig.suptitle("True field");
+plt.pause(.1)
 
 
 # #### Define obs operator
@@ -218,9 +233,10 @@ obs.length = len(obs_inds)
 # #### Simulation to generate the synthetic truth evolution and data
 
 wsat.initial.Truth = np.zeros(model.M)
-# wsat.initial.Truth = log2perm(perm.Truth.squeeze())  # TODO rm
-nTime = 50
+# wsat.initial.Truth = f_perm(perm.Truth.squeeze())  # TODO rm
+T = 1
 dt = 0.025
+nTime = round(T/dt)
 wsat.past.Truth, prod.past.Truth = simulate(
     model.step, nTime, wsat.initial.Truth, dt, obs)
 
@@ -243,7 +259,7 @@ ani
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd = len(model.producers)  # num. of obs (per time)
-R = 1e-6 * np.eye(nProd)
+R = 4e-2 * np.eye(nProd)
 for iT in range(nTime):
     prod.past.Noisy[iT] += R @ randn(nProd)
 
@@ -252,25 +268,42 @@ for iT in range(nTime):
 
 fig, ax = freshfig(120)
 hh_y = plots.production1(ax, prod.past.Truth, obs=prod.past.Noisy)
+plt.pause(.1)
 
 # ## Prior
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the same mean and covariance.  Thus, the members are "statistically indistinguishable" to the truth. This assumption underlies ensemble methods.
 
-N = 100
+N = 200
 perm.Prior = sample_log_perm(N)
 
-# Depending on the parameter type, transformations may be in order that will yield non-Gaussian distributions. Inspect the density by the histograms below.
+# Note that field (before transformation) is Gaussian with (expected) mean 0 and variance 1.
+print("Prior mean:", np.mean(perm.Prior))
+print("Prior var.:", np.var(perm.Prior))
+
+# Let us inspect the parameter values in the form of their histogram.
 
 fig, ax = freshfig(130, figsize=(12, 3))
 for label, data in perm.items():
-    ax.hist(data.ravel(), label=label, alpha=0.4, density=True)
-ax.set(ylabel="rel. frequency")
-ax.legend();
+
+    ax.hist(
+        f_perm(data.ravel()),
+        f_perm(np.linspace(-3, 3, 32)),
+        # "Downscale" ens counts by N. Necessary because `density` kw
+        # doesnt work "correctly" with log-scale.
+        weights = (np.ones(model.M*N)/N if label != "Truth" else None),
+        label=label, alpha=0.3)
+
+    ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
+    ax.legend();
+plt.pause(.1)
+
+# The above histogram should be Gaussian histogram if f_perm is purely exponential:
 
 # Below we can see some realizations (members) from the ensemble.
 
-plots.subplots(model, 140, plots.field, perm.Prior, text_color="C1",
-               figsize=(14, 5), title="Prior -- some realizations");
+plots.fields(model, 140, plots.field, perm.Prior,
+             figsize=(14, 5), cmap=cmap,
+             title="Prior -- some realizations");
 
 # #### Eigenvalue specturm
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
@@ -284,17 +317,20 @@ ax.grid(True, "minor", axis="x")
 ax.grid(True, "major", axis="y")
 ax.set(xlabel="eigenvalue #", ylabel="var.",
        title="Spectrum of initial, true cov");
+plt.pause(.1)
 
 # Finally, we set the prior for the state variable to a single (i.e. deterministic) field. This means that there is no uncertainty in the state variable.
 
 wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
-# wsat.initial.Prior = log2perm(perm.Prior)  # TODO rm
+# wsat.initial.Prior = f_perm(perm.Prior)  # TODO rm
 
 
 # ## Assimilation
 
 # #### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
+
+multiprocess = True  # multiprocessing?
 
 def forecast(nSteps, wsats0, perms):
     """Forecast for an ensemble."""
@@ -303,19 +339,32 @@ def forecast(nSteps, wsats0, perms):
     production = np.zeros((N, nSteps, nProd))
     saturation = np.zeros((N, nSteps+1, model.M))
 
-    for n, (wsat0, perm) in enumerate(progbar(list(zip(wsats0, perms)), "Members")):
-
+    def forecast1(member):
+        wsat0, perm = member
         # Set ensemble
         model_n = deepcopy(model)
         set_perm(model_n, perm)
-
         # Simulate
         s, p = simulate(model_n.step, nSteps, wsat0, dt, obs, pbar=False)
+        return s, p
 
-        # Write
-        # Note: we only really need the last entry in the saturation series.
-        production[n] = p
-        saturation[n] = s
+    members = zip(wsats0, perms)
+
+    if multiprocess:
+        import multiprocessing_on_dill as mpd
+        with mpd.Pool() as pool:
+            prediction = list(progbar(
+                pool.imap(forecast1, members),
+                total=N, desc="En. forecast"))
+        for n, member in enumerate(prediction):
+            saturation[n], production[n] = member
+
+    else:
+        for n, (wsat0, perm) in enumerate(progbar(list(members), "Members")):
+            s, p = forecast1((wsat0, perm))
+            # Write
+            # Note: we only really need the last entry in the saturation series.
+            saturation[n], production[n] = s, p
 
     return saturation, production
 
@@ -360,24 +409,28 @@ def ES(ensemble, obs_ens, observation, obs_err_cov, infl=1.0):
 
 # #### Update
 
-perm.ES = ES(
-    ensemble    = perm.Prior,
-    obs_ens     = prod.past.Prior.reshape((N, -1)),
-    observation = prod.past.Noisy.reshape(-1),
-    obs_err_cov = sla.block_diag(*[R]*nTime),
-)
+def apply_ES(ensemble):
+    """`ES`, but with all arguments pre-defined except `ensemble`."""
+    return ES(
+        ensemble    = ensemble,
+        obs_ens     = prod.past.Prior.reshape((N, -1)),
+        observation = prod.past.Noisy.reshape(-1),
+        obs_err_cov = sla.block_diag(*[R]*nTime),
+    )
+
+perm.ES = apply_ES(perm.Prior)
 
 # Let's plot the updated, initial ensemble.
 
-plots.subplots(model, 160, plots.field, perm.ES, text_color="C1",
-               figsize=(14, 5), title="ES posterior -- some realizations");
+plots.fields(model, 160, plots.field, perm.ES,
+             figsize=(14, 5), cmap=cmap,
+             title="ES posterior -- some realizations");
 
 
 # #### Diagnostics
 
 print("Stats vs. true field")
-print("Prior: ", RMS(perm.Truth, perm.Prior))
-print("ES   : ", RMS(perm.Truth, perm.ES))
+RMS_all(perm, vs="Truth")
 
 # #### Plot of means
 # Let's plot mean fields.
@@ -387,8 +440,9 @@ print("ES   : ", RMS(perm.Truth, perm.ES))
 perm._means = DotDict((k, perm[k].mean(axis=0)) for k in perm
                       if not k.startswith("_"))
 
-plots.subplots(model, 170, plots.field, perm._means, text_color="C1",
-               figsize=(14, 4), title="Particular fields.");
+plots.fields(model, 170, plots.field, perm._means,
+             figsize=(14, 5), cmap=cmap,
+             title="Truth and mean fields.");
 
 # ## Correlations
 # NB: Correlations are just one part of the update (gain) operation (matrix),
@@ -407,16 +461,25 @@ plots.subplots(model, 170, plots.field, perm._means, text_color="C1",
 #    xy_coord, "Initial corr.")
 # -
 
-
 # ## Past production (data mismatch)
 
 # We already have the past true and prior production profiles. Let's add to that the production profiles of the posterior.
 
 wsat.past.ES, prod.past.ES = forecast(nTime, wsat.initial.Prior, perm.ES)
 
+def ravelled(fun, xx):
+    shape = xx.shape
+    xx = xx.reshape((shape[0], -1))
+    yy = fun(xx)
+    return yy.reshape(shape)
+
+prod.past.ES0 = ravelled(apply_ES, prod.past.Prior)
+
+
 # Plot them all together:
 
 plots.productions(190, prod.past, figsize=(14, 5), title="-- Past");
+plt.pause(.1)
 
 # ##### Comment on prior
 # Note that the prior "surrounds" the data. This the likely situation in our synthetic case, where the truth was generated by the same random draw process as the ensemble.
@@ -426,18 +489,24 @@ plots.productions(190, prod.past, figsize=(14, 5), title="-- Past");
 # Note: the above instructions sound like statistical heresy. We are using the data twice over (on the prior, and later to update/condition the prior). However, this is justified to the extent that prior information is difficult to quantify and encode. Too much prior adaptation, however, and you risk overfitting! Ineed, it is a delicate matter.
 
 # ##### Comment on posterior
-# If the assumptions (statistical indistinguishability, Gaussianity) are not too far off, then the ensemble posteriors (ES, EnKS, ES_direct) should also surround the data, but with a tighter fit.
+# If the assumptions (statistical indistinguishability, Gaussianity) are not too far off, then the ensemble posteriors (ES, EnKS, ES0) should also surround the data, but with a tighter fit.
 
 # #### Data mismatch
 
-print("Stats vs. past production (i.e. observations)")
-print("Prior: ", RMS(prod.past.Noisy, prod.past.Prior))
-print("ES   : ", RMS(prod.past.Noisy, prod.past.ES))
+print("Stats vs. past production (i.e. NOISY observations)")
+RMS_all(prod.past, vs="Noisy")
 
-# Note that the standard deviation is much smaller than the RMSE. This may be remedied by inflation (which won't necessarily help with the RMSE), localisation (a powerful fix) and a bigger ensemble size (simple, but costly).
+# Note that the data mismatch is significantly reduced.
+# This may be the case even if the updated permeability field
+# did not have a reduced rmse (overall, relative to that of the prior prior).
+# The "direct" forecast (essentially just linear regression) may achieve
+# even lower rmse, but generally, less realistic production plots.
+
 
 # ## Prediction
 # We now prediction the future production (and saturation fields) by forecasting using the (updated) estimates.
+
+print("Future/prediction")
 
 wsat.future.Truth, prod.future.Truth = simulate(
     model.step, nTime, wsat.past.Truth[-1], dt, obs)
@@ -448,10 +517,12 @@ wsat.future.Prior, prod.future.Prior = forecast(
 wsat.future.ES, prod.future.ES = forecast(
     nTime, wsat.past.ES[:, -1, :], perm.ES)
 
+prod.future.ES0 = ravelled(apply_ES, prod.future.Prior)
+
 # #### Plot future production
 
 plots.productions(200, prod.future, figsize=(14, 5), title="-- Future");
+plt.pause(.1)
 
 print("Stats vs. (supposedly unknown) future production")
-print("Prior: ", RMS(prod.future.Truth, prod.future.Prior))
-print("ES   : ", RMS(prod.future.Truth, prod.future.ES))
+RMS_all(prod.future, vs="Truth")

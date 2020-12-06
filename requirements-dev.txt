@@ -3,7 +3,6 @@ autopep8
 flake8
 ipdb
 ipython
-pdbpp
 pre-commit
 PyQt5
 pytest

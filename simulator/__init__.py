@@ -234,7 +234,7 @@ def simulate(model_step, nSteps, x0, dt=.025, obs=None, pbar=True):
     # Range with or w/o progbar
     rge = np.arange(nSteps)
     if pbar:
-        rge = progbar(rge, "Time steps")
+        rge = progbar(rge, "Simulation")
 
     # Init
     xx = np.zeros((nSteps+1,)+x0.shape)

@@ -86,7 +86,7 @@ from copy import deepcopy
 import scipy.linalg as sla
 from matplotlib import ticker
 from mpl_tools.misc import freshfig
-from numpy.random import randn, seed
+from numpy.random import randn
 from numpy import sqrt
 from patlib.dict_tools import DotDict
 from tqdm.auto import tqdm as progbar
@@ -124,14 +124,14 @@ wsat = DotDict(
 
 # Enable exact reproducibility by setting random generator seed.
 
-# With r=0.8
-seed = seed(4)  # very easy
-# With r=1.4
-# seed = seed(107)  #
+seed = np.random.seed(4)  # very easy
+# seed = np.random.seed(5)  # hard
+# seed = np.random.seed(6)  # very easy
+# seed = np.random.seed(7)  # easy
 
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
-#
+
 # We will estimate the log permeability field. The data will consist in the production saturations.
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
@@ -413,6 +413,8 @@ plots.fields(model, 160, plots.field, perm.ES,
 # We will see some more diagnostics later.
 
 # ### Iterative ensemble smoother
+# The following is (almost) all that distinguishes all of the fully-Bayesian iterative ensemble smoothers in the literature.
+
 def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
     N1 = N - 1
     Cow1 = Cowp(1.0)
@@ -458,9 +460,11 @@ def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
 
     return dw, T, Tinv
 
+# This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
 def iES(ensemble, observation, obs_err_cov,
-        flavour="Sqrt", MDA=False, bundle=False, nIter=10, wtol=1e-4):
+        flavour="Sqrt", MDA=False, bundle=False,
+        stepsize=1, nIter=10, wtol=1e-4):
 
     E = ensemble
     N = len(E)
@@ -490,9 +494,6 @@ def iES(ensemble, observation, obs_err_cov,
     Tinv   = np.eye(N)
     # Explicit Tinv [instead of tinv(T)] allows for merging MDA code
     # with iEnKS/EnRML code, and flop savings in 'Sqrt' case.
-
-    # Init step management
-    stepsize = 1
 
     for itr in range(nIter):
         # Reconstruct smoothed ensemble.
@@ -541,11 +542,11 @@ def iES(ensemble, observation, obs_err_cov,
         # Accept previous increment? ...
         if (not MDA) and itr > 0 and stats.J_postr[itr] > np.nanmin(stats.J_postr):
             # ... No. Restore previous ensemble & lower the stepsize (dont compute new increment).
-            stepsize   /= 4
+            stepsize   /= 10
             w, T, Tinv  = old  # noqa
         else:
             # ... Yes. Store this ensemble, boost the stepsize, and compute new increment.
-            old         = w, T, Tinv  # noqa
+            old         = w, T, Tinv
             stepsize   *= 2
             stepsize    = min(1, stepsize)
             dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour)
@@ -561,9 +562,12 @@ def iES(ensemble, observation, obs_err_cov,
 
     stats.nIter = itr + 1
 
+    if not MDA:
+        # The last step (dw, T) must be discarded,
+        # because it cannot be validated without re-running the model.
+        w, T, Tinv  = old
+
     # Reconstruct the ensemble.
-    # Note that the last the step (dw, T) is wasted. However, that is ok,
-    # because it cannot be validated without re-running the model.
     E = x0 + (w+T)@X0
 
     return E, stats
@@ -574,7 +578,7 @@ perm.iES, stats_iES = iES(
     ensemble = perm.Prior,
     observation = prod.past.Noisy.reshape(-1),
     obs_err_cov = sla.block_diag(*[R]*nTime),
-    flavour="Sqrt", MDA=False, bundle=False, nIter=10,
+    flavour="Sqrt", MDA=False, bundle=False, stepsize=1,
 )
 
 

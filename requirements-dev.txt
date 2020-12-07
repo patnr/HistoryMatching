@@ -4,6 +4,7 @@ flake8
 ipdb
 ipython
 pre-commit
+pudb
 PyQt5
 pytest
 qtpy

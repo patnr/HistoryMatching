@@ -86,7 +86,8 @@ from copy import deepcopy
 import scipy.linalg as sla
 from matplotlib import ticker
 from mpl_tools.misc import freshfig
-from numpy.random import randn
+from numpy.random import randn, seed
+from numpy import sqrt
 from patlib.dict_tools import DotDict
 from tqdm.auto import tqdm as progbar
 
@@ -96,7 +97,7 @@ import geostat
 import simulator
 import simulator.plotting as plots
 from simulator import simulate
-from tools import RMS_all, center
+from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
 
 plots.COORD_TYPE = "absolute"
 cmap = plt.get_cmap("jet")
@@ -124,19 +125,9 @@ wsat = DotDict(
 # Enable exact reproducibility by setting random generator seed.
 
 # With r=0.8
-# seed = np.random.seed(1)  # easy
-# seed = np.random.seed(2)  # harder
-# seed = np.random.seed(3)  # harder
-# seed = np.random.seed(4)  # very easy
-# seed = np.random.seed(5)  # harder
-# seed = np.random.seed(6)  # easy
-# seed = np.random.seed(7)  # medium
-seed = np.random.seed(30)  # easy
-
+seed = seed(4)  # very easy
 # With r=1.4
-# seed = np.random.seed(100)  #
-# seed = np.random.seed(101)  #
-# seed = np.random.seed(107)  #
+# seed = seed(107)  #
 
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
@@ -258,9 +249,9 @@ ani
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd = len(model.producers)  # num. of obs (per time)
-R = 4e-2 * np.eye(nProd)
+R = 1e-3 * np.eye(nProd)
 for iT in range(nTime):
-    prod.past.Noisy[iT] += R @ randn(nProd)
+    prod.past.Noisy[iT] += sqrt(R) @ randn(nProd)
 
 
 # Plot of observations (and their noise):
@@ -331,12 +322,12 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
 multiprocess = True  # multiprocessing?
 
-def forecast(nSteps, wsats0, perms):
+def forecast(nTime, wsats0, perms, desc="En. forecast"):
     """Forecast for an ensemble."""
 
     # Allocate
-    production = np.zeros((N, nSteps, nProd))
-    saturation = np.zeros((N, nSteps+1, model.M))
+    production = np.zeros((N, nTime, nProd))
+    saturation = np.zeros((N, nTime+1, model.M))
 
     def forecast1(member):
         wsat0, perm = member
@@ -344,7 +335,7 @@ def forecast(nSteps, wsats0, perms):
         model_n = deepcopy(model)
         set_perm(model_n, perm)
         # Simulate
-        s, p = simulate(model_n.step, nSteps, wsat0, dt, obs, pbar=False)
+        s, p = simulate(model_n.step, nTime, wsat0, dt, obs, pbar=False)
         return s, p
 
     members = zip(wsats0, perms)
@@ -354,7 +345,7 @@ def forecast(nSteps, wsats0, perms):
         with mpd.Pool() as pool:
             prediction = list(progbar(
                 pool.imap(forecast1, members),
-                total=N, desc="En. forecast"))
+                total=N, desc=desc))
         for n, member in enumerate(prediction):
             saturation[n], production[n] = member
 
@@ -372,7 +363,7 @@ wsat.past.Prior, prod.past.Prior = forecast(
 
 # ### Ensemble smoother
 
-class ES:
+class ES_update:
     """Update/conditioning (Bayes' rule) for an ensemble,
 
     according to the "ensemble smoother" (ES) algorithm,
@@ -392,9 +383,9 @@ class ES:
     """
     def __init__(self, obs_ens, observation, obs_err_cov):
         """Prepare the update."""
-        Y           = center(obs_ens)
+        Y           = mean0(obs_ens)
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
-        obs_pert    = randn(N, len(observation)) @ np.sqrt(obs_err_cov)
+        obs_pert    = randn(N, len(observation)) @ sqrt(obs_err_cov)
         innovations = observation - (obs_ens + obs_pert)
 
         # (pre-) Kalman gain * Innovations
@@ -402,17 +393,19 @@ class ES:
 
     def __call__(self, E):
         """Do the update."""
-        return E + self.KGdY @ center(E)
+        return E + self.KGdY @ mean0(E)
 
 # #### Update
-ES_update = ES(
+ES = ES_update(
     obs_ens     = prod.past.Prior.reshape((N, -1)),
     observation = prod.past.Noisy.reshape(-1),
     obs_err_cov = sla.block_diag(*[R]*nTime),
 )
 
-perm.ES = ES_update(perm.Prior)
+# Apply update
+perm.ES = ES(perm.Prior)
 
+# #### Plot ES
 # Let's plot the updated, initial ensemble.
 
 plots.fields(model, 160, plots.field, perm.ES,
@@ -422,13 +415,203 @@ plots.fields(model, 160, plots.field, perm.ES,
 # We will see some more diagnostics later.
 
 # ### Iterative ensemble smoother
+def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
+    N1 = N - 1
+    Cow1 = Cowp(1.0)
 
-# #### Diagnostics
+    if MDA:  # View update as annealing (progressive assimilation).
+        Cow1 = Cow1 @ T  # apply previous update
+        dw = dy @ Y.T @ Cow1
+        if 'PertObs' in flavour:   # == "ES-MDA". By Emerick/Reynolds
+            D   = mean0(randn(*Y.shape)) * sqrt(nIter)
+            T  -= (Y + D) @ Y.T @ Cow1
+        elif 'Sqrt' in flavour:    # == "ETKF-ish". By Raanes
+            T   = Cowp(0.5) * sqrt(za) @ T
+        elif 'Order1' in flavour:  # == "DEnKF-ish". By Emerick
+            T  -= 0.5 * Y @ Y.T @ Cow1
+        Tinv = np.eye(N)  # [as initialized] coz MDA does not de-condition.
+
+    else:  # View update as Gauss-Newton optimzt. of log-posterior.
+        grad  = Y0@dy - w*za                  # Cost function gradient
+        dw    = grad@Cow1                     # Gauss-Newton step
+        # ETKF-ish". By Bocquet/Sakov.
+        if 'Sqrt' in flavour:
+            # Sqrt-transforms
+            T     = Cowp(0.5) * sqrt(N1)
+            Tinv  = Cowp(-.5) / sqrt(N1)
+            # Tinv saves time [vs tinv(T)] when Nx<N
+        # "EnRML". By Oliver/Chen/Raanes/Evensen/Stordal.
+        elif 'PertObs' in flavour:
+            if itr == 0:
+                D = mean0(randn(*Y.shape))
+                iES_flavours.D = D
+            else:
+                D = iES_flavours.D
+            gradT = -(Y+D)@Y0.T + N1*(np.eye(N) - T)
+            T     = T + gradT@Cow1
+            # Tinv= tinv(T, threshold=N1)  # unstable
+            Tinv  = sla.inv(T+1)           # the +1 is for stability.
+        # "DEnKF-ish". By Raanes.
+        elif 'Order1' in flavour:
+            # Included for completeness; does not make much sense.
+            gradT = -0.5*Y@Y0.T + N1*(np.eye(N) - T)
+            T     = T + gradT@Cow1
+            Tinv  = sla.pinv2(T)
+
+    return dw, T, Tinv
+
+
+def iES(ensemble, observation, obs_err_cov,
+        flavour="Sqrt", MDA=False, bundle=False, nIter=10, wtol=1e-4):
+
+    E = ensemble
+    N = len(E)
+    N1 = N - 1
+    Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
+
+    stats = DotDict()
+    stats.J_lklhd  = np.full(nIter, np.nan)
+    stats.J_prior  = np.full(nIter, np.nan)
+    stats.J_postr  = np.full(nIter, np.nan)
+    stats.rmse     = np.full(nIter, np.nan)
+    stats.stepsize = np.full(nIter, np.nan)
+    stats.dw       = np.full(nIter, np.nan)
+
+    if bundle:
+        if isinstance(bundle, bool):
+            EPS = 1e-4  # Sakov/Boc use T=EPS*eye(N), with EPS=1e-4, but I ...
+        else:
+            EPS = bundle
+    else:
+        EPS = 1.0  # ... prefer using  T=EPS*T, yielding a conditional cloud shape
+
+    # Init ensemble decomposition.
+    X0, x0 = center(E)    # Decompose ensemble.
+    w      = np.zeros(N)  # Control vector for the mean state.
+    T      = np.eye(N)    # Anomalies transform matrix.
+    Tinv   = np.eye(N)
+    # Explicit Tinv [instead of tinv(T)] allows for merging MDA code
+    # with iEnKS/EnRML code, and flop savings in 'Sqrt' case.
+
+    # Init step management
+    stepsize = 1
+
+    for itr in range(nIter):
+        # Reconstruct smoothed ensemble.
+        E = x0 + (w + EPS*T)@X0
+        stats.rmse[itr] = RMS(perm.Truth, E).rmse
+
+        # Forecast.
+        E_state, E_obs = forecast(nTime, wsat.initial.Prior, E, f"Iteration {itr}")
+        E_obs = E_obs.reshape((N, -1))
+
+        # Undo the bundle scaling of ensemble.
+        if EPS != 1.0:
+            E     = inflate_ens(E,     1/EPS)
+            E_obs = inflate_ens(E_obs, 1/EPS)
+
+        # Prepare analysis.
+        y      = observation        # Get current obs.
+        Y, xo  = center(E_obs)      # Get obs {anomalies, mean}.
+        dy     = (y - xo) @ Rm12T   # Transform obs space.
+        Y      = Y        @ Rm12T   # Transform obs space.
+        Y0     = Tinv @ Y           # "De-condition" the obs anomalies.
+
+        # Set "cov normlzt fctr" za ("effective ensemble size")
+        # => pre_infl^2 = (N-1)/za.
+        za = N1
+        if MDA:
+            # inflation (factor: nIter) of the ObsErrCov.
+            za *= nIter
+
+        # Compute Cowp: the (approx) posterior cov. of w
+        # (estiamted at this iteration), raised to some power.
+        V, s, UT = svd0(Y0)
+        def Cowp(expo): return (V * (pad0(s**2, N) + za)**-expo) @ V.T
+
+        # TODO: NB: these stats are only valid for Sqrt
+        stat2 = DotDict(
+            J_prior = w@w * N1,
+            J_lklhd = dy@dy,
+        )
+        # J_posterior is sum of the other two
+        stat2.J_postr = stat2.J_prior + stat2.J_lklhd
+        # Take root, insert for [itr]:
+        for name in stat2:
+            stats[name][itr] = sqrt(stat2[name])
+
+        # Accept previous increment? ...
+        if (not MDA) and itr > 0 and stats.J_postr[itr] > np.nanmin(stats.J_postr):
+            # ... No. Restore previous ensemble & lower the stepsize (dont compute new increment).
+            stepsize   /= 4
+            w, T, Tinv  = old  # noqa
+        else:
+            # ... Yes. Store this ensemble, boost the stepsize, and compute new increment.
+            old         = w, T, Tinv  # noqa
+            stepsize   *= 2
+            stepsize    = min(1, stepsize)
+            dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour)
+
+        stats.      dw[itr] = dw@dw / N
+        stats.stepsize[itr] = stepsize
+
+        # Step
+        w = w + stepsize*dw
+
+        if stepsize * np.sqrt(dw@dw/N) < wtol:
+            break
+
+    stats.nIter = itr + 1
+
+    # Reconstruct the ensemble.
+    # Note that the last the step (dw, T) is wasted. However, that is ok,
+    # because it cannot be validated without re-running the model.
+    E = x0 + (w+T)@X0
+
+    return E, stats
+
+# #### Apply the iES
+
+perm.iES, stats_iES = iES(
+    ensemble = perm.Prior,
+    observation = prod.past.Noisy.reshape(-1),
+    obs_err_cov = sla.block_diag(*[R]*nTime),
+    flavour="Sqrt", MDA=False, bundle=False, nIter=10,
+)
+
+
+# #### Plot ES
+# Let's plot the updated, initial ensemble.
+
+plots.fields(model, 165, plots.field, perm.iES,
+             figsize=(14, 5), cmap=cmap,
+             title="iES posterior -- some realizations");
+
+# The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
+
+fig, ax = freshfig(167)
+ls = dict(J_prior=":", J_lklhd="--", J_postr="-")
+for name, J in stats_iES.items():
+    try:
+        ax.plot(J, color="b", label=name.split("J_")[1], ls=ls[name])
+    except IndexError:
+        pass
+ax.set_xlabel("iteration")
+ax.set_ylabel("Mismatch", color="b")
+ax.tick_params(axis='y', labelcolor="b")
+ax.legend()
+ax2 = ax.twinx()  # axis for rmse
+ax2.set_ylabel('RMS error', color="r")
+ax2.plot(stats_iES.rmse, color="r")
+ax2.tick_params(axis='y', labelcolor="r")
+plt.pause(.1)
+
+# ### Diagnostics
 
 print("Stats vs. true field")
 RMS_all(perm, vs="Truth")
 
-# #### Plot of means
+# ### Plot of means
 # Let's plot mean fields.
 #
 # NB: Caution! Mean fields are liable to be less rugged than the truth. As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process.
@@ -440,7 +623,7 @@ plots.fields(model, 170, plots.field, perm._means,
              figsize=(14, 5), cmap=cmap,
              title="Truth and mean fields.");
 
-# ## Correlations
+# ### Correlations
 # NB: Correlations are just one part of the update (gain) operation (matrix),
 # which also involves:
 # - the sensitivity matrix (the obs. operator)
@@ -457,11 +640,15 @@ plots.fields(model, 170, plots.field, perm._means,
 #    xy_coord, "Initial corr.")
 # -
 
-# ## Past production (data mismatch)
+# ### Past production (data mismatch)
 
 # We already have the past true and prior production profiles. Let's add to that the production profiles of the posterior.
 
 wsat.past.ES, prod.past.ES = forecast(nTime, wsat.initial.Prior, perm.ES)
+
+wsat.past.iES, prod.past.iES = forecast(nTime, wsat.initial.Prior, perm.iES)
+
+# We can also apply the ES update (its X5 matrix, for those familiar with that terminology) directly to the production data of the prior, which doesn't require running the model again (like we did immediately above). Let us try that as well.
 
 def ravelled(fun, xx):
     shape = xx.shape
@@ -469,7 +656,7 @@ def ravelled(fun, xx):
     yy = fun(xx)
     return yy.reshape(shape)
 
-prod.past.ES0 = ravelled(ES_update, prod.past.Prior)
+prod.past.ES0 = ravelled(ES, prod.past.Prior)
 
 
 # Plot them all together:
@@ -513,7 +700,10 @@ wsat.future.Prior, prod.future.Prior = forecast(
 wsat.future.ES, prod.future.ES = forecast(
     nTime, wsat.past.ES[:, -1, :], perm.ES)
 
-prod.future.ES0 = ravelled(ES_update, prod.future.Prior)
+wsat.future.iES, prod.future.iES = forecast(
+    nTime, wsat.past.iES[:, -1, :], perm.iES)
+
+prod.future.ES0 = ravelled(ES, prod.future.Prior)
 
 # #### Plot future production
 

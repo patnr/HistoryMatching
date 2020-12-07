@@ -286,6 +286,9 @@ def productions(fignum, dct, nProd=None, figsize=None, title=""):
             style.c      = "C2"
             style.alpha  = .2
             style.zorder = 1.9
+        if label == "iES":
+            style.c      = "C4"
+            style.alpha  = .2
 
         # Incrase alpha if N is small
         N = len(dct.Prior)

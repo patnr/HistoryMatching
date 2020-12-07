@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# # Tutorial on ensemble history matching and optimisation (TODO)
+# # Tutorial on ensemble history matching and optimisation
 #
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
@@ -132,7 +132,7 @@ seed = seed(4)  # very easy
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 #
-# We will estimate the log permeability field and (TODO). The data will consist in the production saturations.
+# We will estimate the log permeability field. The data will consist in the production saturations.
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -223,7 +223,6 @@ obs.length = len(obs_inds)
 # #### Simulation to generate the synthetic truth evolution and data
 
 wsat.initial.Truth = np.zeros(model.M)
-# wsat.initial.Truth = f_perm(perm.Truth.squeeze())  # TODO rm
 T = 1
 dt = 0.025
 nTime = round(T/dt)
@@ -312,7 +311,6 @@ plt.pause(.1)
 # Finally, we set the prior for the state variable to a single (i.e. deterministic) field. This means that there is no uncertainty in the state variable.
 
 wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
-# wsat.initial.Prior = f_perm(perm.Prior)  # TODO rm
 
 
 # ## Assimilation

@@ -54,36 +54,35 @@ from matplotlib import pyplot as plt
 import mpl_setup
 mpl_setup.init()
 
-# Use numpy's arrays for vectors and matrices. Example constructions:
-a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
-Id = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
-
-print("Indexing examples:")
-print("a         =", a)
-print("a[3]      =", a[3])
-print("a[0:3]    =", a[0:3])
-print("a[:3]     =", a[:3])
-print("a[3:]     =", a[3:])
-print("a[-1]     =", a[-1])
-print("Id[:3,:3] =", Id[:3, :3], sep="\n")
-
-print("\nLinear algebra examples:")
-print("100+a  =", 100+a)
-print("Id@a   =", Id@a)
-print("Id*a   =", Id*a, sep="\n")
-
-plt.title("Plotting example")
-plt.ylabel("$i \\, x^2$")
-for i in range(4):
-    plt.plot(i * a**2, label="i = %d" % i)
-plt.legend();
+# # Use numpy's arrays for vectors and matrices. Example constructions:
+# a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
+# Id = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
+#
+# print("Indexing examples:")
+# print("a         =", a)
+# print("a[3]      =", a[3])
+# print("a[0:3]    =", a[0:3])
+# print("a[:3]     =", a[:3])
+# print("a[3:]     =", a[3:])
+# print("a[-1]     =", a[-1])
+# print("Id[:3,:3] =", Id[:3, :3], sep="\n")
+#
+# print("\nLinear algebra examples:")
+# print("100+a  =", 100+a)
+# print("Id@a   =", Id@a)
+# print("Id*a   =", Id*a, sep="\n")
+#
+# plt.title("Plotting example")
+# plt.ylabel("$i \\, x^2$")
+# for i in range(4):
+#     plt.plot(i * a**2, label="i = %d" % i)
+# plt.legend();
 
 # ## Setup
 # Run the following cells to import some tools...
 
 from copy import deepcopy
 
-import numpy as np
 import scipy.linalg as sla
 from matplotlib import ticker
 from mpl_tools.misc import freshfig
@@ -373,52 +372,46 @@ wsat.past.Prior, prod.past.Prior = forecast(
 
 # ### Ensemble smoother
 
-def ES(ensemble, obs_ens, observation, obs_err_cov):
+class ES:
     """Update/conditioning (Bayes' rule) for an ensemble,
 
-    according to the "ensemble smoother" algorithm,
+    according to the "ensemble smoother" (ES) algorithm,
 
     given a (vector) observations an an ensemble (matrix).
 
     NB: obs_err_cov is treated as diagonal. Alternative: use `sla.sqrtm`.
+
+    Why have we chosen to use a class (and not a function)?
+    Because this allows storing `KGdY`, which we can then/later re-apply,
+    thereby enabling state-augmentation "on-the-fly".
 
     NB: some of these formulea appear transposed, and reversed,
     compared to (EnKF) literature standards. The reason is that
     we stack the members as rows instead of the conventional columns.
     Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
     """
+    def __init__(self, obs_ens, observation, obs_err_cov):
+        """Prepare the update."""
+        Y           = center(obs_ens)
+        obs_cov     = obs_err_cov*(N-1) + Y.T@Y
+        obs_pert    = randn(N, len(observation)) @ np.sqrt(obs_err_cov)
+        innovations = observation - (obs_ens + obs_pert)
 
-    # Abbreviations
-    Y = obs_ens
-    E = ensemble
+        # (pre-) Kalman gain * Innovations
+        self.KGdY = innovations @ sla.pinv2(obs_cov) @ Y.T
 
-    obs_cov     = obs_err_cov*(N-1) + Y.T@Y
-    obs_pert    = randn(N, len(observation)) @ np.sqrt(obs_err_cov)
-    innovations = observation - (obs_ens + obs_pert)
-
-    # (pre-) Kalman gain * Innovations
-    KGdY = innovations @ sla.pinv2(obs_cov) @ Y.T
-
-    # Update
-    E = E + KGdY @ center(E)
-    return E
-
-
-# ### Iterative ensemble smoother
-# TODO
+    def __call__(self, E):
+        """Do the update."""
+        return E + self.KGdY @ center(E)
 
 # #### Update
+ES_update = ES(
+    obs_ens     = prod.past.Prior.reshape((N, -1)),
+    observation = prod.past.Noisy.reshape(-1),
+    obs_err_cov = sla.block_diag(*[R]*nTime),
+)
 
-def apply_ES(ensemble):
-    """`ES`, but with all arguments pre-defined except `ensemble`."""
-    return ES(
-        ensemble    = ensemble,
-        obs_ens     = prod.past.Prior.reshape((N, -1)),
-        observation = prod.past.Noisy.reshape(-1),
-        obs_err_cov = sla.block_diag(*[R]*nTime),
-    )
-
-perm.ES = apply_ES(perm.Prior)
+perm.ES = ES_update(perm.Prior)
 
 # Let's plot the updated, initial ensemble.
 
@@ -426,6 +419,9 @@ plots.fields(model, 160, plots.field, perm.ES,
              figsize=(14, 5), cmap=cmap,
              title="ES posterior -- some realizations");
 
+# We will see some more diagnostics later.
+
+# ### Iterative ensemble smoother
 
 # #### Diagnostics
 
@@ -473,7 +469,7 @@ def ravelled(fun, xx):
     yy = fun(xx)
     return yy.reshape(shape)
 
-prod.past.ES0 = ravelled(apply_ES, prod.past.Prior)
+prod.past.ES0 = ravelled(ES_update, prod.past.Prior)
 
 
 # Plot them all together:
@@ -517,7 +513,7 @@ wsat.future.Prior, prod.future.Prior = forecast(
 wsat.future.ES, prod.future.ES = forecast(
     nTime, wsat.past.ES[:, -1, :], perm.ES)
 
-prod.future.ES0 = ravelled(apply_ES, prod.future.Prior)
+prod.future.ES0 = ravelled(ES_update, prod.future.Prior)
 
 # #### Plot future production
 

@@ -20,4 +20,4 @@ def RMS_all(series, vs):
     """RMS for each item in series."""
     for k in series:
         if k != vs:
-            print(f"{k:12}:", RMS(series[vs], series[k]))
+            print(f"{k:8}:", RMS(series[vs], series[k]))

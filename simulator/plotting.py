@@ -235,7 +235,7 @@ def production1(ax, production, obs=None):
         for i, y in enumerate(1-obs.T):
             ax.plot(tt, y, "*", c=hh[i].get_color())
 
-    ax.legend(title="Prod.\nwell #.",
+    ax.legend(title="Well #.",
               loc="upper left",
               bbox_to_anchor=(1, 1),
               ncol=1+len(production.T)//10)

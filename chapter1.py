@@ -373,31 +373,31 @@ wsat.past.Prior, prod.past.Prior = forecast(
 
 # ### Ensemble smoother
 
-def ES(ensemble, obs_ens, observation, obs_err_cov, infl=1.0):
+def ES(ensemble, obs_ens, observation, obs_err_cov):
     """Update/conditioning (Bayes' rule) for an ensemble,
 
     according to the "ensemble smoother" algorithm,
 
     given a (vector) observations an an ensemble (matrix).
 
-    NB: obs_err_cov is treated as diagonal.
-    Alternative: use `sla.sqrtm`.
+    NB: obs_err_cov is treated as diagonal. Alternative: use `sla.sqrtm`.
+
+    NB: some of these formulea appear transposed, and reversed,
+    compared to (EnKF) literature standards. The reason is that
+    we stack the members as rows instead of the conventional columns.
+    Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
     """
 
-    Y           = infl*center(obs_ens)
+    # Abbreviations
+    Y = obs_ens
+    E = ensemble
+
     obs_cov     = obs_err_cov*(N-1) + Y.T@Y
     obs_pert    = randn(N, len(observation)) @ np.sqrt(obs_err_cov)
     innovations = observation - (obs_ens + obs_pert)
 
     # (pre-) Kalman gain * Innovations
     KGdY = innovations @ sla.pinv2(obs_cov) @ Y.T
-    # Note: formula is transposed, and reversed (vs. literature standards),
-    # because the members are here stacked as rows (vs. columns).
-
-    E = ensemble
-
-    # Inflate
-    E = E.mean(axis=0) + infl*(E - E.mean(axis=0))
 
     # Update
     E = E + KGdY @ center(E)

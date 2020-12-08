@@ -34,7 +34,7 @@ If you're not an admin or expert:
 - Install requirements:  
   `pip install -r path/to/requirements.txt`
 
-#### Launch:  
+#### Launch
   Launch the "notebook server" by executing:  
   `jupyter-notebook`  
   This will open up a page in your web browser that is a file navigator.  

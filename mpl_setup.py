@@ -5,7 +5,7 @@ import IPython.display as ipy_disp
 
 def init():
     if is_notebook_or_qt:
-        mpl.rcParams.update({'font.size': 13})
+        mpl.rcParams.update({'font.size': 15})
         mpl.rcParams["figure.figsize"] = [9, 7]
     else:
         try:

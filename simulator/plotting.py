@@ -102,7 +102,7 @@ def fields(self,
     for ax, label in zip(axs.ravel(), ZZ):
 
         ax.text(0, 1, label, ha="left", va="top",
-                c=txt_color, size=12, transform=ax.transAxes)
+                c=txt_color, transform=ax.transAxes)
 
         # Call plotter
         hh.append(plotter(self, ax, ZZ[label],
@@ -354,7 +354,7 @@ def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
     # For each well
     for i in range(nProd):
         ax = axs.ravel()[i]
-        ax.text(1, 1, f"Well {i}" if i == 0 else i, c="k", size=12,
+        ax.text(1, 1, f"Well {i}" if i == 0 else i, c="k",
                 ha="right", va="top", transform=ax.transAxes)
 
         for label, series in dct.items():

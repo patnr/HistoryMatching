@@ -97,6 +97,7 @@ import simulator.plotting as plots
 from simulator import simulate
 from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
 
+
 plots.COORD_TYPE = "absolute"
 cmap = plt.get_cmap("jet")
 
@@ -570,6 +571,7 @@ def iES(ensemble, observation, obs_err_cov,
     E = x0 + (w+T)@X0
 
     return E, stats
+
 
 # #### Apply the iES
 

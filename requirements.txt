@@ -3,7 +3,7 @@ jupytext
 matplotlib
 # -e /home/pnr/Dropbox/py/mpl-tools
 # -e /home/pnr/Dropbox/py/patlib
-mpl-tools==0.1.11
+mpl-tools==0.1.12
 multiprocessing-on-dill==3.5.0a4
 patlib==0.1.2
 scipy

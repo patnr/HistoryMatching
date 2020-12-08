@@ -40,4 +40,6 @@ If you're not an admin or expert:
 
 ## Contributors
 
+<a href="http://norceresearch.no">
 <img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" height="200">
+</a>

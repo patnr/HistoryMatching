@@ -8,9 +8,9 @@ using Colab (requires no installation, but Google login):
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patricknraanes/HistoryMatching/blob/Colab)
 
-## Installation
+## OR: install
 
-### Prerequisite: Python>=3.7
+#### Prerequisite: Python>=3.7
 
 If you're not an admin or expert:  
 
@@ -25,7 +25,7 @@ If you're not an admin or expert:
   Ensure the output at the end gives a version bigger than 3.7.  
   Keep using the same terminal for the commands below. 
 
-### Install
+#### Install
 
 - Download and unzip (or `git clone`) this repository.
 - Move the resulting folder wherever you like,  
@@ -35,5 +35,4 @@ If you're not an admin or expert:
 - Launch Jupyter:  
   `jupyter-notebook`.  
   This will open up a page in your web browser that is a file navigator.  
-  Click on a `chapter1.py`.  
-  (The jupyter extension `jupytext` will convert it to the notebook format)
+  Click on `MAIN.ipynb`.

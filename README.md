@@ -10,6 +10,9 @@ using Colab (requires no installation, but Google login):
 
 ## OR: install
 
+This option should be preferred for development,
+or just because your local computer is usually faster than what Google will provide you for free.
+
 #### Prerequisite: Python>=3.7
 
 If you're not an admin or expert:  

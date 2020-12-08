@@ -35,10 +35,10 @@ If you're not an admin or expert:
   `pip install -r path/to/requirements.txt`
 
 #### Launch
-  Launch the "notebook server" by executing:  
+- Launch the "notebook server" by executing:  
   `jupyter-notebook`  
   This will open up a page in your web browser that is a file navigator.  
-  Click on `MAIN.ipynb`.
+- Click on `MAIN.ipynb`.
 
 ## Contributors
 This work has been funded by DIGIRES, a project sponsored by industry partners

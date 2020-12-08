@@ -31,10 +31,12 @@ If you're not an admin or expert:
 - Download and unzip (or `git clone`) this repository.
 - Move the resulting folder wherever you like,  
   and `cd` into it
-- Install requirements:
-  `pip install -r path/to/requirements.txt`.
-- Launch Jupyter:  
-  `jupyter-notebook`.  
+- Install requirements:  
+  `pip install -r path/to/requirements.txt`
+
+#### Launch:  
+  Launch the "notebook server" by executing:  
+  `jupyter-notebook`  
   This will open up a page in your web browser that is a file navigator.  
   Click on `MAIN.ipynb`.
 

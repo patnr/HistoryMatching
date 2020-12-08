@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_tools.misc import (axprops, fig_colorbar,
                             freshfig, is_notebook_or_qt)
-from patlib.dict_tools import DotDict
+from patlib.dict_tools import DotDict, get0
 
 def center(E):
     return E - E.mean(axis=0)
@@ -246,55 +246,110 @@ def production1(ax, production, obs=None):
     ax.axhline(1, c="xkcd:light grey", ls="--", zorder=1.8)
     return hh
 
-# TODO: implement with plotting.fields
-def productions(fignum, dct, nProd=None, figsize=None, title=""):
+
+def style(label, N=100):
+    """Line styling."""
+    style = DotDict(
+        label=label,
+        c="k", alpha=1.0, lw=0.5,
+        ls="-", marker="", ms=4,
+    )
+    if label == "Truth":
+        style.lw     = 2
+        style.zorder = 2.1
+    if label == "Noisy":
+        style.label = "Obs"
+        style.ls     = ""
+        style.marker = "*"
+    if label == "Prior":
+        style.c      = "C0"
+        style.alpha  = .3
+    if label == "ES":
+        # style.label = "Ens. Smooth."
+        style.c      = "C1"
+        style.alpha  = .3
+    if label == "ES0":
+        style.c      = "C2"
+        style.alpha  = .3
+        style.zorder = 1.9
+    if label == "iES":
+        style.c      = "C4"
+        style.alpha  = .3
+
+    # Incrase alpha if N is small
+    style.alpha **= (1 + np.log10(N/100))
+
+    return style
+
+
+import IPython.display as ip_disp
+from ipywidgets import (interactive, HBox, VBox)
+
+def toggle_series(plotter):
+    """Include checkboxes/checkmarks to toggle plotted data series on/off."""
+
+    # NB: this was pretty darn complicated to get working
+    # with the right layout and avoiding double plotting.
+    # So exercise great caution when changing it!
+
+    def interactive_plot(*args, **kwargs):
+        dct, *args = args  # arg0 must be dict of line data to plot
+        kwargs["legend"] = False  # Turn off legend
+
+        handles = []
+
+        def plot_these(**labels):
+            included = {k: v for k, v in dct.items() if labels[k]}
+            hh = plotter(included, *args, **kwargs)
+            if not handles:
+                handles.extend(hh)
+
+        widget = interactive(plot_these, **{label: True for label in dct})
+        widget.update()
+        # Could end function here. The rest is adjustments.
+
+        # Place checkmarks to the right
+        *checkmarks, figure = widget.children
+        widget = HBox([figure, VBox(checkmarks)])
+        ip_disp.display(widget)
+
+        # Narrower checkmark boxes
+        widget.children[1].layout.width = "15ex"
+        for CX in widget.children[1].children:
+            CX.layout.width = '10ex'
+            CX.style.description_width = '0ex'
+
+        # Hack to color borders of checkmarks.
+        # Did not find how to color background/face.
+        # Anyways, there is no general/good way to style widgets, ref:
+        # https://github.com/jupyter-widgets/ipywidgets/issues/710#issuecomment-409448282
+        import matplotlib as mpl
+        for cm, lh in zip(checkmarks, handles):
+            c = mpl.colors.to_hex(lh.get_color(), keep_alpha=False)
+            cm.layout.border = "solid 5px" + c
+
+        return widget
+
+    return interactive_plot
+
+# TODO: implement with plotting.fields ?
+@toggle_series
+def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
+
     if nProd is None:
-        nProd = dct.Truth.shape[1]
+        nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
-    nrows, ncols = nRowCol(nProd+1)
+    nrows, ncols = nRowCol(nProd)
     fig, axs = freshfig(fignum, figsize=figsize,
                         ncols=ncols, nrows=nrows,
                         sharex=True, sharey=True)
-    fig.suptitle("Oil productions " + title)
+    # fig.suptitle("Oil productions " + title)
 
     # Turn off redundant axes
     for ax in axs.ravel()[nProd:]:
         ax.set_visible(False)
 
-    # Line styling
-    def style(label):
-        style = DotDict(
-            label=label,
-            c="k", alpha=1.0, lw=0.5,
-            ls="-", marker="", ms=4,
-        )
-        if label == "Truth":
-            style.lw     = 2
-            style.zorder = 2.1
-        if label == "Noisy":
-            style.label = "Obs."
-            style.ls     = ""
-            style.marker = "*"
-        if label == "Prior":
-            style.c      = "C0"
-            style.alpha  = .2
-        if label == "ES":
-            # style.label = "Ens. Smooth."
-            style.c      = "C1"
-            style.alpha  = .2
-        if label == "ES0":
-            style.c      = "C2"
-            style.alpha  = .2
-            style.zorder = 1.9
-        if label == "iES":
-            style.c      = "C4"
-            style.alpha  = .2
-
-        # Incrase alpha if N is small
-        N = len(dct.Prior)
-        style.alpha **= (1 + np.log10(N/100))
-
-        return style
+    handles = []
 
     # For each well
     for i in range(nProd):
@@ -303,14 +358,28 @@ def productions(fignum, dct, nProd=None, figsize=None, title=""):
                 ha="right", va="top", transform=ax.transAxes)
 
         for label, series in dct.items():
-            ll = ax.plot(1 - series.T[i], **style(label))
+
+            # Get style props
+            some_ensemble = list(dct.values())[-1]
+            props = style(label, N=len(some_ensemble))
+
+            # Plot
+            ll = ax.plot(1 - series.T[i], **props)
+
+            # Rm duplicate labels
             plt.setp(ll[1:], label="_nolegend_")
 
+            # Store 1 handle of series
+            if i == 0:
+                handles.append(ll[0])
+
         # Legend
-        if i == nProd-1:
+        if legend:
             leg = ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
             for ln in leg.get_lines():
                 ln.set(alpha=1, linewidth=max(1, ln.get_linewidth()))
+
+    return handles
 
 
 def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
@@ -356,6 +425,7 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
 
 
+# TODO: Use nrows=1 ?
 def dashboard(self, saturation, production, pause=200, animate=True, title="", **kwargs):
     fig, axs = freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:

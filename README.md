@@ -1,7 +1,5 @@
 # History matching tutorial
 
-<img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" height="200">
-
 ## Run in the cloud
 
 using Colab (requires no installation, but Google login):
@@ -39,3 +37,7 @@ If you're not an admin or expert:
   `jupyter-notebook`.  
   This will open up a page in your web browser that is a file navigator.  
   Click on `MAIN.ipynb`.
+
+## Contributors
+
+<img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" height="200">

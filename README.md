@@ -39,7 +39,10 @@ If you're not an admin or expert:
   Click on `MAIN.ipynb`.
 
 ## Contributors
+This work has been funded by DIGIRES, a project sponsored by industry partners
+and the PETROMAKS2 programme of the Research Council of Norway.
 
+It has been developed by Patrick N. Raanes, researcher at NORCE.
 <a href="http://norceresearch.no">
 <img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" height="200">
 </a>

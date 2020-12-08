@@ -1,6 +1,6 @@
 # History matching tutorial
 
-## Run in the cloud
+## Run tutorial in the cloud
 
 using Colab (requires no installation, but Google login):
 

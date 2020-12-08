@@ -34,6 +34,10 @@ print("Hello world! I'm " + name)
 # (they use the same Python kernel and thus share variables, functions, and classes).
 # Thus, the **order** in which you run the cells matters.
 
+# First off, since you're running this on Colab, execute the following cell to download and install the project's requirements:
+
+# !wget -qO- https://raw.githubusercontent.com/patricknraanes/HistoryMatching/master/colab_bootstrap.sh | bash -s
+
 # One thing you must know is how to **restart** the Python session,
 # which clears all of your variables, functions, etc,
 # so that you can start over.
@@ -77,9 +81,6 @@ for i in range(4):
 plt.legend();
 
 # ## Setup
-# Run this to download and install the project's requirements:
-
-# !wget -qO- https://raw.githubusercontent.com/patricknraanes/HistoryMatching/master/colab_bootstrap.sh | bash -s
 
 # Run the following cells to import some tools...
 

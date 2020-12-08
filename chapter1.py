@@ -598,7 +598,7 @@ for name, J in stats_iES.items():
     except IndexError:
         pass
 ax.set_xlabel("iteration")
-ax.set_ylabel("Mismatch", color="b")
+ax.set_ylabel("RMS mismatch", color="b")
 ax.tick_params(axis='y', labelcolor="b")
 ax.legend()
 ax2 = ax.twinx()  # axis for rmse

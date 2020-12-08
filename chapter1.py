@@ -238,7 +238,7 @@ wsat.past.Truth, prod.past.Truth = simulate(
 
 from matplotlib import rc
 rc('animation', html="jshtml")
-ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=False, title="Truth");
+ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=True, title="Truth");
 ani
 
 

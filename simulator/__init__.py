@@ -94,7 +94,7 @@ class ResSim(NicePrint, Grid2D):
     def spdiags(self, data, diags, format=None):
         return sparse.spdiags(data, diags, self.M, self.M, format)
 
-    def RelPerm(self, s, nargout_is_4=False):
+    def RelPerm(self, s):
         """Rel. permeabilities of oil and water."""
         Fluid = self.Fluid
         S = (s-Fluid.swc)/(1-Fluid.swc-Fluid.sor)  # Rescale saturations
@@ -234,7 +234,7 @@ def simulate(model_step, nSteps, x0, dt=.025, obs=None, pbar=True):
     # Range with or w/o progbar
     rge = np.arange(nSteps)
     if pbar:
-        rge = progbar(rge, "Time steps")
+        rge = progbar(rge, "Simulation")
 
     # Init
     xx = np.zeros((nSteps+1,)+x0.shape)

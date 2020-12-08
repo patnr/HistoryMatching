@@ -9,7 +9,7 @@ from tools import sigmoid
 # from mpl_tools.misc import freshfig
 
 
-model = ResSim(Lx=2, Ly=1, Nx=20, Ny=20)
+model = ResSim(Lx=1, Ly=1, Nx=20, Ny=20)
 
 # Relative coordinates
 injectors = [[0.1, 0.0, 1.0], [0.9, 0.0, 1.0]]
@@ -33,7 +33,7 @@ surf[:model.Nx//2, model.Ny//3] = 0.001
 
 # Set permeabilities to surf.
 # Alternative: set S0 to it.
-model.Gridded.K = np.stack([surf, surf])
+model.Gridded.K = np.stack([surf, surf])  # type: ignore
 
 # Define obs operator
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
@@ -42,9 +42,16 @@ def obs(saturation):
 obs.length = len(obs_inds)
 
 # Simulate
-S0 = np.zeros(model.M)
-nTime = 28
-saturation, production = simulate(model.step, nTime, S0, 0.025, obs)
+S0 = np.zeros(model.M)  # type: ignore
+
+# dt=0.025 was used in Matlab code with 64x64 (and 1x1),
+# but I find that dt=0.1 works alright too.
+# With 32x32 I find that dt=0.2 works fine.
+# With 20x20 I find that dt=0.4 works fine.
+T = 28*0.025
+dt = 0.4
+nTime = round(T/dt)
+saturation, production = simulate(model.step, nTime, S0, dt, obs)
 
 # Plot IC
 # fig, (ax1, ax2) = freshfig(47, figsize=(8, 4), ncols=2)
@@ -54,5 +61,5 @@ saturation, production = simulate(model.step, nTime, S0, 0.025, obs)
 
 # Animation
 plots.COORD_TYPE = "index"
-ani = plots.animate1(model, saturation, production)
+ani = plots.dashboard(model, saturation, production, animate=False)
 plt.pause(.1)

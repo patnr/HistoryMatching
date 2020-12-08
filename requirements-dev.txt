@@ -1,0 +1,10 @@
+-r requirements.txt
+autopep8
+flake8
+ipdb
+ipython
+pre-commit
+pudb
+PyQt5
+pytest
+qtpy

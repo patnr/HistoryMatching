@@ -9,7 +9,6 @@ from numpy.random import randn
 
 from simulator import plotting as plots
 from simulator.grid import Grid2D
-from tools import truncate_01  # noqa
 
 
 def variogram_gauss(xx, r, n=0, a=1/3):

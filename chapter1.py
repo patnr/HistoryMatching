@@ -662,11 +662,7 @@ v = plots.productions(prod.past, 175, figsize=(14, 4))
 print("Stats vs. past production (i.e. NOISY observations)")
 RMS_all(prod.past, vs="Noisy")
 
-# Note that the data mismatch is significantly reduced.
-# This may be the case even if the updated permeability field
-# did not have a reduced rmse (overall, relative to that of the prior prior).
-# The "direct" forecast (essentially just linear regression) may achieve
-# even lower rmse, but generally, less realistic production plots.
+# Note that the data mismatch is significantly reduced. This may be the case even if the updated permeability field did not have a reduced rmse (overall, relative to that of the prior prior). The "direct" forecast (essentially just linear regression) may achieve even lower rmse, but generally, less realistic production plots.
 
 
 # ##### Comment on prior

@@ -130,7 +130,7 @@ seed = np.random.seed(4)  # very easy
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
-# We will estimate the log permeability field. The data will consist in the production saturations.
+# We will estimate the log permeability field. The data will consist in the water cut of the production, which equals the water saturations at the well locations.
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -212,6 +212,7 @@ plt.pause(.1)
 
 
 # #### Define obs operator
+# There is no well model. The data consists purely of the water cut at the location of the wells.
 
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 def obs(water_sat):
@@ -580,7 +581,7 @@ perm.iES, stats_iES = iES(
 )
 
 
-# #### Plot ES
+# #### Plot iES
 # Let's plot the updated, initial ensemble.
 
 plots.fields(model, 165, plots.field, perm.iES,
@@ -607,6 +608,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 plt.pause(.1)
 
 # ### Diagnostics
+# In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior. The "expectation" wording indicates that this is true on average, but not always. To be specific, it means that it is guaranteed to hold true if the RMSE is calculated for infinitely many experiments (each time simulating a new synthetic truth and observations from the prior). The reason for this is that the ES uses the Kalman update, which is the BLUE (best linear unbiased estimate), and "best" means that the variance must get reduced. However, note that this requires the ensemble to be infinitely big, which it most certainly is not in our case. Therefore, we do not need to be very unlucky to observe that the RMSE has actually increased. Despite this, as we will see later, the data match might yield a different conclusions concerning the utility of the update.
 
 print("Stats vs. true field")
 RMS_all(perm, vs="Truth")
@@ -622,23 +624,6 @@ perm._means = DotDict((k, perm[k].mean(axis=0)) for k in perm
 plots.fields(model, 170, plots.field, perm._means,
              figsize=(14, 5), cmap=cmap,
              title="Truth and mean fields.");
-
-# ### Correlations
-# NB: Correlations are just one part of the update (gain) operation (matrix),
-# which also involves:
-# - the sensitivity matrix (the obs. operator)
-# - the inter-dependence of elements.
-# - the relative sizes of the errors (prior vs. likelihood,
-#   as well as one vector element vs. another).
-
-# +
-# Not very interesting coz its perm-perm
-# iWell = 2
-# xy_coord = model.producers[iWell, :2]
-# plots.correlation_fields(
-#    model, 180, intersect(perm, ["Prior", "ES"]),
-#    xy_coord, "Initial corr.")
-# -
 
 # ### Past production (data mismatch)
 

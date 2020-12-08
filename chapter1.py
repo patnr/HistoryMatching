@@ -20,8 +20,6 @@
 
 name = "Batman"
 print("Hello world! I'm " + name)
-# for i, c in enumerate(name):
-#     print(i, c)
 
 # You will likely be more efficient if you know these
 # **keyboard shortcuts** to interact with cells:

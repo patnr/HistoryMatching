@@ -313,11 +313,6 @@ ax.set(xlabel="eigenvalue #", ylabel="var.",
        title="Spectrum of initial, true cov");
 plt.pause(.1)
 
-# Finally, we set the prior for the state variable to a single (i.e. deterministic) field. This means that there is no uncertainty in the state variable.
-
-wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
-
-
 # ## Assimilation
 
 # #### Propagation
@@ -325,41 +320,66 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
 multiprocess = True  # multiprocessing?
 
-def forecast(nTime, wsats0, perms, desc="En. forecast"):
+def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
     """Forecast for an ensemble."""
+
+    # Compose ensemble
+    if Q_prod is None:
+        E = zip(wsats0, perms)
+    else:
+        E = zip(wsats0, perms, Q_prod)
+
+    def forecast1(x):
+        model_n = deepcopy(model)
+
+        if Q_prod is None:
+            wsat0, perm = x
+            # Set ensemble
+            set_perm(model_n, perm)
+        else:
+            wsat0, perm, q_prod = x
+            # Set production rates
+            prod = model_n.producers
+            prod = well_grid  # model_n.producers uses abs scale
+            prod[:, 2] = q_prod
+            model_n.init_Q(
+                inj = model_n.injectors,
+                prod = prod,
+            )
+            # Set ensemble
+            set_perm(model_n, perm)
+
+        # Simulate
+        s, p = simulate(model_n.step, nTime, wsat0, dt, obs, pbar=False)
+        return s, p
 
     # Allocate
     production = np.zeros((N, nTime, nProd))
     saturation = np.zeros((N, nTime+1, model.M))
 
-    def forecast1(member):
-        wsat0, perm = member
-        # Set ensemble
-        model_n = deepcopy(model)
-        set_perm(model_n, perm)
-        # Simulate
-        s, p = simulate(model_n.step, nTime, wsat0, dt, obs, pbar=False)
-        return s, p
-
-    members = zip(wsats0, perms)
-
+    # Dispatch
     if multiprocess:
         import multiprocessing_on_dill as mpd
         with mpd.Pool() as pool:
-            prediction = list(progbar(
-                pool.imap(forecast1, members),
-                total=N, desc=desc))
-        for n, member in enumerate(prediction):
+            E = list(progbar(pool.imap(forecast1, E), total=N, desc=desc))
+        # Write
+        for n, member in enumerate(E):
             saturation[n], production[n] = member
 
     else:
-        for n, (wsat0, perm) in enumerate(progbar(list(members), "Members")):
-            s, p = forecast1((wsat0, perm))
+        for n, xn in enumerate(progbar(list(E), "Members")):
+            s, p = forecast1(xn)
             # Write
-            # Note: we only really need the last entry in the saturation series.
             saturation[n], production[n] = s, p
 
     return saturation, production
+
+# We also need to set the prior for the initial water saturation. As mentioned, this is not because it is uncertain/unknown; indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). However, in order to save one iteration, the posterior will also be output for the present-time water saturation (state) field, which is then used to restart simulations for future prediction (actually, the full time series of the saturation is output, but that is just for academic purposes). Therefore the ensemble forecast function must take water saturation as one of the inputs. Therefore, for the prior, we set this all to the true initial saturation (giving it uncertainty 0).
+
+wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
+
+
+# Now we run the forecast.
 
 wsat.past.Prior, prod.past.Prior = forecast(
     nTime, wsat.initial.Prior, perm.Prior)
@@ -506,7 +526,7 @@ def iES(ensemble, observation, obs_err_cov,
         stats.rmse[itr] = RMS(perm.Truth, E).rmse
 
         # Forecast.
-        E_state, E_obs = forecast(nTime, wsat.initial.Prior, E, f"Iteration {itr}")
+        E_state, E_obs = forecast(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
         E_obs = E_obs.reshape((N, -1))
 
         # Undo the bundle scaling of ensemble.
@@ -704,3 +724,72 @@ plt.pause(.1)
 
 print("Stats vs. (supposedly unknown) future production")
 RMS_all(prod.future, vs="Truth")
+
+# ## EnOpt
+
+# This section is still in construction. There are many details missing.
+
+# Cost function definition: total oil from production wells. This cost function takes for an ensemble of (wsat, perm) and controls (Q_prod) and outputs the corresponding ensemble of total oil productions.
+
+def total_oil(E, Eu):
+    wsat, perm = E
+    wsat, prod = forecast(nTime, wsat, perm, Q_prod=Eu)
+    return np.sum(prod, axis=(1, 2))
+
+# Define step modulator by adding momentum to vanilla gradient descent.
+
+def GDM(beta1=0.9):
+    """Gradient descent with (historical) momentum."""
+    grad1 = 0
+
+    def set_historical(g):
+        nonlocal grad1
+        grad1 = beta1*grad1 + (1-beta1)*g
+
+    def step(g):
+        set_historical(g)
+        return grad1
+
+    return step
+
+# Define EnOpt
+
+def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
+    N = len(wsats0)
+    E = wsats0, perms
+
+    stepper = GDM()
+
+    print("Initial controls:", u)
+    J = total_oil(E, np.tile(u, (N, 1))).mean()
+    print("Total oil, averaged, initial: %.3f" % J)
+
+    for itr in progbar(range(nIter), desc="EnOpt"):
+        Eu = u + randn(N, len(u)) @ C12.T
+        Eu = Eu.clip(1e-5)
+
+        Ej = total_oil(E, Eu)
+        # print("Approx. total oil, average: %.3f"%Ej.mean())
+
+        Xu = mean0(Eu)
+        Xj = mean0(Ej)
+
+        G  = Xj.T @ Xu / (N-1)
+
+        du = stepper(G)
+        u  = u + stepsize*du
+        u  = u.clip(1e-5)
+
+    print("Final controls:", u)
+    J = total_oil(E, np.tile(u, (N, 1))).mean()
+    print("Total oil, averaged, final: %.3f" % J)
+    return u
+
+# Run EnOpt
+
+# u0  = model.producers[:, 2]
+u0  = np.random.rand(nProd)
+u0 /= sum(u0)
+C12 = 0.03 * np.eye(nProd)
+u   = EnOpt(wsat.past.ES[:, -1, :], perm.ES, u0, C12, stepsize=10)
+# u   = EnOpt(wsat.past.iES[:, -1, :], perm.iES, u0, C12, stepsize=10)

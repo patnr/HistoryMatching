@@ -16,7 +16,7 @@ def init():
             fig_placement_load()
 
 
-def display(animation):
+def display_anim(animation):
     if is_notebook_or_qt:
         ipy_disp.display(ipy_disp.HTML(animation.to_jshtml()))
     else:

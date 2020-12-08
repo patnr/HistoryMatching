@@ -52,29 +52,29 @@ from matplotlib import pyplot as plt
 import mpl_setup
 mpl_setup.init()
 
-# # Use numpy's arrays for vectors and matrices. Example constructions:
-# a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
-# Id = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
-#
-# print("Indexing examples:")
-# print("a         =", a)
-# print("a[3]      =", a[3])
-# print("a[0:3]    =", a[0:3])
-# print("a[:3]     =", a[:3])
-# print("a[3:]     =", a[3:])
-# print("a[-1]     =", a[-1])
-# print("Id[:3,:3] =", Id[:3, :3], sep="\n")
-#
-# print("\nLinear algebra examples:")
-# print("100+a  =", 100+a)
-# print("Id@a   =", Id@a)
-# print("Id*a   =", Id*a, sep="\n")
-#
-# plt.title("Plotting example")
-# plt.ylabel("$i \\, x^2$")
-# for i in range(4):
-#     plt.plot(i * a**2, label="i = %d" % i)
-# plt.legend();
+# Use numpy's arrays for vectors and matrices. Example constructions:
+a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
+Id = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
+
+print("Indexing examples:")
+print("a         =", a)
+print("a[3]      =", a[3])
+print("a[0:3]    =", a[0:3])
+print("a[:3]     =", a[:3])
+print("a[3:]     =", a[3:])
+print("a[-1]     =", a[-1])
+print("Id[:3,:3] =", Id[:3, :3], sep="\n")
+
+print("\nLinear algebra examples:")
+print("100+a  =", 100+a)
+print("Id@a   =", Id@a)
+print("Id*a   =", Id*a, sep="\n")
+
+plt.title("Plotting example")
+plt.ylabel("$i \\, x^2$")
+for i in range(4):
+    plt.plot(i * a**2, label="i = %d" % i)
+plt.legend();
 
 # ## Setup
 # Run the following cells to import some tools...

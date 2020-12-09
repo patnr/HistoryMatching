@@ -44,11 +44,12 @@ If you're not an admin or expert:
 This work has been funded by DIGIRES, a project sponsored by industry partners
 and the PETROMAKS2 programme of the Research Council of Norway.
 
-<a href="http://norceresearch.no">
-<img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" width="400">
+<a href="http://digires.no">
+<img src="http://digires.no/DIGIRES/digilogo%20(002).png" width="400">
 </a>
 
 It has been developed by Patrick N. Raanes, researcher at NORCE.
-<a href="http://digires.no">
-<img src="http://digires.no/DIGIRES/digilogo%20(002).png" width="400">
+
+<a href="http://norceresearch.no">
+<img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" width="400">
 </a>

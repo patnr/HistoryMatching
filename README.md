@@ -8,10 +8,11 @@ using Colab (requires no installation, but Google login):
 
 ## OR: install
 
-This option should be preferred for development,
-or just because your local computer is usually faster than what Google will provide you for free.
+Use this option for development, or if you simply want
+faster computations (your typical laptop is twice as powerful
+as Google's free offering).
 
-#### Prerequisite: Python>=3.7
+### Prerequisite: Python>=3.7
 
 If you're not an admin or expert:  
 
@@ -26,30 +27,47 @@ If you're not an admin or expert:
   Ensure the output at the end gives a version bigger than 3.7.  
   Keep using the same terminal for the commands below. 
 
-#### Install
+### Install
 
-- Download and unzip (or `git clone`) this repository.
-- Move the resulting folder wherever you like,  
-  and `cd` into it
+- Download and unzip (or `git clone`)
+  this repository (see the green button up top)
+- Move the resulting folder wherever you like, and `cd` into it
 - Install requirements:  
   `pip install -r path/to/requirements.txt`
 
-#### Launch
+### Launch
+
 - Launch the "notebook server" by executing:  
   `jupyter-notebook`  
   This will open up a page in your web browser that is a file navigator.  
 - Click on `MAIN.ipynb`.
 
 ## Contributors
-This work has been funded by DIGIRES, a project sponsored by industry partners
-and the PETROMAKS2 programme of the Research Council of Norway.
 
-<a href="http://digires.no">
-<img src="http://digires.no/DIGIRES/digilogo%20(002).png" width="400">
-</a>
-
-It has been developed by Patrick N. Raanes, researcher at NORCE.
+This work has been developed by *Patrick N. Raanes*, researcher at *NORCE*.
+The project has been funded by *DIGIRES*,
+a project sponsored by industry partners
+and the *PETROMAKS2* programme of the *Research Council of Norway*.
 
 <a href="http://norceresearch.no">
-<img src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg" width="400">
+<img height="100" src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg">
 </a>
+
+<a href="http://digires.no">
+<img src="http://digires.no/DIGIRES/digilogo%20(002).png" height="100">
+</a>
+
+
+
+
+
+<!-- markdownlint-configure-file
+{
+  "no-multiple-blanks": false,
+  "no-inline-html": {
+    "allowed_elements": [ "img", "a" ]
+  },
+  "code-block-style": false,
+  "ul-indent": { "indent": 2 }
+}
+-->

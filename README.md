@@ -12,7 +12,7 @@ Use this option for development, or if you simply want
 faster computations (your typical laptop is twice as powerful
 as Google's free offering).
 
-### Prerequisite: Python>=3.7
+#### Prerequisite: Python>=3.7
 
 If you're not an admin or expert:  
 
@@ -25,9 +25,9 @@ If you're not an admin or expert:
       python -c 'import sys; print("Version:", sys.version.split()[0])'
 
   Ensure the output at the end gives a version bigger than 3.7.  
-  Keep using the same terminal for the commands below. 
+  Keep using the same terminal for the commands below.
 
-### Install
+#### Install
 
 - Download and unzip (or `git clone`)
   this repository (see the green button up top)
@@ -35,7 +35,7 @@ If you're not an admin or expert:
 - Install requirements:  
   `pip install -r path/to/requirements.txt`
 
-### Launch
+#### Launch
 
 - Launch the "notebook server" by executing:  
   `jupyter-notebook`  
@@ -63,6 +63,7 @@ and the *PETROMAKS2* programme of the *Research Council of Norway*.
 
 <!-- markdownlint-configure-file
 {
+  "header-increment": false,
   "no-multiple-blanks": false,
   "no-inline-html": {
     "allowed_elements": [ "img", "a" ]

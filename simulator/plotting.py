@@ -7,11 +7,14 @@ from mpl_tools.misc import (axprops, fig_colorbar,
                             freshfig, is_notebook_or_qt)
 from patlib.dict_tools import DotDict, get0
 
+
 def center(E):
     return E - E.mean(axis=0)
 
 
 COORD_TYPE = "relative"
+
+
 def lims(self):
     if "rel" in COORD_TYPE:
         Lx, Ly = 1, 1
@@ -20,6 +23,7 @@ def lims(self):
     elif "ind" in COORD_TYPE:
         Lx, Ly = self.Nx, self.Ny
     return Lx, Ly
+
 
 def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
@@ -54,6 +58,7 @@ def field(self, ax, zz, **kwargs):
     return collections
 
 
+# TODO: replace from mpl-tools
 def nRowCol(nTotal, wh_ratio=None):
     "Return `int` nrows and ncols such that `nTotal ≈ nrows*ncols`."
 

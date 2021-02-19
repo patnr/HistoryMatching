@@ -83,7 +83,7 @@ from copy import deepcopy
 
 import scipy.linalg as sla
 from matplotlib import ticker
-from mpl_tools.misc import freshfig
+from mpl_tools.fig_layout import freshfig
 from numpy.random import randn
 from numpy import sqrt
 from patlib.dict_tools import DotDict
@@ -133,7 +133,7 @@ seed = np.random.seed(4)  # very easy
 
 # We will estimate the log permeability field. The data will consist in the water cut of the production, which equals the water saturations at the well locations.
 
-model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
+model = simulator.ResSim(Nx=12, Ny=12, Lx=2, Ly=1)
 
 # #### Permeability sampling
 # We work with log permeabilities, which can (in principle) be Gaussian.

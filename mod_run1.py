@@ -6,7 +6,7 @@ from geostat import gaussian_fields
 from simulator import ResSim, simulate
 from tools import sigmoid
 
-# from mpl_tools.misc import freshfig
+# from mpl_tools.fig_layout import freshfig
 
 
 model = ResSim(Lx=1, Ly=1, Nx=20, Ny=20)

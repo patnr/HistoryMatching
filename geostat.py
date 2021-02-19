@@ -4,7 +4,7 @@
 import numpy as np
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
-from mpl_tools.misc import freshfig
+from mpl_tools.fig_layout import freshfig
 from numpy.random import randn
 
 from simulator import plotting as plots

@@ -3,8 +3,9 @@
 import matplotlib as mpl
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_tools.misc import (axprops, fig_colorbar,
-                            freshfig, is_notebook_or_qt)
+from mpl_tools import is_notebook_or_qt
+from mpl_tools.misc import axprops, fig_colorbar, nRowCol
+from mpl_tools import fig_layout
 from patlib.dict_tools import DotDict, get0
 
 
@@ -58,24 +59,6 @@ def field(self, ax, zz, **kwargs):
     return collections
 
 
-# TODO: replace from mpl-tools
-def nRowCol(nTotal, wh_ratio=None):
-    "Return `int` nrows and ncols such that `nTotal ≈ nrows*ncols`."
-
-    # Aspect ratio: default from mpl.rc.figsize
-    if wh_ratio is None:
-        w, h = mpl.rcParams["figure.figsize"]
-        wh_ratio = w/h
-
-    nrows = int(np.sqrt(nTotal)//wh_ratio)
-    ncols = nTotal//nrows
-
-    if nrows*ncols < nTotal:
-        ncols += 1
-
-    return nrows, ncols
-
-
 def fields(self,
            fignum, plotter, ZZ,
            figsize=None,
@@ -84,11 +67,10 @@ def fields(self,
            colorbar=True,
            **kwargs):
 
-    nrows, ncols = nRowCol(min(12, len(ZZ)))
-
-    fig, axs = freshfig(fignum, figsize=figsize,
-                        nrows=nrows, ncols=ncols,
-                        sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(
+        fignum, figsize=figsize,
+        **nRowCol(min(12, len(ZZ))),
+        sharex=True, sharey=True)
 
     # Turn off redundant axes
     for ax in axs[len(ZZ):]:
@@ -120,6 +102,7 @@ def fields(self,
         fig.suptitle(title)
 
     return fig, axs, hh
+
 
 def oilfields(self, fignum, water_sat_fields, **kwargs):
     return fields(self, fignum, oilfield, **kwargs)
@@ -249,6 +232,7 @@ def production1(ax, production, obs=None):
     # ax.set_ylim(-0.01, 1.01)
     ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)
     ax.axhline(1, c="xkcd:light grey", ls="--", zorder=1.8)
+    plt.pause(.1)
     return hh
 
 
@@ -337,6 +321,7 @@ def toggle_series(plotter):
 
     return interactive_plot
 
+
 # TODO: implement with plotting.fields ?
 @toggle_series
 def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
@@ -344,10 +329,9 @@ def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
-    nrows, ncols = nRowCol(nProd)
-    fig, axs = freshfig(fignum, figsize=figsize,
-                        ncols=ncols, nrows=nrows,
-                        sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(
+        fignum, figsize=figsize,
+        **nRowCol(nProd), sharex=True, sharey=True)
     # fig.suptitle("Oil productions " + title)
 
     # Turn off redundant axes
@@ -391,8 +375,8 @@ def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
     ncols = 2
     nAx   = len(water_sat_fields)
     nrows = int(np.ceil(nAx/ncols))
-    fig, axs = freshfig(fignum, figsize=(8, 4*nrows),
-                        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(fignum, figsize=(8, 4*nrows),
+                                   ncols=ncols, nrows=nrows, sharex=True, sharey=True)
 
     fig.subplots_adjust(hspace=.3)
     fig.suptitle(f"Oil saturation (mean fields) - {title}")
@@ -413,8 +397,9 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     ncols = 2
     nAx   = len(field_ensembles)
     nrows = int(np.ceil(nAx/ncols))
-    fig, axs = freshfig(fignum, figsize=(8, 4*nrows),
-                        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(
+        fignum, figsize=(8, 4*nrows),
+        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
 
     fig.subplots_adjust(hspace=.3)
     fig.suptitle(title)
@@ -432,7 +417,7 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
 
 # TODO: Use nrows=1 ?
 def dashboard(self, saturation, production, pause=200, animate=True, title="", **kwargs):
-    fig, axs = freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
+    fig, axs = fig_layout.freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023
 

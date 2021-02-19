@@ -3,21 +3,25 @@
 import numpy as np
 import scipy.linalg as sla
 
+
 def norm(xx):
     # return nla.norm(xx/xx.size)
-    return np.sqrt(np.mean(xx*xx))
+    return np.sqrt(np.mean(xx * xx))
+
 
 class RMS:
+    """Compute RMS error & dev."""
+
     def __init__(self, truth, ensemble):
-        """RMS error & dev."""
         mean = ensemble.mean(axis=0)
-        err  = truth - mean
-        dev  = ensemble - mean
+        err = truth - mean
+        dev = ensemble - mean
         self.rmse = norm(err)
         self.rmsd = norm(dev)
 
     def __str__(self):
         return "%6.4f (rmse),  %6.4f (std)" % (self.rmse, self.rmsd)
+
 
 def RMS_all(series, vs):
     """RMS for each item in series."""
@@ -48,7 +52,7 @@ def svd0(A):
 
 
 def pad0(ss, N):
-    "Pad ss with zeros so that len(ss)==N."
+    """Pad ss with zeros so that len(ss)==N."""
     out = np.zeros(N)
     out[:len(ss)] = ss
     return out
@@ -59,7 +63,8 @@ def center(E, axis=0, rescale=False):
 
     Makes use of np features: keepdims and broadcasting.
 
-    - rescale: Inflate to compensate for reduction in the expected variance."""
+    - rescale: Inflate to compensate for reduction in the expected variance.
+    """
     x = np.mean(E, axis=axis, keepdims=True)
     X = E - x
 
@@ -73,12 +78,12 @@ def center(E, axis=0, rescale=False):
 
 
 def mean0(E, axis=0, rescale=True):
-    "Same as: center(E,rescale=True)[0]"
+    """Same as: center(E,rescale=True)[0]"""
     return center(E, axis=axis, rescale=rescale)[0]
 
 
 def inflate_ens(E, factor):
-    "Inflate the ensemble (center, inflate, re-combine)."
+    """Inflate the ensemble (center, inflate, re-combine)."""
     if factor == 1:
         return E
     X, x = center(E)

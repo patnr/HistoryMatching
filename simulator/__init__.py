@@ -34,6 +34,7 @@ from .grid import Grid2D
 # - Protect Nx, Ny, shape, etc?
 # - Can the cell volumnes (h2) be arrays?
 
+
 class ResSim(NicePrint, Grid2D):
     """Reservoir simulator.
 
@@ -59,8 +60,8 @@ class ResSim(NicePrint, Grid2D):
         )
 
         self.Fluid = DotDict(
-            vw=1.0,  vo=1.0,  # Viscosities
-            swc=0.0, sor=0.0  # Irreducible saturations
+            vw=1.0, vo=1.0,  # Viscosities
+            swc=0.0, sor=0.0,  # Irreducible saturations
         )
 
     def init_Q(self, inj, prod):
@@ -91,8 +92,8 @@ class ResSim(NicePrint, Grid2D):
         self.injectors = injectors
         self.producers = producers
 
-    def spdiags(self, data, diags, format=None):
-        return sparse.spdiags(data, diags, self.M, self.M, format)
+    def spdiags(self, data, diags, _format=None):
+        return sparse.spdiags(data, diags, self.M, self.M, _format)
 
     def RelPerm(self, s):
         """Rel. permeabilities of oil and water."""
@@ -114,8 +115,8 @@ class ResSim(NicePrint, Grid2D):
         y1 = V.y.clip(max=0)[:, :-1].ravel()
         y2 = V.y.clip(min=0)[:, 1:] .ravel()
         # Compose flow matrix
-        DiagVecs = [x2, y2, fp+y1-y2+x1-x2, -y1, -x1]      # diagonal vectors
-        DiagIndx = [-self.Ny, -1,        0,  1,  self.Ny]  # diagonal index
+        DiagVecs = [x2, y2, fp+y1-y2+x1-x2, -y1, -x1]      # noqa diagonal vectors
+        DiagIndx = [-self.Ny, -1,        0,  1,  self.Ny]  # noqa diagonal index
         # Matrix with upwind FV stencil
         A = self.spdiags(DiagVecs, DiagIndx)
         return A
@@ -123,11 +124,12 @@ class ResSim(NicePrint, Grid2D):
     def TPFA(self, K, q):
         """Two-point flux-approximation (TPFA) of Darcy:
 
-        diffusion w/ nonlinear coefficient K."""
+        diffusion w/ nonlinear coefficient K.
+        """
         # Compute transmissibilities by harmonic averaging.
         L = K**(-1)
         TX = np.zeros((self.Nx+1, self.Ny))
-        TY = np.zeros((self.Nx,   self.Ny+1))
+        TY = np.zeros((self.Nx,   self.Ny+1))  # noqa
 
         TX[1:-1, :] = 2*self.hy/self.hx/(L[0, :-1, :] + L[0, 1:, :])
         TY[:, 1:-1] = 2*self.hx/self.hy/(L[1, :, :-1] + L[1, :, 1:])
@@ -138,8 +140,8 @@ class ResSim(NicePrint, Grid2D):
         y1 = TY[:, :-1].ravel()
         y2 = TY[:, 1:] .ravel()
 
-        DiagVecs = [-x2,      -y2, y1+y2+x1+x2, -y1,     -x1]
-        DiagIndx = [-self.Ny,  -1,      0,   1,      self.Ny]
+        DiagVecs = [-x2,      -y2, y1+y2+x1+x2, -y1,     -x1]  # noqa
+        DiagIndx = [-self.Ny,  -1,      0,   1,      self.Ny]  # noqa
         # Coerce system to be SPD (ref article, page 13).
         DiagVecs[2][0] += np.sum(self.Gridded.K[:, 0, 0])
 
@@ -173,7 +175,7 @@ class ResSim(NicePrint, Grid2D):
 
         V = DotDict(
             x = np.zeros((self.Nx+1, self.Ny)),
-            y = np.zeros((self.Nx,   self.Ny+1)),
+            y = np.zeros((self.Nx,   self.Ny+1)),  # noqa
         )
         V.x[1:-1, :] = (P[:-1, :] - P[1:, :]) * TX[1:-1, :]
         V.y[:, 1:-1] = (P[:, :-1] - P[:, 1:]) * TY[:, 1:-1]
@@ -216,7 +218,7 @@ class ResSim(NicePrint, Grid2D):
         A = self.upwind_diff(V, q)           # system matrix
         A = self.spdiags(dtx, 0)@A           # A * dt/|Omega i|
 
-        for iT in range(Nts):
+        for _iT in range(Nts):
             mw, mo = self.RelPerm(S)         # compute mobilities
             fw = mw/(mw+mo)                  # compute fractional flow
             S = S + (A@fw + fi*dtx)          # update saturation

@@ -1,14 +1,13 @@
 """Plot functions for reservoir model"""
 
+import IPython.display as ip_disp
 import matplotlib as mpl
 import numpy as np
+from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
-from mpl_tools import is_notebook_or_qt
+from mpl_tools import fig_layout, is_notebook_or_qt
 from mpl_tools.misc import axprops, fig_colorbar, nRowCol
-from mpl_tools import fig_layout
 from patlib.dict_tools import DotDict, get0
-import IPython.display as ip_disp
-from ipywidgets import (interactive, HBox, VBox)
 
 
 def center(E):

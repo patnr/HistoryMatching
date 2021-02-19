@@ -1,8 +1,8 @@
 """Configure mpl."""
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-import mpl_tools
 import IPython.display as ipy_disp
+import matplotlib as mpl
+import mpl_tools
+from matplotlib import pyplot as plt
 
 
 def init():

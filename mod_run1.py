@@ -1,10 +1,12 @@
+"""Illustrate model."""
 import numpy as np
 from matplotlib import pyplot as plt
 
 import simulator.plotting as plots
 from geostat import gaussian_fields
 from simulator import ResSim, simulate
-from tools import sigmoid
+
+# from tools import sigmoid
 
 # from mpl_tools.fig_layout import freshfig
 
@@ -26,7 +28,7 @@ np.random.seed(3000)
 surf = gaussian_fields(model.mesh(), 1)
 surf = 0.5 + .2*surf
 # surf = truncate_01(surf)
-surf = sigmoid(surf)
+# surf = sigmoid(surf)
 surf = surf.reshape(model.shape)
 # Insert barrier
 surf[:model.Nx//2, model.Ny//3] = 0.001
@@ -37,9 +39,9 @@ model.Gridded.K = np.stack([surf, surf])  # type: ignore
 
 # Define obs operator
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
-def obs(saturation):
+def obs(saturation):  # noqa
     return [saturation[i] for i in obs_inds]
-obs.length = len(obs_inds)
+obs.length = len(obs_inds)  # noqa
 
 # Simulate
 S0 = np.zeros(model.M)  # type: ignore

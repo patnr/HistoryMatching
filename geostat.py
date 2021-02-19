@@ -1,5 +1,4 @@
-"""Generate initial reservoir realisations with geostatistical methods.
-"""
+"""Generate initial reservoir realisations with geostatistical methods."""
 
 import numpy as np
 import scipy.linalg as sla
@@ -39,7 +38,8 @@ def vectorize(*XYZ):
 
     Input: `nDim` arrays with equal `shape`.
     Let `nPt = np.prod(shape)`
-    Output: array of shape `(nPt, nDim)`."""
+    Output: array of shape `(nPt, nDim)`.
+    """
     return np.stack(XYZ).reshape((len(XYZ), -1)).T
 
 

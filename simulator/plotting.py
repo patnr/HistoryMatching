@@ -7,6 +7,8 @@ from mpl_tools import is_notebook_or_qt
 from mpl_tools.misc import axprops, fig_colorbar, nRowCol
 from mpl_tools import fig_layout
 from patlib.dict_tools import DotDict, get0
+import IPython.display as ip_disp
+from ipywidgets import (interactive, HBox, VBox)
 
 
 def center(E):
@@ -23,12 +25,13 @@ def lims(self):
         Lx, Ly = self.Lx, self.Ly
     elif "ind" in COORD_TYPE:
         Lx, Ly = self.Nx, self.Ny
+    else:
+        raise ValueError("Unsupported coordinate type: %s" % COORD_TYPE)
     return Lx, Ly
 
 
 def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
-
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
     Z = zz.reshape(self.shape).T
@@ -162,11 +165,9 @@ def corr_field_vs(self, ax, E, xy, title="", **kwargs):
     ax.plot(*xy, '*k', ms=4)
     return cc
 
+
 def scale_well_geometry(self, ww):
-    """
-    Wells use absolute scaling.
-    Scale to coord_type instead.
-    """
+    """Wells use absolute scaling. Scale to coord_type instead."""
     ww = ww.copy()  # dont overwrite
     if "rel" in COORD_TYPE:
         s = 1/self.Lx, 1/self.Ly
@@ -174,6 +175,8 @@ def scale_well_geometry(self, ww):
         s = 1, 1
     elif "ind" in COORD_TYPE:
         s = self.Nx/self.Lx, self.Ny/self.Ly
+    else:
+        raise ValueError("Unsupported coordinate type: %s" % COORD_TYPE)
     ww[:, :2] = ww[:, :2] * s
     return ww
 
@@ -199,7 +202,7 @@ def well_scatter(self, ax, ww, inj=True, text=True, color=None):
     sh = ax.scatter(*ww.T[:2], s=16**2, c=c, marker=m,
                     edgecolors="k",
                     clip_on=False,
-                    zorder=1.5  # required on Jupypter
+                    zorder=1.5,  # required on Jupypter
                     )
 
     # Text labels
@@ -271,12 +274,8 @@ def style(label, N=100):
     return style
 
 
-import IPython.display as ip_disp
-from ipywidgets import (interactive, HBox, VBox)
-
 def toggle_series(plotter):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
-
     # NB: this was pretty darn complicated to get working
     # with the right layout and avoiding double plotting.
     # So exercise great caution when changing it!
@@ -388,7 +387,7 @@ def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
 
         handle = oilfield(self, ax, field, title=label, **kwargs)
 
-    fig_colorbar(fig, handle)
+    fig_colorbar(fig, handle)  # type: ignore
 
 
 def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwargs):
@@ -412,11 +411,12 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
             field  = field_ensembles[label]
             handle = corr_field_vs(self, ax, field, xy_coord, label, **kwargs)
 
-    fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
+    fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])  # type: ignore
 
 
 # TODO: Use nrows=1 ?
-def dashboard(self, saturation, production, pause=200, animate=True, title="", **kwargs):
+def dashboard(self, saturation, production,
+              pause=200, animate=True, title="", **kwargs):
     fig, axs = fig_layout.freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023

@@ -190,7 +190,7 @@ well_grid = np.stack(well_grid + [np.ones_like(well_grid[0])])
 well_grid = well_grid.T.reshape((-1, 3))
 model.init_Q(
     inj =[[0.50, 0.50, 1.00]],
-    prod=well_grid
+    prod=well_grid,
 );
 
 # # Random well configuration
@@ -317,7 +317,6 @@ multiprocess = True  # multiprocessing?
 
 def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
     """Forecast for an ensemble."""
-
     # Compose ensemble
     if Q_prod is None:
         E = zip(wsats0, perms)
@@ -399,6 +398,7 @@ class ES_update:
     we stack the members as rows instead of the conventional columns.
     Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
     """
+
     def __init__(self, obs_ens, observation, obs_err_cov):
         """Prepare the update."""
         Y           = mean0(obs_ens)
@@ -478,7 +478,7 @@ def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
             T     = T + gradT@Cow1
             Tinv  = sla.pinv2(T)
 
-    return dw, T, Tinv
+    return dw, T, Tinv  # type: ignore
 
 # This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
@@ -526,7 +526,7 @@ def iES(ensemble, observation, obs_err_cov,
 
         # Undo the bundle scaling of ensemble.
         if EPS != 1.0:
-            E     = inflate_ens(E,     1/EPS)
+            E     = inflate_ens(E, 1/EPS)
             E_obs = inflate_ens(E_obs, 1/EPS)
 
         # Prepare analysis.
@@ -550,7 +550,7 @@ def iES(ensemble, observation, obs_err_cov,
 
         # TODO: NB: these stats are only valid for Sqrt
         stat2 = DotDict(
-            J_prior = w@w * N1,
+            J_prior = w@w * N1,  # type: ignore
             J_lklhd = dy@dy,
         )
         # J_posterior is sum of the other two
@@ -571,21 +571,21 @@ def iES(ensemble, observation, obs_err_cov,
             stepsize    = min(1, stepsize)
             dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour)
 
-        stats.      dw[itr] = dw@dw / N
+        stats.      dw[itr] = dw@dw / N  # type: ignore
         stats.stepsize[itr] = stepsize
 
         # Step
-        w = w + stepsize*dw
+        w = w + stepsize*dw  # type: ignore
 
-        if stepsize * np.sqrt(dw@dw/N) < wtol:
+        if stepsize * np.sqrt(dw@dw/N) < wtol:  # type: ignore
             break
 
-    stats.nIter = itr + 1
+    stats.nIter = itr + 1  # type: ignore
 
     if not MDA:
         # The last step (dw, T) must be discarded,
         # because it cannot be validated without re-running the model.
-        w, T, Tinv  = old
+        w, T, Tinv  = old  # type: ignore
 
     # Reconstruct the ensemble.
     E = x0 + (w+T)@X0
@@ -759,7 +759,7 @@ def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
     J = total_oil(E, np.tile(u, (N, 1))).mean()
     print("Total oil, averaged, initial: %.3f" % J)
 
-    for itr in progbar(range(nIter), desc="EnOpt"):
+    for _itr in progbar(range(nIter), desc="EnOpt"):
         Eu = u + randn(N, len(u)) @ C12.T
         Eu = Eu.clip(1e-5)
 

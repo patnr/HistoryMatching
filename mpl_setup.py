@@ -1,3 +1,4 @@
+"""Configure mpl."""
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import mpl_tools

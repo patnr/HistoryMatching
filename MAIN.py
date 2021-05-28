@@ -86,7 +86,7 @@ from matplotlib import ticker
 from mpl_tools.fig_layout import freshfig
 from numpy.random import randn
 from numpy import sqrt
-from patlib.dict_tools import DotDict
+from struct_tools import DotDict
 from tqdm.auto import tqdm as progbar
 
 # and the model, ...
@@ -133,7 +133,7 @@ seed = np.random.seed(4)  # very easy
 
 # We will estimate the log permeability field. The data will consist in the water cut of the production, which equals the water saturations at the well locations.
 
-model = simulator.ResSim(Nx=12, Ny=12, Lx=2, Ly=1)
+model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
 # #### Permeability sampling
 # We work with log permeabilities, which can (in principle) be Gaussian.
@@ -310,10 +310,23 @@ plt.pause(.1)
 
 # ## Assimilation
 
+# #### Exc (optional)
+# Before going into iterative methods, we note that
+# the ensemble smoother (ES) is favoured over the ensemble Kalman smoother (EnKS) for history matching. This may come as a surprise, because the EnKS processes the observations sequentially, like the ensemble Kalman filter (EnKF), not in the batch manner of the ES. Because sequential processing is more gradual, one would expect it to achieve better accuracy than batch approaches. However, the ES is preferred because the uncertainty in the state fields is often of less importance than the uncertainty in the parameter fields. More imperatively, (re)starting the simulators (e.g. ECLIPSE) from updated state fields (as well as parameter fields) is a troublesome affair; the fields may have become "unphysical" (or "not realisable") because of the ensemble update, which may hinder the simulator from producing meaningful output (it may crash, or have trouble converging). On the other hand, by going back to the parameter fields before geological modelling (using fast model update (FMU)) tends to yield more realistic parameter fields. Finally, since restarts tend to yield convergence issues in the simulator the following inequality is usually large.
+#
+# $$
+# \begin{align}
+# 	\max_n \sum_{t}^{} T_t^n < \sum_{t}^{} \max_n T_t^n,
+# 	\label{eqn:max_sum_sum_max}
+# \end{align}
+# $$
+# skjervheim2011ensemble
+# Here, $T_t^n$
+
 # #### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
 
-multiprocess = True  # multiprocessing?
+multiprocess = False  # multiprocessing?
 
 def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
     """Forecast for an ensemble."""

@@ -12,7 +12,12 @@
 main () {
     set -e
 
-    # Clear cache
+    # Clear cache to get fresh git download.
+    # TODO: Putting this here is untested.
+    #       I have only tested putting this in its own code cell.
+    # NB: Also ensure you "terminate session". It is not enough
+    # to close browser window. Otherwise, data sometimes persists,
+    # as you can see in Colab's "Files" pane.
     rm -rf /root/.cache
 
     # Download repo
@@ -20,7 +25,7 @@ main () {
     if [[ ! -d REPO ]]; then git clone --depth=1 $URL REPO; fi
 
     # Install requirements
-    pip install -r REPO/requirements.txt
+    pip install -r REPO/requirements-manual.txt
 
     # Put repo contents in PWD
     cp -r REPO/* ./

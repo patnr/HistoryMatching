@@ -12,8 +12,11 @@
 main () {
     set -e
 
-    # Clear cache
-    # rm -rf /root/.cache
+    # Clear cache to get fresh git download.
+    # TODO: Also ensure you "terminate session". It is not enough
+    # to close browser window. Otherwise, data sometimes persists,
+    # as you can see in Colab's "Files" pane.
+    rm -rf /root/.cache
 
     # Download repo
     URL=https://github.com/patricknraanes/HistoryMatching.git

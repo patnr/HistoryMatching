@@ -13,7 +13,7 @@ main () {
     set -e
 
     # Clear cache
-    rm -rf /root/.cache
+    # rm -rf /root/.cache
 
     # Download repo
     URL=https://github.com/patricknraanes/HistoryMatching.git

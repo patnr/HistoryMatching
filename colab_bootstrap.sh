@@ -11,6 +11,8 @@ setup () {
     set -e
 
     # Install requirements
+    # Clear cache
+    rm -rf /root/.cache
     URL=https://github.com/patricknraanes/HistoryMatching.git
     if [[ ! -d REPO ]]; then git clone --depth=1 $URL REPO; fi
     pip install -r REPO/requirements.txt

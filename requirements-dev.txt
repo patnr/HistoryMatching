@@ -1,10 +1,14 @@
 -r requirements.txt
+ipython
+
 autopep8
 flake8
-ipdb
-ipython
+
 pre-commit
+
+ipdb
 pudb
-PyQt5
 pytest
+
+PyQt5
 qtpy

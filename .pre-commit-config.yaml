@@ -25,6 +25,10 @@ repos:
     -   id: detect-private-key  # Notifies if you have private
     -   id: end-of-file-fixer
     -   id: requirements-txt-fixer
+        exclude: |
+            (?x)^(
+                requirements-.*\.txt
+            )$
     -   id: mixed-line-ending
         args: ['--fix=no']
 

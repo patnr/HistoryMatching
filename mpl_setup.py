@@ -6,13 +6,14 @@ from matplotlib import pyplot as plt
 
 
 def init():
-    if mpl_tools.is_notebook_or_qt:
-        mpl.rcParams.update({'font.size': 15})
-        mpl.rcParams["figure.figsize"] = [9, 7]
-    else:
-        try:
-            import google.colab  # noqa
-        except ImportError:
+    try:
+        import google.colab  # noqa
+    except ImportError:
+        if mpl_tools.is_notebook_or_qt:
+            mpl.use("nbAgg")
+            mpl.rcParams.update({'font.size': 15})
+            mpl.rcParams["figure.figsize"] = [9, 7]
+        else:
             mpl.use("Qt5Agg")
             plt.ion()
 

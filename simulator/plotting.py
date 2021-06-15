@@ -53,10 +53,9 @@ def field(self, ax, zz, **kwargs):
     ax.set_xlim((0, Lx))
     ax.set_ylim((0, Ly))
 
-    ss = ax.get_subplotspec()
-    if ss.is_first_col():
+    if ax.is_first_col():
         ax.set_ylabel("y")
-    if ss.is_last_row():
+    if ax.is_last_row():
         ax.set_xlabel("x")
 
     return collections

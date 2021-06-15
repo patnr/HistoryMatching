@@ -244,7 +244,7 @@ ani
 
 
 # #### Noisy obs
-# In reality, observations are never perfect. To reflect this, we corrupt the observations by adding a bit of noise.
+# In reality, observations are never perfect. To account for this, we corrupt the observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd = len(model.producers)  # num. of obs (per time)
@@ -491,7 +491,7 @@ def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
             T     = T + gradT@Cow1
             Tinv  = sla.pinv2(T)
 
-    return dw, T, Tinv  # type: ignore
+    return dw, T, Tinv
 
 # This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
@@ -542,7 +542,7 @@ def iES(ensemble, observation, obs_err_cov,
             E     = inflate_ens(E, 1/EPS)
             E_obs = inflate_ens(E_obs, 1/EPS)
 
-        # Prepare analysis.
+        # Prepare analysis.Ç
         y      = observation        # Get current obs.
         Y, xo  = center(E_obs)      # Get obs {anomalies, mean}.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
@@ -563,7 +563,7 @@ def iES(ensemble, observation, obs_err_cov,
 
         # TODO: NB: these stats are only valid for Sqrt
         stat2 = DotDict(
-            J_prior = w@w * N1,  # type: ignore
+            J_prior = w@w * N1,
             J_lklhd = dy@dy,
         )
         # J_posterior is sum of the other two
@@ -584,21 +584,21 @@ def iES(ensemble, observation, obs_err_cov,
             stepsize    = min(1, stepsize)
             dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour)
 
-        stats.      dw[itr] = dw@dw / N  # type: ignore
+        stats.      dw[itr] = dw@dw / N
         stats.stepsize[itr] = stepsize
 
         # Step
-        w = w + stepsize*dw  # type: ignore
+        w = w + stepsize*dw
 
-        if stepsize * np.sqrt(dw@dw/N) < wtol:  # type: ignore
+        if stepsize * np.sqrt(dw@dw/N) < wtol:
             break
 
-    stats.nIter = itr + 1  # type: ignore
+    stats.nIter = itr + 1
 
     if not MDA:
         # The last step (dw, T) must be discarded,
         # because it cannot be validated without re-running the model.
-        w, T, Tinv  = old  # type: ignore
+        w, T, Tinv  = old
 
     # Reconstruct the ensemble.
     E = x0 + (w+T)@X0

@@ -25,7 +25,7 @@ main () {
     if [[ ! -d REPO ]]; then git clone --depth=1 $URL REPO; fi
 
     # Install requirements
-    pip install -r REPO/requirements-manual.txt
+    pip install -r REPO/requirements.txt
 
     # Put repo contents in PWD
     cp -r REPO/* ./

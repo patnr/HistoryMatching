@@ -1,0 +1,16 @@
+-r requirements.txt
+ipython
+
+autopep8
+flake8
+
+pre-commit
+
+ipdb
+pudb
+pytest
+
+PyQt5
+qtpy
+
+# vim: ft=requirements

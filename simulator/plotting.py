@@ -1,17 +1,22 @@
 """Plot functions for reservoir model"""
 
+import IPython.display as ip_disp
 import matplotlib as mpl
 import numpy as np
+from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
-from mpl_tools.misc import (axprops, fig_colorbar,
-                            freshfig, is_notebook_or_qt)
-from patlib.dict_tools import DotDict, get0
+from mpl_tools import fig_layout, is_notebook_or_qt
+from mpl_tools.misc import axprops, fig_colorbar, nRowCol
+from struct_tools import DotDict, get0
+
 
 def center(E):
     return E - E.mean(axis=0)
 
 
 COORD_TYPE = "relative"
+
+
 def lims(self):
     if "rel" in COORD_TYPE:
         Lx, Ly = 1, 1
@@ -19,11 +24,13 @@ def lims(self):
         Lx, Ly = self.Lx, self.Ly
     elif "ind" in COORD_TYPE:
         Lx, Ly = self.Nx, self.Ny
+    else:
+        raise ValueError("Unsupported coordinate type: %s" % COORD_TYPE)
     return Lx, Ly
+
 
 def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
-
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
     Z = zz.reshape(self.shape).T
@@ -54,23 +61,6 @@ def field(self, ax, zz, **kwargs):
     return collections
 
 
-def nRowCol(nTotal, wh_ratio=None):
-    "Return `int` nrows and ncols such that `nTotal ≈ nrows*ncols`."
-
-    # Aspect ratio: default from mpl.rc.figsize
-    if wh_ratio is None:
-        w, h = mpl.rcParams["figure.figsize"]
-        wh_ratio = w/h
-
-    nrows = int(np.sqrt(nTotal)//wh_ratio)
-    ncols = nTotal//nrows
-
-    if nrows*ncols < nTotal:
-        ncols += 1
-
-    return nrows, ncols
-
-
 def fields(self,
            fignum, plotter, ZZ,
            figsize=None,
@@ -79,11 +69,10 @@ def fields(self,
            colorbar=True,
            **kwargs):
 
-    nrows, ncols = nRowCol(min(12, len(ZZ)))
-
-    fig, axs = freshfig(fignum, figsize=figsize,
-                        nrows=nrows, ncols=ncols,
-                        sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(
+        fignum, figsize=figsize,
+        **nRowCol(min(12, len(ZZ))),
+        sharex=True, sharey=True)
 
     # Turn off redundant axes
     for ax in axs[len(ZZ):]:
@@ -115,6 +104,7 @@ def fields(self,
         fig.suptitle(title)
 
     return fig, axs, hh
+
 
 def oilfields(self, fignum, water_sat_fields, **kwargs):
     return fields(self, fignum, oilfield, **kwargs)
@@ -174,11 +164,9 @@ def corr_field_vs(self, ax, E, xy, title="", **kwargs):
     ax.plot(*xy, '*k', ms=4)
     return cc
 
+
 def scale_well_geometry(self, ww):
-    """
-    Wells use absolute scaling.
-    Scale to coord_type instead.
-    """
+    """Wells use absolute scaling. Scale to coord_type instead."""
     ww = ww.copy()  # dont overwrite
     if "rel" in COORD_TYPE:
         s = 1/self.Lx, 1/self.Ly
@@ -186,6 +174,8 @@ def scale_well_geometry(self, ww):
         s = 1, 1
     elif "ind" in COORD_TYPE:
         s = self.Nx/self.Lx, self.Ny/self.Ly
+    else:
+        raise ValueError("Unsupported coordinate type: %s" % COORD_TYPE)
     ww[:, :2] = ww[:, :2] * s
     return ww
 
@@ -211,7 +201,7 @@ def well_scatter(self, ax, ww, inj=True, text=True, color=None):
     sh = ax.scatter(*ww.T[:2], s=16**2, c=c, marker=m,
                     edgecolors="k",
                     clip_on=False,
-                    zorder=1.5  # required on Jupypter
+                    zorder=1.5,  # required on Jupypter
                     )
 
     # Text labels
@@ -244,6 +234,7 @@ def production1(ax, production, obs=None):
     # ax.set_ylim(-0.01, 1.01)
     ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)
     ax.axhline(1, c="xkcd:light grey", ls="--", zorder=1.8)
+    plt.pause(.1)
     return hh
 
 
@@ -282,12 +273,8 @@ def style(label, N=100):
     return style
 
 
-import IPython.display as ip_disp
-from ipywidgets import (interactive, HBox, VBox)
-
 def toggle_series(plotter):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
-
     # NB: this was pretty darn complicated to get working
     # with the right layout and avoiding double plotting.
     # So exercise great caution when changing it!
@@ -332,6 +319,7 @@ def toggle_series(plotter):
 
     return interactive_plot
 
+
 # TODO: implement with plotting.fields ?
 @toggle_series
 def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
@@ -339,10 +327,9 @@ def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
-    nrows, ncols = nRowCol(nProd)
-    fig, axs = freshfig(fignum, figsize=figsize,
-                        ncols=ncols, nrows=nrows,
-                        sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(
+        fignum, figsize=figsize,
+        **nRowCol(nProd), sharex=True, sharey=True)
     # fig.suptitle("Oil productions " + title)
 
     # Turn off redundant axes
@@ -386,8 +373,8 @@ def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
     ncols = 2
     nAx   = len(water_sat_fields)
     nrows = int(np.ceil(nAx/ncols))
-    fig, axs = freshfig(fignum, figsize=(8, 4*nrows),
-                        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(fignum, figsize=(8, 4*nrows),
+                                   ncols=ncols, nrows=nrows, sharex=True, sharey=True)
 
     fig.subplots_adjust(hspace=.3)
     fig.suptitle(f"Oil saturation (mean fields) - {title}")
@@ -399,7 +386,7 @@ def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
 
         handle = oilfield(self, ax, field, title=label, **kwargs)
 
-    fig_colorbar(fig, handle)
+    fig_colorbar(fig, handle)  # type: ignore
 
 
 def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwargs):
@@ -408,8 +395,9 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     ncols = 2
     nAx   = len(field_ensembles)
     nrows = int(np.ceil(nAx/ncols))
-    fig, axs = freshfig(fignum, figsize=(8, 4*nrows),
-                        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
+    fig, axs = fig_layout.freshfig(
+        fignum, figsize=(8, 4*nrows),
+        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
 
     fig.subplots_adjust(hspace=.3)
     fig.suptitle(title)
@@ -422,12 +410,13 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
             field  = field_ensembles[label]
             handle = corr_field_vs(self, ax, field, xy_coord, label, **kwargs)
 
-    fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])
+    fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])  # type: ignore
 
 
 # TODO: Use nrows=1 ?
-def dashboard(self, saturation, production, pause=200, animate=True, title="", **kwargs):
-    fig, axs = freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
+def dashboard(self, saturation, production,
+              pause=200, animate=True, title="", **kwargs):
+    fig, axs = fig_layout.freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
     if is_notebook_or_qt:
         plt.close()  # ttps://stackoverflow.com/q/47138023
 

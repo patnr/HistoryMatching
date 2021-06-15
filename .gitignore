@@ -2,3 +2,7 @@
 tmp*.py
 .vim
 refs
+todo.md
+
+.fig_layout.P2721L
+.fig_layout.Pat2013

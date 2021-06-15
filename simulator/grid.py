@@ -38,6 +38,8 @@ import numpy as np
 
 @dataclass
 class Grid2D:
+    """Defines a 2D rectangular grid."""
+
     Lx: float = 1.0
     Ly: float = 1.0
     Nx: int = 32
@@ -54,7 +56,6 @@ class Grid2D:
 
     def mesh(self, centered=True):
         """Generate 2D coordinate grids."""
-
         xx = np.linspace(0, self.Lx, self.Nx, endpoint=False)
         yy = np.linspace(0, self.Ly, self.Ny, endpoint=False)
 

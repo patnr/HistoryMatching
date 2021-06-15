@@ -88,10 +88,10 @@ from copy import deepcopy
 
 import scipy.linalg as sla
 from matplotlib import ticker
-from mpl_tools.misc import freshfig
+from mpl_tools.fig_layout import freshfig
 from numpy.random import randn
 from numpy import sqrt
-from patlib.dict_tools import DotDict
+from struct_tools import DotDict
 from tqdm.auto import tqdm as progbar
 
 # and the model, ...
@@ -195,7 +195,7 @@ well_grid = np.stack(well_grid + [np.ones_like(well_grid[0])])
 well_grid = well_grid.T.reshape((-1, 3))
 model.init_Q(
     inj =[[0.50, 0.50, 1.00]],
-    prod=well_grid
+    prod=well_grid,
 );
 
 # # Random well configuration
@@ -249,7 +249,7 @@ ani
 
 
 # #### Noisy obs
-# In reality, observations are never perfect. To reflect this, we corrupt the observations by adding a bit of noise.
+# In reality, observations are never perfect. To account for this, we corrupt the observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd = len(model.producers)  # num. of obs (per time)
@@ -315,14 +315,26 @@ plt.pause(.1)
 
 # ## Assimilation
 
+# #### Exc (optional)
+# Before going into iterative methods, we note that
+# the ensemble smoother (ES) is favoured over the ensemble Kalman smoother (EnKS) for history matching. This may come as a surprise, because the EnKS processes the observations sequentially, like the ensemble Kalman filter (EnKF), not in the batch manner of the ES. Because sequential processing is more gradual, one would expect it to achieve better accuracy than batch approaches. However, the ES is preferred because the uncertainty in the state fields is often of less importance than the uncertainty in the parameter fields. More imperatively, (re)starting the simulators (e.g. ECLIPSE) from updated state fields (as well as parameter fields) is a troublesome affair; the fields may have become "unphysical" (or "not realisable") because of the ensemble update, which may hinder the simulator from producing meaningful output (it may crash, or have trouble converging). On the other hand, by going back to the parameter fields before geological modelling (using fast model update (FMU)) tends to yield more realistic parameter fields. Finally, since restarts tend to yield convergence issues in the simulator the following inequality is usually large.
+#
+# $$
+# \begin{align}
+# 	\max_n \sum_{t}^{} T_t^n < \sum_{t}^{} \max_n T_t^n,
+# 	\label{eqn:max_sum_sum_max}
+# \end{align}
+# $$
+# skjervheim2011ensemble
+# Here, $T_t^n$
+
 # #### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
 
-multiprocess = True  # multiprocessing?
+multiprocess = False  # multiprocessing?
 
 def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
     """Forecast for an ensemble."""
-
     # Compose ensemble
     if Q_prod is None:
         E = zip(wsats0, perms)
@@ -404,6 +416,7 @@ class ES_update:
     we stack the members as rows instead of the conventional columns.
     Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
     """
+
     def __init__(self, obs_ens, observation, obs_err_cov):
         """Prepare the update."""
         Y           = mean0(obs_ens)
@@ -531,10 +544,10 @@ def iES(ensemble, observation, obs_err_cov,
 
         # Undo the bundle scaling of ensemble.
         if EPS != 1.0:
-            E     = inflate_ens(E,     1/EPS)
+            E     = inflate_ens(E, 1/EPS)
             E_obs = inflate_ens(E_obs, 1/EPS)
 
-        # Prepare analysis.
+        # Prepare analysis.Ç
         y      = observation        # Get current obs.
         Y, xo  = center(E_obs)      # Get obs {anomalies, mean}.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
@@ -764,7 +777,7 @@ def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
     J = total_oil(E, np.tile(u, (N, 1))).mean()
     print("Total oil, averaged, initial: %.3f" % J)
 
-    for itr in progbar(range(nIter), desc="EnOpt"):
+    for _itr in progbar(range(nIter), desc="EnOpt"):
         Eu = u + randn(N, len(u)) @ C12.T
         Eu = Eu.clip(1e-5)
 

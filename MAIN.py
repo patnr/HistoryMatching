@@ -233,12 +233,11 @@ wsat.past.Truth, prod.past.Truth = simulate(
 # Run the code cell below to get an animation of the oil saturation evoluation.
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 #
-# <mark><font size="-1">
-# <em>Note:</em> takes a while to load.
+# <mark><font size="-1"> <em>Note:</em>
+# Can take (up to) a minute to display figure.
 # </font></mark>
 
-from matplotlib import rc
-rc('animation', html="jshtml")
+# %matplotlib inline
 ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=True, title="Truth");
 ani
 

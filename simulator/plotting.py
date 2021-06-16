@@ -5,7 +5,7 @@ import matplotlib as mpl
 import numpy as np
 from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
-from mpl_tools import fig_layout, is_notebook_or_qt
+from mpl_tools import fig_layout
 from mpl_tools.misc import axprops, fig_colorbar, nRowCol
 from struct_tools import DotDict, get0
 
@@ -413,12 +413,12 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])  # type: ignore
 
 
-# TODO: Use nrows=1 ?
 def dashboard(self, saturation, production,
               pause=200, animate=True, title="", **kwargs):
+    # Double figure? See https://stackoverflow.com/q/47138023
+
     fig, axs = fig_layout.freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
-    if is_notebook_or_qt:
-        plt.close()  # ttps://stackoverflow.com/q/47138023
+    axs[0, 1].yaxis.set_ticklabels([])
 
     tt = np.arange(len(saturation))
 
@@ -432,6 +432,7 @@ def dashboard(self, saturation, production,
     well_scatter(self, axs[0, 1], self.producers, False,
                  color=[f"C{i}" for i in range(len(self.producers))])
 
+    axs[1, 0].set_position(axs[1, 0].get_position().translated(0.2, 0))
     axs[1, 0].set_title("Production")
     prod_handles = production1(axs[1, 0], production)
 

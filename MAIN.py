@@ -136,7 +136,7 @@ seed = np.random.seed(4)  # very easy
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
-# We will estimate the log permeability field. The data will consist in the water cut of the production, which equals the water saturations at the well locations.
+# We will estimate the log permeability field. The data will consist in the water saturation of the production (at the well locations).
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -218,7 +218,7 @@ plt.pause(.1)
 
 
 # #### Define obs operator
-# There is no well model. The data consists purely of the water cut at the location of the wells.
+# There is no well model. The data consists purely of the water saturation at the location of the wells.
 
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 def obs(water_sat):
@@ -238,12 +238,11 @@ wsat.past.Truth, prod.past.Truth = simulate(
 # Run the code cell below to get an animation of the oil saturation evoluation.
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 #
-# <mark><font size="-1">
-# <em>Note:</em> takes a while to load.
+# <mark><font size="-1"> <em>Note:</em>
+# Can take (up to) a minute to display figure.
 # </font></mark>
 
-from matplotlib import rc
-rc('animation', html="jshtml")
+# %matplotlib inline
 ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=True, title="Truth");
 ani
 

@@ -39,15 +39,15 @@ perm = DotDict()
 
 # Production (water saturation)
 prod = DotDict(
-    past=DotDict(),
-    future=DotDict(),
+    past   = DotDict(),
+    future = DotDict(),
 )
 
 # Water saturation
 wsat = DotDict(
-    initial=DotDict(),
-    past=DotDict(),
-    future=DotDict(),
+    initial = DotDict(),
+    past    = DotDict(),
+    future  = DotDict(),
 )
 # -
 

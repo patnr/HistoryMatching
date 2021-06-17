@@ -8,6 +8,7 @@ def init():
     try:
         import google.colab  # noqa
 
+        # Not necessary on Colab:
         # mpl.rc('animation', html="jshtml")
     except ImportError:
         if mpl_tools.is_notebook_or_qt:

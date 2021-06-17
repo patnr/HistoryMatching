@@ -93,6 +93,26 @@ set_perm(model, perm.Truth)
 #
 # The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `config_wells` function used below. Note that `config_wells` takes *relative* values (between 0 and 1) for x and y locations.
 
+# +
+# Manual well specification
+# model.init_Q(
+#     #     x    y     rate
+#     inj =[
+#         [0.50, 0.50, 1.00],
+#     ],
+#     prod=[
+#         [0.10, 0.10, 1.00],
+#         # [0.10, 0.50, 1.00],
+#         [0.10, 0.90, 1.00],
+#         # [0.50, 0.10, 1.00],
+#         # [0.50, 0.50, 1.00],
+#         # [0.50, 0.90, 1.00],
+#         [0.90, 0.10, 1.00],
+#         # [0.90, 0.50, 1.00],
+#         [0.90, 0.90, 1.00],
+#     ]
+# );
+
 # Wells on a grid
 wells = [.1, .9]
 wells = np.dstack(np.meshgrid(wells, wells)).reshape((-1, 2))
@@ -101,6 +121,13 @@ model.config_wells(
     inj  = [[0.50, 0.50, 1.00]],
     prod = np.hstack((wells, rates)),
 );
+
+# # Random well configuration
+# model.init_Q(
+#     inj =rand(1, 3),
+#     prod=rand(8, 3)
+# );
+# -
 
 # #### Plot true field
 

@@ -7,7 +7,8 @@ from matplotlib import pyplot as plt
 def init():
     try:
         import google.colab  # noqa
-        mpl.rc('animation', html="jshtml")
+
+        # mpl.rc('animation', html="jshtml")
     except ImportError:
         if mpl_tools.is_notebook_or_qt:
             mpl.use("nbAgg")

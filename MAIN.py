@@ -234,7 +234,6 @@ wsat.past.Truth, prod.past.Truth = simulate(
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 
 # %%capture
-# %matplotlib inline
 animation = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, title="Truth");
 
 

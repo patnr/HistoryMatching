@@ -16,7 +16,7 @@ from matplotlib import ticker
 from mpl_tools.fig_layout import freshfig
 from numpy.random import randn
 from numpy import sqrt
-from struct_tools import DotDict
+from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
 
 # and the model, ...
@@ -35,19 +35,19 @@ cmap = plt.get_cmap("jet")
 
 # +
 # Permeability
-perm = DotDict()
+perm = Dict()
 
 # Production (water saturation)
-prod = DotDict(
-    past   = DotDict(),
-    future = DotDict(),
+prod = Dict(
+    past   = Dict(),
+    future = Dict(),
 )
 
 # Water saturation
-wsat = DotDict(
-    initial = DotDict(),
-    past    = DotDict(),
-    future  = DotDict(),
+wsat = Dict(
+    initial = Dict(),
+    past    = Dict(),
+    future  = Dict(),
 )
 # -
 
@@ -408,7 +408,7 @@ def iES(ensemble, observation, obs_err_cov,
     N1 = N - 1
     Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
 
-    stats = DotDict()
+    stats = Dict()
     stats.J_lklhd  = np.full(nIter, np.nan)
     stats.J_prior  = np.full(nIter, np.nan)
     stats.J_postr  = np.full(nIter, np.nan)
@@ -466,7 +466,7 @@ def iES(ensemble, observation, obs_err_cov,
         def Cowp(expo): return (V * (pad0(s**2, N) + za)**-expo) @ V.T
 
         # TODO: NB: these stats are only valid for Sqrt
-        stat2 = DotDict(
+        stat2 = Dict(
             J_prior = w@w * N1,
             J_lklhd = dy@dy,
         )
@@ -557,8 +557,7 @@ RMS_all(perm, vs="Truth")
 #
 # NB: Caution! Mean fields are liable to be less rugged than the truth. As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process.
 
-perm._means = DotDict((k, perm[k].mean(axis=0)) for k in perm
-                      if not k.startswith("_"))
+perm._means = Dict((k, perm[k].mean(axis=0)) for k in perm if not k.startswith("_"))
 
 plots.fields(model, 170, plots.field, perm._means,
              figsize=(14, 5), cmap=cmap,

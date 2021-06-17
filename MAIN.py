@@ -91,7 +91,7 @@ from matplotlib import ticker
 from mpl_tools.fig_layout import freshfig
 from numpy.random import randn
 from numpy import sqrt
-from struct_tools import DotDict
+from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
 
 # and the model, ...
@@ -110,19 +110,19 @@ cmap = plt.get_cmap("jet")
 
 # +
 # Permeability
-perm = DotDict()
+perm = Dict()
 
 # Production (water saturation)
-prod = DotDict(
-    past=DotDict(),
-    future=DotDict(),
+prod = Dict(
+    past   = Dict(),
+    future = Dict(),
 )
 
 # Water saturation
-wsat = DotDict(
-    initial=DotDict(),
-    past=DotDict(),
-    future=DotDict(),
+wsat = Dict(
+    initial = Dict(),
+    past    = Dict(),
+    future  = Dict(),
 )
 # -
 
@@ -166,7 +166,7 @@ set_perm(model, perm.Truth)
 # #### Well specification
 # We here specify the wells as point sources and sinks, giving their placement and flux.
 #
-# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `init_Q` function used below.
+# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `config_wells` function used below. Note that `config_wells` takes *relative* values (between 0 and 1) for x and y locations.
 
 # +
 # Manual well specification
@@ -189,13 +189,12 @@ set_perm(model, perm.Truth)
 # );
 
 # Wells on a grid
-well_grid = np.linspace(0.1, .9, 2)
-well_grid = np.meshgrid(well_grid, well_grid)
-well_grid = np.stack(well_grid + [np.ones_like(well_grid[0])])
-well_grid = well_grid.T.reshape((-1, 3))
-model.init_Q(
-    inj =[[0.50, 0.50, 1.00]],
-    prod=well_grid,
+wells = [.1, .9]
+wells = np.dstack(np.meshgrid(wells, wells)).reshape((-1, 2))
+rates = np.ones((len(wells), 1))
+model.config_wells(
+    inj  = [[0.50, 0.50, 1.00]],
+    prod = np.hstack((wells, rates)),
 );
 
 # # Random well configuration
@@ -228,8 +227,8 @@ obs.length = len(obs_inds)
 # #### Simulation to generate the synthetic truth evolution and data
 
 wsat.initial.Truth = np.zeros(model.M)
-T = 1
-dt = 0.025
+T     = 1
+dt    = 0.025
 nTime = round(T/dt)
 wsat.past.Truth, prod.past.Truth = simulate(
     model.step, nTime, wsat.initial.Truth, dt, obs)
@@ -332,8 +331,16 @@ plt.pause(.1)
 
 multiprocess = False  # multiprocessing?
 
-def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
-    """Forecast for an ensemble."""
+def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
+    """Run forward model, i.e. forecast. Input args should be ensembles.
+
+    The main work consts of running the reservoir simulator
+    for each realisation in the ensemble.
+    However, the simulator only inputs/outputs state variables,
+    so we also have to take the necessary steps to set the parameter values
+    (implicitly used by the simulator). Setting parameter values
+    is as much part of the forward model as running the simulator.
+    """
     # Compose ensemble
     if Q_prod is None:
         E = zip(wsats0, perms)
@@ -341,6 +348,11 @@ def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
         E = zip(wsats0, perms, Q_prod)
 
     def forecast1(x):
+        # Since some parameters are implemented not as input/output of the model,
+        # but as instance attributes, there is a risk (especially with multiprocessing)
+        # that the values that are set for one member overwrites the values
+        # that should be used by another member. We will do a deepcopy to avoid this.
+        # Alternatively, we can re-initialize the model each time.
         model_n = deepcopy(model)
 
         if Q_prod is None:
@@ -350,12 +362,9 @@ def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
         else:
             wsat0, perm, q_prod = x
             # Set production rates
-            prod = model_n.producers
-            prod = well_grid  # model_n.producers uses abs scale
-            prod[:, 2] = q_prod
-            model_n.init_Q(
-                inj = model_n.injectors,
-                prod = prod,
+            model_n.config_wells(
+                inj  = model_n.injectors,
+                prod = np.hstack((wells, q_prod)),
             )
             # Set ensemble
             set_perm(model_n, perm)
@@ -385,14 +394,14 @@ def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
 
     return saturation, production
 
-# We also need to set the prior for the initial water saturation. As mentioned, this is not because it is uncertain/unknown; indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). However, in order to save one iteration, the posterior will also be output for the present-time water saturation (state) field, which is then used to restart simulations for future prediction (actually, the full time series of the saturation is output, but that is just for academic purposes). Therefore the ensemble forecast function must take water saturation as one of the inputs. Therefore, for the prior, we set this all to the true initial saturation (giving it uncertainty 0).
+# We also need to set the prior for the initial water saturation. As mentioned, this is not because it is uncertain/unknown; indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). However, in order to save one iteration, the posterior will also be output for the present-time water saturation (state) field, which is then used to restart simulations for future prediction (actually, the full time series of the saturation is output, but that is just for academic purposes). Therefore the forward_model must take water saturation as one of the inputs. Therefore, for the prior, we set this all to the true initial saturation (giving it uncertainty 0).
 
 wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
 
-# Now we run the forecast.
+# Now we run the forward model.
 
-wsat.past.Prior, prod.past.Prior = forecast(
+wsat.past.Prior, prod.past.Prior = forward_model(
     nTime, wsat.initial.Prior, perm.Prior)
 
 # ### Ensemble smoother
@@ -508,7 +517,7 @@ def iES(ensemble, observation, obs_err_cov,
     N1 = N - 1
     Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
 
-    stats = DotDict()
+    stats = Dict()
     stats.J_lklhd  = np.full(nIter, np.nan)
     stats.J_prior  = np.full(nIter, np.nan)
     stats.J_postr  = np.full(nIter, np.nan)
@@ -538,7 +547,7 @@ def iES(ensemble, observation, obs_err_cov,
         stats.rmse[itr] = RMS(perm.Truth, E).rmse
 
         # Forecast.
-        E_state, E_obs = forecast(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
+        E_state, E_obs = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
         E_obs = E_obs.reshape((N, -1))
 
         # Undo the bundle scaling of ensemble.
@@ -566,7 +575,7 @@ def iES(ensemble, observation, obs_err_cov,
         def Cowp(expo): return (V * (pad0(s**2, N) + za)**-expo) @ V.T
 
         # TODO: NB: these stats are only valid for Sqrt
-        stat2 = DotDict(
+        stat2 = Dict(
             J_prior = w@w * N1,
             J_lklhd = dy@dy,
         )
@@ -657,8 +666,7 @@ RMS_all(perm, vs="Truth")
 #
 # NB: Caution! Mean fields are liable to be less rugged than the truth. As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process.
 
-perm._means = DotDict((k, perm[k].mean(axis=0)) for k in perm
-                      if not k.startswith("_"))
+perm._means = Dict((k, perm[k].mean(axis=0)) for k in perm if not k.startswith("_"))
 
 plots.fields(model, 170, plots.field, perm._means,
              figsize=(14, 5), cmap=cmap,
@@ -668,9 +676,9 @@ plots.fields(model, 170, plots.field, perm._means,
 
 # We already have the past true and prior production profiles. Let's add to that the production profiles of the posterior.
 
-wsat.past.ES, prod.past.ES = forecast(nTime, wsat.initial.Prior, perm.ES)
+wsat.past.ES, prod.past.ES = forward_model(nTime, wsat.initial.Prior, perm.ES)
 
-wsat.past.iES, prod.past.iES = forecast(nTime, wsat.initial.Prior, perm.iES)
+wsat.past.iES, prod.past.iES = forward_model(nTime, wsat.initial.Prior, perm.iES)
 
 # We can also apply the ES update (its X5 matrix, for those familiar with that terminology) directly to the production data of the prior, which doesn't require running the model again (like we did immediately above). Let us try that as well.
 
@@ -718,13 +726,13 @@ print("Future/prediction")
 wsat.future.Truth, prod.future.Truth = simulate(
     model.step, nTime, wsat.past.Truth[-1], dt, obs)
 
-wsat.future.Prior, prod.future.Prior = forecast(
+wsat.future.Prior, prod.future.Prior = forward_model(
     nTime, wsat.past.Prior[:, -1, :], perm.Prior)
 
-wsat.future.ES, prod.future.ES = forecast(
+wsat.future.ES, prod.future.ES = forward_model(
     nTime, wsat.past.ES[:, -1, :], perm.ES)
 
-wsat.future.iES, prod.future.iES = forecast(
+wsat.future.iES, prod.future.iES = forward_model(
     nTime, wsat.past.iES[:, -1, :], perm.iES)
 
 prod.future.ES0 = ravelled(ES, prod.future.Prior)
@@ -745,7 +753,7 @@ RMS_all(prod.future, vs="Truth")
 
 def total_oil(E, Eu):
     wsat, perm = E
-    wsat, prod = forecast(nTime, wsat, perm, Q_prod=Eu)
+    wsat, prod = forward_model(nTime, wsat, perm, Q_prod=Eu)
     return np.sum(prod, axis=(1, 2))
 
 # Define step modulator by adding momentum to vanilla gradient descent.

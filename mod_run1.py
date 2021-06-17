@@ -21,7 +21,7 @@ producers = [[0.1, 0.7, 100.0], [0.9, 1.0, 1.0], [.5, .2, 1]]
 # injectors = rand(5,3)
 # producers = rand(10,3)
 
-model.init_Q(injectors, producers)
+model.config_wells(injectors, producers)
 
 # Varying grid params
 np.random.seed(3000)

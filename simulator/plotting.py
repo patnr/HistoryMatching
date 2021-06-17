@@ -320,7 +320,7 @@ def toggle_series(plotter):
     return interactive_plot
 
 
-# TODO: implement with plotting.fields ?
+# TODO: unify (nRowCol, turn off, ax.text, etc) with plotting.fields ?
 @toggle_series
 def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
 

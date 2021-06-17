@@ -1,83 +1,13 @@
 # -*- coding: utf-8 -*-
 # # Tutorial on ensemble history matching and optimisation
 #
-# Copyright Patrick N. Raanes, NORCE, 2020.
-#
-# This (Jupyter/Python) notebook presents
-# a tutorial on history matching (HM) using ensemble methods.
-#
-# This is a work in progress.
-# Details may be lacking.
-# Don't hesitate to send me an email with any questions you have.
-
-# ## Jupyter notebooks
-# the format used for these tutorials.
-# Notebooks combine **cells** of code (Python) with cells of text (markdown).
-# The exercises in these tutorials only require light Python experience.
-# For example, edit the cell below (double-click it),
-# insert your name,
-# and run it (press "Run" in the toolbar).
-
-name = "Batman"
-print("Hello world! I'm " + name)
-
-# You will likely be more efficient if you know these
-# **keyboard shortcuts** to interact with cells:
-#
-# | Navigate                      |    | Edit              |    | Exit           |    | Run                              |    | Run & go to next                  |
-# | -------------                 | -- | ----------------- | -- | --------       | -- | -------                          | -- | -----------------                 |
-# | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
-#
-# When you open a notebook it starts a **session (kernel/runtime)**
-# of Python in the background.
-# All of the Python code cells (in a given notebook) are connected
-# (they use the same Python kernel and thus share variables, functions, and classes).
-# Thus, the **order** in which you run the cells matters.
-
-# One thing you must know is how to **restart** the Python session,
-# which clears all of your variables, functions, etc,
-# so that you can start over.
-# Test this now by going through the top menu bar:
-# `Kernel` → `Restart & Clear Output`.
-# But rembember to run the above cell again!
-
-# There is a huge amount of libraries available in **Python**,
-# including the popular `scipy` (with `numpy` at its core) and `matplotlib` packages.
-# These are imported (and abbreviated) as `sp`, `np`, and `mpl` and `plt`.
-# Try them out by running the following, which illustrates some algebra
-# using syntax reminiscent of Matlab.
+# ## Setup
+# Run the following cells to import some tools...
 
 import numpy as np
 from matplotlib import pyplot as plt
 import mpl_setup
 mpl_setup.init()
-
-# Use numpy's arrays for vectors and matrices. Example constructions:
-a  = np.arange(10)  # Alternatively: np.array([0,1,2,3,4,5,6,7,8,9])
-Id = 2*np.eye(10)   # Alternatively: np.diag(2*np.ones(10))
-
-print("Indexing examples:")
-print("a         =", a)
-print("a[3]      =", a[3])
-print("a[0:3]    =", a[0:3])
-print("a[:3]     =", a[:3])
-print("a[3:]     =", a[3:])
-print("a[-1]     =", a[-1])
-print("Id[:3,:3] =", Id[:3, :3], sep="\n")
-
-print("\nLinear algebra examples:")
-print("100+a  =", 100+a)
-print("Id@a   =", Id@a)
-print("Id*a   =", Id*a, sep="\n")
-
-plt.title("Plotting example")
-plt.ylabel("$i \\, x^2$")
-for i in range(4):
-    plt.plot(i * a**2, label="i = %d" % i)
-plt.legend();
-
-# ## Setup
-# Run the following cells to import some tools...
 
 from copy import deepcopy
 

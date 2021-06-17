@@ -91,17 +91,16 @@ set_perm(model, perm.Truth)
 # #### Well specification
 # We here specify the wells as point sources and sinks, giving their placement and flux.
 #
-# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `init_Q` function used below.
+# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `init_Q` function used below. Note that `init_Q` takes *relative* values (between 0 and 1) for x and y locations.
 
 # +
 # Wells on a grid
-well_grid = np.linspace(0.1, .9, 2)
-well_grid = np.meshgrid(well_grid, well_grid)
-well_grid = np.stack(well_grid + [np.ones_like(well_grid[0])])
-well_grid = well_grid.T.reshape((-1, 3))
+wells = [.1, .9]
+wells = np.dstack(np.meshgrid(wells, wells)).reshape((-1, 2))
+rates = np.ones((len(wells), 1))
 model.init_Q(
-    inj =[[0.50, 0.50, 1.00]],
-    prod=well_grid,
+    inj  = [[0.50, 0.50, 1.00]],
+    prod = np.hstack((wells, rates)),
 );
 # -
 
@@ -250,12 +249,9 @@ def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
         else:
             wsat0, perm, q_prod = x
             # Set production rates
-            prod = model_n.producers
-            prod = well_grid  # model_n.producers uses abs scale
-            prod[:, 2] = q_prod
             model_n.init_Q(
-                inj = model_n.injectors,
-                prod = prod,
+                inj  = model_n.injectors,
+                prod = np.hstack((wells, q_prod)),
             )
             # Set ensemble
             set_perm(model_n, perm)

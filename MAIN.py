@@ -153,8 +153,8 @@ obs.length = len(obs_inds)
 # #### Simulation to generate the synthetic truth evolution and data
 
 wsat.initial.Truth = np.zeros(model.M)
-T = 1
-dt = 0.025
+T     = 1
+dt    = 0.025
 nTime = round(T/dt)
 wsat.past.Truth, prod.past.Truth = simulate(
     model.step, nTime, wsat.initial.Truth, dt, obs)

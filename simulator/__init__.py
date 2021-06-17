@@ -40,7 +40,7 @@ class ResSim(NicePrint, Grid2D):
 
     Example:
     >>> model = ResSim(Lx=1, Ly=1, Nx=32, Ny=32)
-    >>> model.init_Q([[0, 0, 1]], [[1, 1, -1]])
+    >>> model.config_wells([[0, 0, 1]], [[1, 1, -1]])
     >>> S0 = np.zeros(model.M)
     >>> saturation = simulate(model.step, 3, S0, 0.025)
     >>> saturation[-1, :3]
@@ -64,7 +64,7 @@ class ResSim(NicePrint, Grid2D):
             swc=0.0, sor=0.0,  # Irreducible saturations
         )
 
-    def init_Q(self, inj, prod):
+    def config_wells(self, inj, prod):
 
         # Scale production so as to equal injection.
         # Otherwise, model will silently input deficit from SW corner.

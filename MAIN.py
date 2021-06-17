@@ -91,14 +91,14 @@ set_perm(model, perm.Truth)
 # #### Well specification
 # We here specify the wells as point sources and sinks, giving their placement and flux.
 #
-# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `init_Q` function used below. Note that `init_Q` takes *relative* values (between 0 and 1) for x and y locations.
+# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `config_wells` function used below. Note that `config_wells` takes *relative* values (between 0 and 1) for x and y locations.
 
 # +
 # Wells on a grid
 wells = [.1, .9]
 wells = np.dstack(np.meshgrid(wells, wells)).reshape((-1, 2))
 rates = np.ones((len(wells), 1))
-model.init_Q(
+model.config_wells(
     inj  = [[0.50, 0.50, 1.00]],
     prod = np.hstack((wells, rates)),
 );
@@ -249,7 +249,7 @@ def forecast(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
         else:
             wsat0, perm, q_prod = x
             # Set production rates
-            model_n.init_Q(
+            model_n.config_wells(
                 inj  = model_n.injectors,
                 prod = np.hstack((wells, q_prod)),
             )

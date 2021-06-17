@@ -417,29 +417,33 @@ def dashboard(self, saturation, production,
               pause=200, animate=True, title="", **kwargs):
     # Double figure? See https://stackoverflow.com/q/47138023
 
-    fig, axs = fig_layout.freshfig(231, ncols=2, nrows=2, figsize=(12, 10))
-    axs[0, 1].yaxis.set_ticklabels([])
+    fig = plt.figure(num=231, constrained_layout=True, figsize=(12, 10))
+    gs = fig.add_gridspec(2, 11)
+    ax0 = fig.add_subplot(gs[0, :5])
+    ax1 = fig.add_subplot(gs[0, 5:10], sharex=ax0, sharey=ax0)
+    axc = fig.add_subplot(gs[0, 10])
+    ax2 = fig.add_subplot(gs[1, :])
+    ax1.yaxis.set_tick_params(labelleft=False)
 
     tt = np.arange(len(saturation))
 
-    axs[0, 0].set_title("Initial")
-    axs[0, 0].cc = oilfield(self, axs[0, 0], saturation[0], **kwargs)
-    axs[0, 0].set_ylabel(f"y ({COORD_TYPE})")
+    ax0.set_title("Initial")
+    ax0.cc = oilfield(self, ax0, saturation[0], **kwargs)
+    ax0.set_ylabel(f"y ({COORD_TYPE})")
+    ax0.set_xlabel(f"x ({COORD_TYPE})")
 
-    axs[0, 1].set_title("Evolution")
-    axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[-1], **kwargs)
-    well_scatter(self, axs[0, 1], self.injectors)
-    well_scatter(self, axs[0, 1], self.producers, False,
+    ax1.set_title("Evolution")
+    ax1.cc = oilfield(self, ax1, saturation[-1], **kwargs)
+    ax1.set_xlabel(f"x ({COORD_TYPE})")
+    # Add wells
+    well_scatter(self, ax1, self.injectors)
+    well_scatter(self, ax1, self.producers, False,
                  color=[f"C{i}" for i in range(len(self.producers))])
 
-    axs[1, 0].set_position(axs[1, 0].get_position().translated(0.2, 0))
-    axs[1, 0].set_title("Production")
-    prod_handles = production1(axs[1, 0], production)
+    ax2.set_title("Production")
+    prod_handles = production1(ax2, production)
 
-    axs[1, 1].set_visible(False)
-
-    # fig.tight_layout()
-    fig_colorbar(fig, axs[0, 0].cc)
+    fig.colorbar(ax1.cc, axc)
 
     if title:
         fig.suptitle(f"Oil saturation -- {title}")
@@ -449,12 +453,12 @@ def dashboard(self, saturation, production,
 
         def update_fig(iT):
             # Update field
-            for c in axs[0, 1].cc.collections:
+            for c in ax1.cc.collections:
                 try:
-                    axs[0, 1].collections.remove(c)
+                    ax1.collections.remove(c)
                 except ValueError:
                     pass  # occurs when re-running script
-            axs[0, 1].cc = oilfield(self, axs[0, 1], saturation[iT], **kwargs)
+            ax1.cc = oilfield(self, ax1, saturation[iT], **kwargs)
 
             # Update production lines
             if iT >= 1:

@@ -415,7 +415,9 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
 
 def dashboard(self, saturation, production,
               pause=200, animate=True, title="", **kwargs):
-    # Double figure? See https://stackoverflow.com/q/47138023
+    # Double figure? See:
+    # https://stackoverflow.com/q/47138023
+    # https://stackoverflow.com/a/36685236
 
     fig = plt.figure(num=231, constrained_layout=True, figsize=(12, 10))
     gs = fig.add_gridspec(2, 11)

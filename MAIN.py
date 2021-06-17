@@ -77,6 +77,7 @@ for i in range(4):
 plt.legend();
 
 # ## Setup
+
 # Run the following cells to import some tools...
 
 from copy import deepcopy
@@ -229,17 +230,16 @@ wsat.past.Truth, prod.past.Truth = simulate(
     model.step, nTime, wsat.initial.Truth, dt, obs)
 
 # ##### Animation
-# Run the code cell below to get an animation of the oil saturation evoluation.
+# Run the code cells below to get an animation of the oil saturation evoluation.
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
-#
-# <mark><font size="-1"> <em>Note:</em>
-# Can take (up to) a minute to display figure.
-# </font></mark>
 
+# %%capture
 # %matplotlib inline
-ani = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, animate=True, title="Truth");
-ani
+animation = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, title="Truth");
 
+
+# Note: can take up to a minute to appear
+animation
 
 # #### Noisy obs
 # In reality, observations are never perfect. To account for this, we corrupt the observations by adding a bit of noise.

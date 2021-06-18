@@ -32,19 +32,17 @@ from matplotlib import pyplot as plt
 
 
 def init():
-    try:
-        import google.colab  # noqa
+    if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")
-    except ImportError:
-        if mpl_tools.is_notebook_or_qt:
+        try:
+            import google.colab  # noqa
+        except ImportError:
             mpl.use("nbAgg")
-            mpl.rc('animation', html="jshtml")
-
             mpl.rcParams.update({'font.size': 15})
             mpl.rcParams["figure.figsize"] = [9, 7]
-        else:
-            try:
-                mpl.use("Qt5Agg")
-            except ImportError:
-                pass  # fall back to e.g. MacOS backend
-            plt.ion()
+    else:
+        try:
+            mpl.use("Qt5Agg")
+        except ImportError:
+            pass  # fall back to e.g. MacOS backend
+        plt.ion()

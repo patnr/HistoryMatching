@@ -643,14 +643,16 @@ plots.fields(model, plots.field, perm._means, "Truth and mean fields.");
 
 # We can also apply the ES update directly to the production data of the prior, which doesn't require running the model again (in contrast to what we had to do immediately above). Let us try that as well.
 
-def apply_to_flattened(fun, xx):
-    """Flatten `xx` (except for the 0th axis), apply `fun`, and undo flattening."""
-    shape = xx.shape
-    xx = xx.reshape((shape[0], -1))
-    yy = fun(xx)
-    return yy.reshape(shape)
+def with_flattening(fun):
+    """Redefine `fun` so that it first flattens the input."""
+    def fun2(xx):
+        shape = xx.shape
+        xx = xx.reshape((shape[0], -1))
+        yy = fun(xx)
+        return yy.reshape(shape)
+    return fun2
 
-prod.past.ES0 = apply_to_flattened(ES, prod.past.Prior)
+prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
 
 
 # Plot them all together:
@@ -697,7 +699,7 @@ print("Future/prediction")
 (wsat.future.iES,
  prod.future.iES) = forward_model(nTime, wsat.past.iES[:, -1, :], perm.iES)
 
-prod.future.ES0 = apply_to_flattened(ES, prod.future.Prior)
+prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 
 # #### Plot future production
 

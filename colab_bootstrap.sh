@@ -32,6 +32,7 @@ main () {
     set -e
 
     # Clear cache for a fresh git download.
+    rm -rf REPO
     rm -rf /root/.cache
 
     # Download repo

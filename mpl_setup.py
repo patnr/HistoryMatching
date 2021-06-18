@@ -34,13 +34,12 @@ from matplotlib import pyplot as plt
 def init():
     try:
         import google.colab  # noqa
-
-        # Not necessary on Colab:
-        # mpl.rc('animation', html="jshtml")
+        mpl.rc('animation', html="jshtml")
     except ImportError:
         if mpl_tools.is_notebook_or_qt:
             mpl.use("nbAgg")
             mpl.rc('animation', html="jshtml")
+
             mpl.rcParams.update({'font.size': 15})
             mpl.rcParams["figure.figsize"] = [9, 7]
         else:

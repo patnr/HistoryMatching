@@ -358,7 +358,7 @@ def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
             # Set production rates
             model_n.config_wells(
                 inj  = model_n.injectors,
-                prod = np.hstack((wells, q_prod)),
+                prod = np.hstack((wells, q_prod[:, None])),
             )
             # Set ensemble
             set_perm(model_n, perm)

@@ -20,20 +20,14 @@
 #   and also assumes that we make the choice of maintaining a separate branch
 #   for Colab (instead of using the check `import google.colab`, or telling
 #   user to insert the appropriate code when running on colab).
-#
-# Relatedly, the cache is cleared below, to try to ALWAYS use the latest version.
-# (TODO: Untested. More effective if executed in code cell?)
-# NB: Also ensure you "terminate session" (closing browser window is insufficent)
-# to avoid data persisting on the VM, as you can see in Colab's "Files" pane.
 
 
 # Install requirements
 main () {
     set -e
 
-    # Clear cache for a fresh git download.
+    # Clear any existing REPO for a fresh git clone
     rm -rf REPO
-    rm -rf /root/.cache
 
     # Download repo
     URL=https://github.com/patricknraanes/HistoryMatching.git

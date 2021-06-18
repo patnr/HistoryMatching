@@ -202,14 +202,13 @@ model.config_wells(
 
 # #### Plot true field
 
-fig, ax = freshfig(110)
+fig, ax = freshfig("True perm. field")
 # cs = plots.field(model, ax, perm.Truth)
 cs = plots.field(model, ax, perm_transf(perm.Truth),
                  locator=ticker.LogLocator(), cmap="viridis")
 plots.well_scatter(model, ax, model.producers, inj=False)
 plots.well_scatter(model, ax, model.injectors, inj=True)
 fig.colorbar(cs)
-fig.suptitle("True field");
 plt.pause(.1)
 
 
@@ -245,15 +244,15 @@ animation
 # In reality, observations are never perfect. To account for this, we corrupt the observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
-nProd = len(model.producers)  # num. of obs (per time)
-R = 1e-3 * np.eye(nProd)
+nProd           = len(model.producers)  # num. of obs (each time)
+R               = 1e-3 * np.eye(nProd)
 for iT in range(nTime):
     prod.past.Noisy[iT] += sqrt(R) @ randn(nProd)
 
 
 # Plot of observations (and their noise):
 
-fig, ax = freshfig(120)
+fig, ax = freshfig("Observations")
 hh_y = plots.production1(ax, prod.past.Truth, obs=prod.past.Noisy)
 plt.pause(.1)
 
@@ -269,7 +268,7 @@ print("Prior var.:", np.var(perm.Prior))
 
 # Let us inspect the parameter values in the form of their histogram.
 
-fig, ax = freshfig(130, figsize=(12, 3))
+fig, ax = freshfig("Perm. -- marginal distribution", figsize=(12, 3))
 for label, data in perm.items():
 
     ax.hist(
@@ -288,21 +287,19 @@ plt.pause(.1)
 
 # Below we can see some realizations (members) from the ensemble.
 
-plots.fields(model, 140, plots.field, perm.Prior,
-             figsize=(14, 5), title="Prior");
+plots.fields(model, plots.field, perm.Prior, "Prior");
 
 # #### Eigenvalue specturm
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
-ii = 1+np.arange(len(svals))
-fig, ax = freshfig(150, figsize=(12, 5))
+ii = 1 + np.arange(len(svals))
+fig, ax = freshfig("Spectrum of true cov.", figsize=(12, 5))
 ax.loglog(ii, svals)
 # ax.semilogx(ii, svals)
 ax.grid(True, "minor", axis="x")
 ax.grid(True, "major", axis="y")
-ax.set(xlabel="eigenvalue #", ylabel="var.",
-       title="Spectrum of initial, true cov");
+ax.set(xlabel="eigenvalue #", ylabel="variance");
 plt.pause(.1)
 
 # ## Assimilation
@@ -445,8 +442,7 @@ perm.ES = ES(perm.Prior)
 # #### Plot ES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(model, 160, plots.field, perm.ES,
-             figsize=(14, 5), title="ES (posterior)");
+plots.fields(model, plots.field, perm.ES, "ES (posterior)");
 
 # We will see some more diagnostics later.
 
@@ -614,7 +610,7 @@ def iES(ensemble, observation, obs_err_cov,
 # #### Apply the iES
 
 perm.iES, stats_iES = iES(
-    ensemble = perm.Prior,
+    ensemble    = perm.Prior,
     observation = prod.past.Noisy.reshape(-1),
     obs_err_cov = sla.block_diag(*[R]*nTime),
     flavour="Sqrt", MDA=False, bundle=False, stepsize=1,
@@ -624,12 +620,11 @@ perm.iES, stats_iES = iES(
 # #### Plot iES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(model, 165, plots.field, perm.iES,
-             figsize=(14, 5), title="iES posterior");
+plots.fields(model, plots.field, perm.iES, "iES (posterior)");
 
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
-fig, ax = freshfig(167)
+fig, ax = freshfig("iES Objective function")
 ls = dict(J_prior=":", J_lklhd="--", J_postr="-")
 for name, J in stats_iES.items():
     try:
@@ -659,8 +654,7 @@ RMS_all(perm, vs="Truth")
 
 perm._means = Dict((k, perm[k].mean(axis=0)) for k in perm if not k.startswith("_"))
 
-plots.fields(model, 170, plots.field, perm._means,
-             figsize=(14, 5), title="Truth and mean fields.");
+plots.fields(model, plots.field, perm._means, "Truth and mean fields.");
 
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
@@ -673,13 +667,14 @@ plots.fields(model, 170, plots.field, perm._means,
 
 # We can also apply the ES update directly to the production data of the prior, which doesn't require running the model again (in contrast to what we had to do immediately above). Let us try that as well.
 
-def ravelled(fun, xx):
+def apply_to_flattened(fun, xx):
+    """Flatten `xx` (except for the 0th axis), apply `fun`, and undo flattening."""
     shape = xx.shape
     xx = xx.reshape((shape[0], -1))
     yy = fun(xx)
     return yy.reshape(shape)
 
-prod.past.ES0 = ravelled(ES, prod.past.Prior)
+prod.past.ES0 = apply_to_flattened(ES, prod.past.Prior)
 
 
 # Plot them all together:
@@ -688,7 +683,7 @@ prod.past.ES0 = ravelled(ES, prod.past.Prior)
 # The notebook/NbAgg backend fails after a few toggles
 # %matplotlib inline
 
-v = plots.productions(prod.past, 175, figsize=(14, 4))
+v = plots.productions(prod.past, "Past production")
 # -
 
 # #### RMS summary
@@ -726,11 +721,11 @@ print("Future/prediction")
 (wsat.future.iES,
  prod.future.iES) = forward_model(nTime, wsat.past.iES[:, -1, :], perm.iES)
 
-prod.future.ES0 = ravelled(ES, prod.future.Prior)
+prod.future.ES0 = apply_to_flattened(ES, prod.future.Prior)
 
 # #### Plot future production
 
-plots.productions(prod.future, 200, figsize=(14, 5), title="-- Future");
+plots.productions(prod.future, "-- Future");
 plt.pause(.1)
 
 print("Stats vs. (supposedly unknown) future production")

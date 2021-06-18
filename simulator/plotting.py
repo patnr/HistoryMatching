@@ -35,6 +35,14 @@ def lims(self):
     return Lx, Ly
 
 
+def dash_join(txt, suffix):
+    """If suffix is non-empty, join txt and suffix by a dash."""
+    if suffix:
+        return txt + " -- " + suffix
+    else:
+        return txt
+
+
 def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
     # Need to transpose coz model assumes shape (Nx, Ny),
@@ -67,17 +75,16 @@ def field(self, ax, zz, **kwargs):
     return collections
 
 
-def fields(self,
-           fignum, plotter, ZZ,
-           figsize=None,
+def fields(self, plotter, ZZ,
            title="",
+           figsize=(14, 5),
            txt_color="k",
            colorbar=True,
            **kwargs):
 
     fig, axs = fig_layout.freshfig(
-        fignum, figsize=figsize,
-        **nRowCol(min(12, len(ZZ))),
+        dash_join("Field realizations", title),
+        figsize=figsize, **nRowCol(min(12, len(ZZ))),
         sharex=True, sharey=True)
     axs = axs.ravel()
 
@@ -107,10 +114,8 @@ def fields(self,
     if colorbar:
         fig_colorbar(fig, hh[0])
 
-    if title:
-        if len(ZZ) > len(axs):
-            title += " -- first few realizations"
-        fig.suptitle(title)
+    if len(ZZ) > len(axs):
+        fig.suptitle(f"First {len(axs)} instances")
 
     return fig, axs, hh
 
@@ -330,15 +335,16 @@ def toggle_series(plotter):
 
 
 @toggle_series
-def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
+def productions(dct, title="", figsize=(14, 4), nProd=None, legend=True):
 
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
+
     fig, axs = fig_layout.freshfig(
-        fignum, figsize=figsize,
-        **nRowCol(nProd), sharex=True, sharey=True)
-    # fig.suptitle("Oil productions " + title)
+        dash_join("Production profiles", title),
+        figsize=figsize, **nRowCol(nProd),
+        sharex=True, sharey=True)
 
     # Turn off redundant axes
     for ax in axs.ravel()[nProd:]:
@@ -422,11 +428,13 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
 
 
 def dashboard(self, perm, saturation, production,
-              pause=200, animate=True, **kwargs):
+              title="", figsize=(12, 10), pause=200, animate=True, **kwargs):
     # Note: See note in mpl_setup.py about properly displaying the animation.
 
     # Create figure and axes
-    fig = plt.figure(num=231, constrained_layout=True, figsize=(12, 10))
+    fig = plt.figure(constrained_layout=True,
+                     num="Dashboard" + title,
+                     figsize=figsize)
     gs = fig.add_gridspec(2, 22)
     ax0 = fig.add_subplot(gs[0, 1:11])
     ax1 = fig.add_subplot(gs[0, 11:21], sharex=ax0, sharey=ax0)

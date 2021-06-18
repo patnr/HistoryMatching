@@ -37,6 +37,7 @@ main () {
     pip install -r REPO/requirements.txt
 
     # Put repo contents in PWD
+    shopt -s dotglob
     cp -r REPO/* ./
 }
 

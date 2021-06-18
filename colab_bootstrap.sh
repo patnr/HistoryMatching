@@ -48,8 +48,8 @@ main () {
 # Only run if we're on colab
 if python -c "import colab"; then
 
-    if echo $@ | grep -- '--debug' > /dev/null ; then
-        # Verbose
+    # Use `bash -s -- --debug` to get verbose output
+    if echo $@ | grep -E -- '(--debug|-v)' > /dev/null ; then
         main
     else
         # Quiet

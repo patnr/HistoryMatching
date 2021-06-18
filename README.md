@@ -1,5 +1,4 @@
 # History matching tutorial
-C
 
 ## Run in the cloud
 

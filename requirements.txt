@@ -16,6 +16,8 @@
 #   The tool pip-tools might fix this, but seems pretty complicated
 #   (uses requirements.in (or setup.py) to produce requirements.txt,
 #   but suggests using one requirements file for each python env and OS)
+#   Also, we don't want to use poetry/pipenv in this case.
+# As a moderately reasonable fix, we manually pin the top-level dependencies.
 
 jupyter~=1.0.0
 jupytext~=1.11.3
@@ -29,5 +31,3 @@ tqdm~=4.61.1
 mpl-tools==0.2.39
 patlib==0.3.5
 struct-tools==0.2.5
-
-# vim: ft=requirements

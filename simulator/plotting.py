@@ -9,6 +9,12 @@ from mpl_tools import fig_layout
 from mpl_tools.misc import axprops, fig_colorbar, nRowCol
 from struct_tools import DotDict, get0
 
+# TODO: unify (nRowCol, turn off, ax.text, etc) for fields() and productions() ?
+# TODO: add set_xlabl, set_ylabel to field()
+# TODO: field aspect ratio
+# TODO: better cmap and vmin/vmax management
+# TODO: do something about figure numbers and size?
+
 
 def center(E):
     return E - E.mean(axis=0)
@@ -73,6 +79,7 @@ def fields(self,
         fignum, figsize=figsize,
         **nRowCol(min(12, len(ZZ))),
         sharex=True, sharey=True)
+    axs = axs.ravel()
 
     # Turn off redundant axes
     for ax in axs[len(ZZ):]:
@@ -88,7 +95,7 @@ def fields(self,
     vmax = flat.max()
 
     hh = []
-    for ax, label in zip(axs.ravel(), ZZ):
+    for ax, label in zip(axs, ZZ):
 
         ax.text(0, 1, label, ha="left", va="top",
                 c=txt_color, transform=ax.transAxes)
@@ -101,6 +108,8 @@ def fields(self,
         fig_colorbar(fig, hh[0])
 
     if title:
+        if len(ZZ) > len(axs):
+            title += " -- first few realizations"
         fig.suptitle(title)
 
     return fig, axs, hh
@@ -229,7 +238,7 @@ def production1(ax, production, obs=None):
               loc="upper left",
               bbox_to_anchor=(1, 1),
               ncol=1+len(production.T)//10)
-    ax.set_ylabel("Oil saturation (rel. production)")
+    ax.set_ylabel("Production (oil saturation at wells)")
     ax.set_xlabel("Time index")
     # ax.set_ylim(-0.01, 1.01)
     ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)
@@ -320,7 +329,6 @@ def toggle_series(plotter):
     return interactive_plot
 
 
-# TODO: unify (nRowCol, turn off, ax.text, etc) with plotting.fields ?
 @toggle_series
 def productions(dct, fignum, figsize=None, title="", nProd=None, legend=True):
 
@@ -413,43 +421,47 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])  # type: ignore
 
 
-def dashboard(self, saturation, production,
-              pause=200, animate=True, title="", **kwargs):
+def dashboard(self, perm, saturation, production,
+              pause=200, animate=True, **kwargs):
     # Note: See note in mpl_setup.py about properly displaying the animation.
 
+    # Create figure and axes
     fig = plt.figure(num=231, constrained_layout=True, figsize=(12, 10))
-    gs = fig.add_gridspec(2, 11)
-    ax0 = fig.add_subplot(gs[0, :5])
-    ax1 = fig.add_subplot(gs[0, 5:10], sharex=ax0, sharey=ax0)
-    axc = fig.add_subplot(gs[0, 10])
-    ax2 = fig.add_subplot(gs[1, :])
+    gs = fig.add_gridspec(2, 22)
+    ax0 = fig.add_subplot(gs[0, 1:11])
+    ax1 = fig.add_subplot(gs[0, 11:21], sharex=ax0, sharey=ax0)
     ax1.yaxis.set_tick_params(labelleft=False)
+    # Colorbars
+    ax0c = fig.add_subplot(gs[0, 0])
+    ax1c = fig.add_subplot(gs[0, 21])
+    # Production plot
+    ax2 = fig.add_subplot(gs[1, :])
 
-    tt = np.arange(len(saturation))
-
-    ax0.set_title("Initial")
-    ax0.cc = oilfield(self, ax0, saturation[0], **kwargs)
-    ax0.set_ylabel(f"y ({COORD_TYPE})")
+    # ax0.set_title("Initial")
+    # ax0.cc = oilfield(self, ax0, saturation[0], **kwargs)
+    ax0.set_title("Permeability")
+    ax0.cc = field(self, ax0, perm, **kwargs)
     ax0.set_xlabel(f"x ({COORD_TYPE})")
+    fig.colorbar(ax0.cc, ax0c)
 
-    ax1.set_title("Evolution")
+    ax0c.yaxis.set_ticks_position("left")
+    ax0.yaxis.set_ticks_position("right")
+    ax1.set_ylabel(f"y ({COORD_TYPE})")
+
+    ax1.set_title("Saturation")
     ax1.cc = oilfield(self, ax1, saturation[-1], **kwargs)
     ax1.set_xlabel(f"x ({COORD_TYPE})")
     # Add wells
     well_scatter(self, ax1, self.injectors)
     well_scatter(self, ax1, self.producers, False,
                  color=[f"C{i}" for i in range(len(self.producers))])
+    fig.colorbar(ax1.cc, ax1c)
 
-    ax2.set_title("Production")
     prod_handles = production1(ax2, production)
-
-    fig.colorbar(ax1.cc, axc)
-
-    if title:
-        fig.suptitle(f"Oil saturation -- {title}")
 
     if animate:
         from matplotlib import animation
+        tt = np.arange(len(saturation))
 
         def update_fig(iT):
             # Update field

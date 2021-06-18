@@ -100,7 +100,7 @@ from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
 
 
 plots.COORD_TYPE = "absolute"
-cmap = plt.get_cmap("jet")
+plt.rcParams['image.cmap'] = 'jet'
 
 # ... and initialize some data containers.
 
@@ -137,30 +137,31 @@ seed = np.random.seed(4)  # very easy
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
 # #### Permeability sampling
-# We work with log permeabilities, which can (in principle) be Gaussian.
+# We parameterize the permeability parameters via some transform, which becomes part of the forward model. *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also difficult for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  However, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
 
-def sample_log_perm(N=1):
+def sample_prior_perm(N=1):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
     return lperms
 
-# The transformation of the parameters to model input is effectively part of the forward model.
-
-def f_perm(x):
+def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
 
+# Lastly, for any type of parameter, one typically has to write a "setter" function that takes the vector of paramter parameter values, and applies it to the model implementation. We could merge this functionality with `perm_transf` (and indead the "setter" function is part of the composite forward model) but it is convenient to separate implementation specifics from the mathematics going on in `perm_transf`.
+
 def set_perm(model, log_perm_array):
-    p = f_perm(log_perm_array)
+    """Set perm. in model code. Duplicates the perm. values in x- and y- dir."""
+    p = perm_transf(log_perm_array)
     p = p.reshape(model.shape)
     model.Gridded.K = np.stack([p, p])
 
-# Here we sample the permeabilitiy of the (synthetic) truth.
+# Now, let's sample the permeabilitiy of the (synthetic) truth.
 
-perm.Truth = sample_log_perm()
+perm.Truth = sample_prior_perm()
 set_perm(model, perm.Truth)
 
 # #### Well specification
-# We here specify the wells as point sources and sinks, giving their placement and flux.
+# We here specify the wells as point *sources* and *sinks*, giving their placement and flux.
 #
 # The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `config_wells` function used below. Note that `config_wells` takes *relative* values (between 0 and 1) for x and y locations.
 
@@ -204,7 +205,8 @@ model.config_wells(
 
 fig, ax = freshfig(110)
 # cs = plots.field(model, ax, perm.Truth)
-cs = plots.field(model, ax, f_perm(perm.Truth), locator=ticker.LogLocator())
+cs = plots.field(model, ax, perm_transf(perm.Truth),
+                 locator=ticker.LogLocator(), cmap="viridis")
 plots.well_scatter(model, ax, model.producers, inj=False)
 plots.well_scatter(model, ax, model.injectors, inj=True)
 fig.colorbar(cs)
@@ -234,7 +236,7 @@ wsat.past.Truth, prod.past.Truth = simulate(
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 
 # %%capture
-animation = plots.dashboard(model, wsat.past.Truth, prod.past.Truth, title="Truth");
+animation = plots.dashboard(model, perm.Truth, wsat.past.Truth, prod.past.Truth);
 
 
 # Note: can take up to a minute to appear
@@ -260,7 +262,7 @@ plt.pause(.1)
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the same mean and covariance.  Thus, the members are "statistically indistinguishable" to the truth. This assumption underlies ensemble methods.
 
 N = 200
-perm.Prior = sample_log_perm(N)
+perm.Prior = sample_prior_perm(N)
 
 # Note that field (before transformation) is Gaussian with (expected) mean 0 and variance 1.
 print("Prior mean:", np.mean(perm.Prior))
@@ -272,8 +274,8 @@ fig, ax = freshfig(130, figsize=(12, 3))
 for label, data in perm.items():
 
     ax.hist(
-        f_perm(data.ravel()),
-        f_perm(np.linspace(-3, 3, 32)),
+        perm_transf(data.ravel()),
+        perm_transf(np.linspace(-3, 3, 32)),
         # "Downscale" ens counts by N. Necessary because `density` kw
         # doesnt work "correctly" with log-scale.
         weights = (np.ones(model.M*N)/N if label != "Truth" else None),
@@ -283,13 +285,12 @@ for label, data in perm.items():
     ax.legend();
 plt.pause(.1)
 
-# The above histogram should be Gaussian histogram if f_perm is purely exponential:
+# The above histogram should be Gaussian histogram if perm_transf is purely exponential:
 
 # Below we can see some realizations (members) from the ensemble.
 
 plots.fields(model, 140, plots.field, perm.Prior,
-             figsize=(14, 5), cmap=cmap,
-             title="Prior -- some realizations");
+             figsize=(14, 5), title="Prior");
 
 # #### Eigenvalue specturm
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
@@ -401,17 +402,15 @@ wsat.past.Prior, prod.past.Prior = forward_model(
 # ### Ensemble smoother
 
 class ES_update:
-    """Update/conditioning (Bayes' rule) for an ensemble,
+    """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.
 
-    according to the "ensemble smoother" (ES) algorithm,
-
-    given a (vector) observations an an ensemble (matrix).
-
+    Implementats the "ensemble smoother" (ES) algorithm,
+    with "perturbed observations".
     NB: obs_err_cov is treated as diagonal. Alternative: use `sla.sqrtm`.
 
     Why have we chosen to use a class (and not a function)?
-    Because this allows storing `KGdY`, which we can then/later re-apply,
-    thereby enabling state-augmentation "on-the-fly".
+    Because this allows storing `KGdY`, for later use.
+    This "on-the-fly" application follows directly from state-augmentation formalism.
 
     NB: some of these formulea appear transposed, and reversed,
     compared to (EnKF) literature standards. The reason is that
@@ -427,6 +426,7 @@ class ES_update:
         innovations = observation - (obs_ens + obs_pert)
 
         # (pre-) Kalman gain * Innovations
+        # Also called the X5 matrix by Evensen'2003.
         self.KGdY = innovations @ sla.pinv2(obs_cov) @ Y.T
 
     def __call__(self, E):
@@ -447,8 +447,7 @@ perm.ES = ES(perm.Prior)
 # Let's plot the updated, initial ensemble.
 
 plots.fields(model, 160, plots.field, perm.ES,
-             figsize=(14, 5), cmap=cmap,
-             title="ES posterior -- some realizations");
+             figsize=(14, 5), title="ES (posterior)");
 
 # We will see some more diagnostics later.
 
@@ -627,8 +626,7 @@ perm.iES, stats_iES = iES(
 # Let's plot the updated, initial ensemble.
 
 plots.fields(model, 165, plots.field, perm.iES,
-             figsize=(14, 5), cmap=cmap,
-             title="iES posterior -- some realizations");
+             figsize=(14, 5), title="iES posterior");
 
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
@@ -658,23 +656,21 @@ RMS_all(perm, vs="Truth")
 # ### Plot of means
 # Let's plot mean fields.
 #
-# NB: Caution! Mean fields are liable to be less rugged than the truth. As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process.
+# NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon familiar from geostatistics (e.g. Kriging). As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process. This does not mean that you must eyeball each field, but that decision analyses should be based on expected values with respect to ensembles.
 
 perm._means = Dict((k, perm[k].mean(axis=0)) for k in perm if not k.startswith("_"))
 
 plots.fields(model, 170, plots.field, perm._means,
-             figsize=(14, 5), cmap=cmap,
-             title="Truth and mean fields.");
+             figsize=(14, 5), title="Truth and mean fields.");
 
 # ### Past production (data mismatch)
-
-# We already have the past true and prior production profiles. Let's add to that the production profiles of the posterior.
+# In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
 
 wsat.past.ES, prod.past.ES = forward_model(nTime, wsat.initial.Prior, perm.ES)
 
 wsat.past.iES, prod.past.iES = forward_model(nTime, wsat.initial.Prior, perm.iES)
 
-# We can also apply the ES update (its X5 matrix, for those familiar with that terminology) directly to the production data of the prior, which doesn't require running the model again (like we did immediately above). Let us try that as well.
+# We can also apply the ES update directly to the production data of the prior, which doesn't require running the model again (in contrast to what we had to do immediately above). Let us try that as well.
 
 def ravelled(fun, xx):
     shape = xx.shape
@@ -694,7 +690,7 @@ prod.past.ES0 = ravelled(ES, prod.past.Prior)
 v = plots.productions(prod.past, 175, figsize=(14, 4))
 # -
 
-# #### Data mismatch
+# #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)")
 RMS_all(prod.past, vs="Noisy")

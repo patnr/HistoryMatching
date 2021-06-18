@@ -132,11 +132,10 @@ seed = np.random.seed(4)  # very easy
 # ## Model and case specification
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
-# We will estimate the log permeability field. The data will consist in the water saturation of the production (at the well locations).
-
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
 # #### Permeability sampling
+# We will estimate the log permeability field.
 # We parameterize the permeability parameters via some transform, which becomes part of the forward model. *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also difficult for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  However, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
 
 def sample_prior_perm(N=1):
@@ -215,7 +214,7 @@ plt.pause(.1)
 
 
 # #### Define obs operator
-# There is no well model. The data consists purely of the water saturation at the location of the wells.
+# The data will consist in the water saturation of the production (at the well locations). I.e. there is no well model.
 
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 def obs(water_sat):
@@ -228,8 +227,8 @@ wsat.initial.Truth = np.zeros(model.M)
 T     = 1
 dt    = 0.025
 nTime = round(T/dt)
-wsat.past.Truth, prod.past.Truth = simulate(
-    model.step, nTime, wsat.initial.Truth, dt, obs)
+(wsat.past.Truth,
+ prod.past.Truth) = simulate(model.step, nTime, wsat.initial.Truth, dt, obs)
 
 # ##### Animation
 # Run the code cells below to get an animation of the oil saturation evoluation.
@@ -396,8 +395,8 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
 # Now we run the forward model.
 
-wsat.past.Prior, prod.past.Prior = forward_model(
-    nTime, wsat.initial.Prior, perm.Prior)
+(wsat.past.Prior,
+ prod.past.Prior) = forward_model(nTime, wsat.initial.Prior, perm.Prior)
 
 # ### Ensemble smoother
 
@@ -666,9 +665,11 @@ plots.fields(model, 170, plots.field, perm._means,
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
 
-wsat.past.ES, prod.past.ES = forward_model(nTime, wsat.initial.Prior, perm.ES)
+(wsat.past.ES,
+ prod.past.ES) = forward_model(nTime, wsat.initial.Prior, perm.ES)
 
-wsat.past.iES, prod.past.iES = forward_model(nTime, wsat.initial.Prior, perm.iES)
+(wsat.past.iES,
+ prod.past.iES) = forward_model(nTime, wsat.initial.Prior, perm.iES)
 
 # We can also apply the ES update directly to the production data of the prior, which doesn't require running the model again (in contrast to what we had to do immediately above). Let us try that as well.
 
@@ -713,17 +714,17 @@ RMS_all(prod.past, vs="Noisy")
 
 print("Future/prediction")
 
-wsat.future.Truth, prod.future.Truth = simulate(
-    model.step, nTime, wsat.past.Truth[-1], dt, obs)
+(wsat.future.Truth,
+ prod.future.Truth) = simulate(model.step, nTime, wsat.past.Truth[-1], dt, obs)
 
-wsat.future.Prior, prod.future.Prior = forward_model(
-    nTime, wsat.past.Prior[:, -1, :], perm.Prior)
+(wsat.future.Prior,
+ prod.future.Prior) = forward_model(nTime, wsat.past.Prior[:, -1, :], perm.Prior)
 
-wsat.future.ES, prod.future.ES = forward_model(
-    nTime, wsat.past.ES[:, -1, :], perm.ES)
+(wsat.future.ES,
+ prod.future.ES) = forward_model(nTime, wsat.past.ES[:, -1, :], perm.ES)
 
-wsat.future.iES, prod.future.iES = forward_model(
-    nTime, wsat.past.iES[:, -1, :], perm.iES)
+(wsat.future.iES,
+ prod.future.iES) = forward_model(nTime, wsat.past.iES[:, -1, :], perm.iES)
 
 prod.future.ES0 = ravelled(ES, prod.future.Prior)
 

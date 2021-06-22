@@ -287,6 +287,101 @@ def style(label, N=100):
     return style
 
 
+def toggle_series(plotter):
+    """Include checkboxes/checkmarks to toggle plotted data series on/off."""
+    # NB: this was pretty darn complicated to get working
+    # with the right layout and avoiding double plotting.
+    # So exercise great caution when changing it!
+
+    def interactive_plot(*args, **kwargs):
+        dct, *args = args  # arg0 must be dict of line data to plot
+        kwargs["legend"] = False  # Turn off legend
+
+        handles = []
+
+        def plot_these(**labels):
+            included = {k: v for k, v in dct.items() if labels[k]}
+            hh = plotter(included, *args, **kwargs)
+            if not handles:
+                handles.extend(hh)
+
+        widget = interactive(plot_these, **{label: True for label in dct})
+        widget.update()
+        # Could end function here. The rest is adjustments.
+
+        # Place checkmarks to the right
+        *checkmarks, figure = widget.children
+        widget = HBox([figure, VBox(checkmarks)])
+        ip_disp.display(widget)
+
+        # Narrower checkmark boxes
+        widget.children[1].layout.width = "15ex"
+        for CX in widget.children[1].children:
+            CX.layout.width = '10ex'
+            CX.style.description_width = '0ex'
+
+        # Hack to color borders of checkmarks.
+        # Did not find how to color background/face.
+        # Anyways, there is no general/good way to style widgets, ref:
+        # https://github.com/jupyter-widgets/ipywidgets/issues/710#issuecomment-409448282
+        import matplotlib as mpl
+        for cm, lh in zip(checkmarks, handles):
+            c = mpl.colors.to_hex(lh.get_color(), keep_alpha=False)
+            cm.layout.border = "solid 5px" + c
+
+        return widget
+
+    return interactive_plot
+
+
+@toggle_series
+def productions2(dct, title="", figsize=(14, 4), nProd=None, legend=True):
+
+    if nProd is None:
+        nProd = get0(dct).shape[1]
+        nProd = min(23, nProd)
+    fig, axs = fig_layout.freshfig(
+        dash_join("Production profiles", title),
+        figsize=figsize, **nRowCol(nProd),
+        sharex=True, sharey=True)
+
+    # Turn off redundant axes
+    for ax in axs.ravel()[nProd:]:
+        ax.set_visible(False)
+
+    handles = []
+
+    # For each well
+    for i in range(nProd):
+        ax = axs.ravel()[i]
+        ax.text(1, 1, f"Well {i}" if i == 0 else i, c="k",
+                ha="right", va="top", transform=ax.transAxes)
+
+        for label, series in dct.items():
+
+            # Get style props
+            some_ensemble = list(dct.values())[-1]
+            props = style(label, N=len(some_ensemble))
+
+            # Plot
+            ll = ax.plot(1 - series.T[i], **props)
+
+            # Rm duplicate labels
+            plt.setp(ll[1:], label="_nolegend_")
+
+            # Store 1 handle of series
+            if i == 0:
+                handles.append(ll[0])
+
+        # Legend
+        if legend:
+            leg = ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
+            for ln in leg.get_lines():
+                ln.set(alpha=1, linewidth=max(1, ln.get_linewidth()))
+
+    return handles
+
+
 def toggler(plotter):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
     def new(*args, **kwargs):

@@ -89,6 +89,7 @@ from numpy.random import randn
 from numpy import sqrt
 from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
+from IPython.display import display
 
 # and the model, ...
 
@@ -361,10 +362,11 @@ def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
 
     return saturation, production
 
-# We also need to set the prior for the initial water saturation. As mentioned, this is not because it is uncertain/unknown; indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). However, in order to save one iteration, the posterior will also be output for the present-time water saturation (state) field, which is then used to restart simulations for future prediction (actually, the full time series of the saturation is output, but that is just for academic purposes). Therefore the forward_model must take water saturation as one of the inputs. Therefore, for the prior, we set this all to the true initial saturation (giving it uncertainty 0).
+# Note that the forward model not only takes an ensemble of permeability fields, but also an ensemble of initial water saturations. This is not because the initial saturations are uncertain (unknown); indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). Therefore, the initial water saturation is set to the true value for each member (giving it uncertainty 0).
 
 wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
+# So why does the forward_model take saturation as an input? Beacuse the posterior of this state (i.e. time-dependent) variable does depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
 
 # Now we run the forward model.
 
@@ -657,12 +659,8 @@ prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
 
 # Plot them all together:
 
-# +
-# The notebook/NbAgg backend fails after a few toggles
-# %matplotlib inline
-
 v = plots.productions(prod.past, "Past production")
-# -
+display(v)
 
 # #### RMS summary
 

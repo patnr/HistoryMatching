@@ -287,32 +287,24 @@ def style(label, N=100):
     return style
 
 
-def toggle_series(plotter):
+def toggler(plotter):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
-    # NB: this was pretty darn complicated to get working
-    # with the right layout and avoiding double plotting.
-    # So exercise great caution when changing it!
-
-    def interactive_plot(*args, **kwargs):
-        dct, *args = args  # arg0 must be dict of line data to plot
-        kwargs["legend"] = False  # Turn off legend
-
-        handles = []
-
-        def plot_these(**labels):
-            included = {k: v for k, v in dct.items() if labels[k]}
-            hh = plotter(included, *args, **kwargs)
-            if not handles:
-                handles.extend(hh)
-
-        widget = interactive(plot_these, **{label: True for label in dct})
+    def new(*args, **kwargs):
+        update = plotter(*args, **kwargs)
+        arg0 = args[0]
+        widget = interactive(update, **{label: True for label in arg0})
         widget.update()
-        # Could end function here. The rest is adjustments.
 
-        # Place checkmarks to the right
+        # Could end function now. The following styles the checkboxes.
         *checkmarks, figure = widget.children
+
+        # Place checkmarks to the right -- only works with mpl inline?
         widget = HBox([figure, VBox(checkmarks)])
-        ip_disp.display(widget)
+        try:
+            import google.colab  # noqa
+            ip_disp.display(widget)
+        except ImportError:
+            pass
 
         # Narrower checkmark boxes
         widget.children[1].layout.width = "15ex"
@@ -325,17 +317,16 @@ def toggle_series(plotter):
         # Anyways, there is no general/good way to style widgets, ref:
         # https://github.com/jupyter-widgets/ipywidgets/issues/710#issuecomment-409448282
         import matplotlib as mpl
-        for cm, lh in zip(checkmarks, handles):
-            c = mpl.colors.to_hex(lh.get_color(), keep_alpha=False)
+        for cm, lbl in zip(checkmarks, arg0):
+            c = style(lbl, N=1)['c']
+            c = mpl.colors.to_hex(c, keep_alpha=False)
             cm.layout.border = "solid 5px" + c
-
         return widget
+    return new
 
-    return interactive_plot
 
-
-@toggle_series
-def productions(dct, title="", figsize=(14, 4), nProd=None, legend=True):
+@toggler
+def productions(dct, title="", figsize=(14, 4), nProd=None):
 
     if nProd is None:
         nProd = get0(dct).shape[1]
@@ -350,37 +341,29 @@ def productions(dct, title="", figsize=(14, 4), nProd=None, legend=True):
     for ax in axs.ravel()[nProd:]:
         ax.set_visible(False)
 
-    handles = []
+    def update(**labels):
+        # For each well
+        for iWell in range(nProd):
+            ax = axs.ravel()[iWell]
+            ax.clear()
+            ax.text(1, 1, f"Well {iWell}" if iWell == 0 else iWell, c="k",
+                    ha="right", va="top", transform=ax.transAxes)
 
-    # For each well
-    for i in range(nProd):
-        ax = axs.ravel()[i]
-        ax.text(1, 1, f"Well {i}" if i == 0 else i, c="k",
-                ha="right", va="top", transform=ax.transAxes)
+            for label, series in dct.items():
+                if not labels[label]:
+                    continue
 
-        for label, series in dct.items():
+                # Get style props
+                some_ensemble = list(dct.values())[-1]
+                props = style(label, N=len(some_ensemble))
 
-            # Get style props
-            some_ensemble = list(dct.values())[-1]
-            props = style(label, N=len(some_ensemble))
+                # Plot
+                ll = ax.plot(1 - series.T[iWell], **props)
 
-            # Plot
-            ll = ax.plot(1 - series.T[i], **props)
+                # Rm duplicate labels
+                plt.setp(ll[1:], label="_nolegend_")
 
-            # Rm duplicate labels
-            plt.setp(ll[1:], label="_nolegend_")
-
-            # Store 1 handle of series
-            if i == 0:
-                handles.append(ll[0])
-
-        # Legend
-        if legend:
-            leg = ax.legend(loc="upper left", bbox_to_anchor=(1, 1))
-            for ln in leg.get_lines():
-                ln.set(alpha=1, linewidth=max(1, ln.get_linewidth()))
-
-    return handles
+    return update
 
 
 def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):

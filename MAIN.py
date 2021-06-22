@@ -659,7 +659,7 @@ prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
 
 # Plot them all together:
 
-v = plots.productions(prod.past, "Past production")
+v = plots.productions(prod.past, "-- Past")
 display(v)
 
 # #### RMS summary
@@ -701,8 +701,8 @@ prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 
 # #### Plot future production
 
-plots.productions(prod.future, "-- Future");
-plt.pause(.1)
+v = plots.productions(prod.future, "-- Future");
+display(v)
 
 print("Stats vs. (supposedly unknown) future production")
 RMS_all(prod.future, vs="Truth")

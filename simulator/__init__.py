@@ -28,7 +28,7 @@ from scipy.sparse.linalg import spsolve
 from struct_tools import DotDict, NicePrint
 from tqdm.auto import tqdm as progbar
 
-from .grid import Grid2D
+from simulator.grid import Grid2D
 
 # TODO
 # - Protect Nx, Ny, shape, etc?
@@ -240,3 +240,53 @@ def simulate(model_step, nSteps, x0, dt=.025, obs=None, pbar=True):
     for iT in rge:
         yy[iT] = obs(xx[iT+1])
     return xx, yy
+
+
+# Example run
+if __name__ == '__main__':
+    from matplotlib import pyplot as plt
+
+    import simulator.plotting as plots
+    from geostat import gaussian_fields
+
+    model = ResSim(Lx=1, Ly=1, Nx=20, Ny=20)
+
+    # Relative coordinates
+    injectors = [[0.1, 0.0, 1.0], [0.9, 0.0, 1.0]]
+    producers = [[0.1, 0.7, 100.0], [0.9, 1.0, 1.0], [.5, .2, 1]]
+    model.config_wells(injectors, producers)
+
+    # Create gridded field -- use e.g. for perm or saturation0
+    np.random.seed(3000)
+    surf = gaussian_fields(model.mesh(), 1)
+    surf = 0.5 + .2*surf
+    # surf = truncate_01(surf)
+    # surf = sigmoid(surf)
+    surf = surf.reshape(model.shape)
+    # Insert barrier
+    surf[:model.Nx//2, model.Ny//3] = 0.001
+    # Set permeabilities to surf.
+    model.Gridded.K = np.stack([surf, surf])  # type: ignore
+
+    # Define obs operator
+    obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
+    def obs(saturation):  # noqa
+        return [saturation[i] for i in obs_inds]
+    obs.length = len(obs_inds)  # noqa
+
+    # Simulate
+    S0 = np.zeros(model.M)  # type: ignore
+
+    # dt=0.025 was used in Matlab code with 64x64 (and 1x1),
+    # but I find that dt=0.1 works alright too.
+    # With 32x32 I find that dt=0.2 works fine.
+    # With 20x20 I find that dt=0.4 works fine.
+    T = 28*0.025
+    dt = 0.4
+    nTime = round(T/dt)
+    saturation, production = simulate(model.step, nTime, S0, dt, obs)
+
+    # Animation
+    plots.COORD_TYPE = "index"
+    animation = plots.dashboard(model, surf, saturation, production, animate=False)
+    plt.pause(.1)

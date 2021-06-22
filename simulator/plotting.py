@@ -243,7 +243,7 @@ def production1(ax, production, obs=None):
               loc="upper left",
               bbox_to_anchor=(1, 1),
               ncol=1+len(production.T)//10)
-    ax.set_ylabel("Production (oil saturation at wells)")
+    ax.set_ylabel("Production (saturations)")
     ax.set_xlabel("Time index")
     # ax.set_ylim(-0.01, 1.01)
     ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)

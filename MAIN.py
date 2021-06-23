@@ -131,7 +131,7 @@ seed = np.random.seed(4)  # very easy
 # seed = np.random.seed(7)  # easy
 
 # ## Model and case specification
-# The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -147,7 +147,7 @@ def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
 
-# Lastly, for any type of parameter, one typically has to write a "setter" function that takes the vector of paramter parameter values, and applies it to the model implementation. We could merge this functionality with `perm_transf` (and indead the "setter" function is part of the composite forward model) but it is convenient to separate implementation specifics from the mathematics going on in `perm_transf`.
+# Lastly, for any type of parameter, one typically has to write a "setter" function that takes the vector of parameter parameter values, and applies it to the model implementation. We could merge this functionality with `perm_transf` (and indeed the "setter" function is part of the composite forward model) but it is convenient to separate implementation specifics from the mathematics going on in `perm_transf`.
 
 def set_perm(model, log_perm_array):
     """Set perm. in model code. Duplicates the perm. values in x- and y- dir."""
@@ -155,7 +155,7 @@ def set_perm(model, log_perm_array):
     p = p.reshape(model.shape)
     model.Gridded.K = np.stack([p, p])
 
-# Now, let's sample the permeabilitiy of the (synthetic) truth.
+# Now, let's sample the permeability of the (synthetic) truth.
 
 perm.Truth = sample_prior_perm()
 set_perm(model, perm.Truth)
@@ -207,7 +207,7 @@ nTime = round(T/dt)
  prod.past.Truth) = simulate(model.step, nTime, wsat.initial.Truth, dt, obs)
 
 # ##### Animation
-# Run the code cells below to get an animation of the oil saturation evoluation.
+# Run the code cells below to get an animation of the oil saturation evolution.
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 
 # %%capture
@@ -252,7 +252,7 @@ for label, data in perm.items():
         perm_transf(data.ravel()),
         perm_transf(np.linspace(-3, 3, 32)),
         # "Downscale" ens counts by N. Necessary because `density` kw
-        # doesnt work "correctly" with log-scale.
+        # doesn't work "correctly" with log-scale.
         weights = (np.ones(model.M*N)/N if label != "Truth" else None),
         label=label, alpha=0.3)
 
@@ -266,7 +266,7 @@ plt.pause(.1)
 
 plots.fields(model, plots.field, perm.Prior, "Prior");
 
-# #### Eigenvalue specturm
+# #### Eigenvalue spectrum
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
@@ -302,7 +302,7 @@ multiprocess = False  # multiprocessing?
 def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
     """Run forward model, i.e. forecast. Input args should be ensembles.
 
-    The main work consts of running the reservoir simulator
+    The main work consists of running the reservoir simulator
     for each realisation in the ensemble.
     However, the simulator only inputs/outputs state variables,
     so we also have to take the necessary steps to set the parameter values
@@ -366,7 +366,7 @@ def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
 
 wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
-# So why does the forward_model take saturation as an input? Beacuse the posterior of this state (i.e. time-dependent) variable does depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
+# So why does the forward_model take saturation as an input? Because the posterior of this state (i.e. time-dependent) variable does depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
 
 # Now we run the forward model.
 
@@ -378,7 +378,7 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 class ES_update:
     """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.
 
-    Implementats the "ensemble smoother" (ES) algorithm,
+    Implements the "ensemble smoother" (ES) algorithm,
     with "perturbed observations".
     NB: obs_err_cov is treated as diagonal. Alternative: use `sla.sqrtm`.
 
@@ -386,7 +386,7 @@ class ES_update:
     Because this allows storing `KGdY`, for later use.
     This "on-the-fly" application follows directly from state-augmentation formalism.
 
-    NB: some of these formulea appear transposed, and reversed,
+    NB: some of these formulae appear transposed, and reversed,
     compared to (EnKF) literature standards. The reason is that
     we stack the members as rows instead of the conventional columns.
     Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
@@ -474,7 +474,7 @@ def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
 
 # This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
-def iES(ensemble, observation, obs_err_cov,
+def IES(ensemble, observation, obs_err_cov,
         flavour="Sqrt", MDA=False, bundle=False,
         stepsize=1, nIter=10, wtol=1e-4):
 
@@ -553,7 +553,7 @@ def iES(ensemble, observation, obs_err_cov,
 
         # Accept previous increment? ...
         if (not MDA) and itr > 0 and stats.J_postr[itr] > np.nanmin(stats.J_postr):
-            # ... No. Restore previous ensemble & lower the stepsize (dont compute new increment).
+            # ... No. Restore previous ensemble & lower the stepsize (don't compute new increment).
             stepsize   /= 10
             w, T, Tinv  = old  # noqa
         else:
@@ -585,9 +585,9 @@ def iES(ensemble, observation, obs_err_cov,
     return E, stats
 
 
-# #### Apply the iES
+# #### Apply the IES
 
-perm.iES, stats_iES = iES(
+perm.IES, stats_IES = IES(
     ensemble    = perm.Prior,
     observation = prod.past.Noisy.reshape(-1),
     obs_err_cov = sla.block_diag(*[R]*nTime),
@@ -595,16 +595,16 @@ perm.iES, stats_iES = iES(
 )
 
 
-# #### Plot iES
+# #### Plot IES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(model, plots.field, perm.iES, "iES (posterior)");
+plots.fields(model, plots.field, perm.IES, "IES (posterior)");
 
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
-fig, ax = freshfig("iES Objective function")
+fig, ax = freshfig("IES Objective function")
 ls = dict(J_prior=":", J_lklhd="--", J_postr="-")
-for name, J in stats_iES.items():
+for name, J in stats_IES.items():
     try:
         ax.plot(J, color="b", label=name.split("J_")[1], ls=ls[name])
     except IndexError:
@@ -615,7 +615,7 @@ ax.tick_params(axis='y', labelcolor="b")
 ax.legend()
 ax2 = ax.twinx()  # axis for rmse
 ax2.set_ylabel('RMS error', color="r")
-ax2.plot(stats_iES.rmse, color="r")
+ax2.plot(stats_IES.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
 plt.pause(.1)
 
@@ -628,7 +628,7 @@ RMS_all(perm, vs="Truth")
 # ### Plot of means
 # Let's plot mean fields.
 #
-# NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon familiar from geostatistics (e.g. Kriging). As such, their importance must not be overstated (they're just one esitmator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process. This does not mean that you must eyeball each field, but that decision analyses should be based on expected values with respect to ensembles.
+# NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon familiar from geostatistics (e.g. Kriging). As such, their importance must not be overstated (they're just one estimator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process. This does not mean that you must eyeball each field, but that decision analyses should be based on expected values with respect to ensembles.
 
 perm._means = Dict((k, perm[k].mean(axis=0)) for k in perm if not k.startswith("_"))
 
@@ -640,8 +640,8 @@ plots.fields(model, plots.field, perm._means, "Truth and mean fields.");
 (wsat.past.ES,
  prod.past.ES) = forward_model(nTime, wsat.initial.Prior, perm.ES)
 
-(wsat.past.iES,
- prod.past.iES) = forward_model(nTime, wsat.initial.Prior, perm.iES)
+(wsat.past.IES,
+ prod.past.IES) = forward_model(nTime, wsat.initial.Prior, perm.IES)
 
 # We can also apply the ES update directly to the production data of the prior, which doesn't require running the model again (in contrast to what we had to do immediately above). Let us try that as well.
 
@@ -675,7 +675,7 @@ RMS_all(prod.past, vs="Noisy")
 #
 # In practice, this is often not the case. If so, you might want to go back to your geologists and tell them that something is amiss. You should then produce a revised prior with better properties.
 #
-# Note: the above instructions sound like statistical heresy. We are using the data twice over (on the prior, and later to update/condition the prior). However, this is justified to the extent that prior information is difficult to quantify and encode. Too much prior adaptation, however, and you risk overfitting! Ineed, it is a delicate matter.
+# Note: the above instructions sound like statistical heresy. We are using the data twice over (on the prior, and later to update/condition the prior). However, this is justified to the extent that prior information is difficult to quantify and encode. Too much prior adaptation, however, and you risk overfitting! Indeed, it is a delicate matter.
 
 # ##### Comment on posterior
 # If the assumptions (statistical indistinguishability, Gaussianity) are not too far off, then the ensemble posteriors (ES, EnKS, ES0) should also surround the data, but with a tighter fit.
@@ -694,8 +694,8 @@ print("Future/prediction")
 (wsat.future.ES,
  prod.future.ES) = forward_model(nTime, wsat.past.ES[:, -1, :], perm.ES)
 
-(wsat.future.iES,
- prod.future.iES) = forward_model(nTime, wsat.past.iES[:, -1, :], perm.iES)
+(wsat.future.IES,
+ prod.future.IES) = forward_model(nTime, wsat.past.IES[:, -1, :], perm.IES)
 
 prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 
@@ -774,4 +774,4 @@ u0  = np.random.rand(nProd)
 u0 /= sum(u0)
 C12 = 0.03 * np.eye(nProd)
 u   = EnOpt(wsat.past.ES[:, -1, :], perm.ES, u0, C12, stepsize=10)
-# u   = EnOpt(wsat.past.iES[:, -1, :], perm.iES, u0, C12, stepsize=10)
+# u   = EnOpt(wsat.past.IES[:, -1, :], perm.IES, u0, C12, stepsize=10)

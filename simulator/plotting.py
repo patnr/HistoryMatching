@@ -5,7 +5,7 @@ import matplotlib as mpl
 import numpy as np
 from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
-from mpl_tools import fig_layout
+from mpl_tools import place
 from mpl_tools.misc import axprops, fig_colorbar, nRowCol
 from struct_tools import DotDict, get0
 
@@ -13,7 +13,7 @@ from struct_tools import DotDict, get0
 # TODO: add set_xlabl, set_ylabel to field()
 # TODO: field aspect ratio
 # TODO: better cmap and vmin/vmax management
-# TODO: do something about figure numbers and size?
+# TODO: imporove fig size settings?
 
 
 def center(E):
@@ -77,14 +77,14 @@ def field(self, ax, zz, **kwargs):
 
 def fields(self, plotter, ZZ,
            title="",
-           figsize=(14, 5),
+           figsize=(2, 1),
            txt_color="k",
            colorbar=True,
            **kwargs):
 
-    fig, axs = fig_layout.freshfig(
+    fig, axs = place.freshfig(
         dash_join("Field realizations", title),
-        figsize=figsize, **nRowCol(min(12, len(ZZ))),
+        figsize=figsize, rel=True, **nRowCol(min(12, len(ZZ))),
         sharex=True, sharey=True)
     axs = axs.ravel()
 
@@ -104,8 +104,8 @@ def fields(self, plotter, ZZ,
     hh = []
     for ax, label in zip(axs, ZZ):
 
-        ax.text(0, 1, label, ha="left", va="top",
-                c=txt_color, transform=ax.transAxes)
+        ax.text(0, 1, label, c=txt_color, fontsize="large",
+                ha="left", va="top", transform=ax.transAxes)
 
         # Call plotter
         hh.append(plotter(self, ax, ZZ[label],
@@ -223,7 +223,7 @@ def well_scatter(self, ax, ww, inj=True, text=True, color=None):
         if not inj:
             ww.T[1] -= 0.01
         for i, w in enumerate(ww):
-            ax.text(*w[:2], i, color=d,
+            ax.text(*w[:2], i, color=d, fontsize="large",
                     ha="center", va="center")
 
     return sh
@@ -335,14 +335,14 @@ def toggle_series(plotter):
 
 
 @toggle_series
-def productions2(dct, title="", figsize=(14, 4), nProd=None, legend=True):
+def productions2(dct, title="", figsize=(2, 1), nProd=None, legend=True):
 
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
-    fig, axs = fig_layout.freshfig(
+    fig, axs = place.freshfig(
         dash_join("Production profiles", title),
-        figsize=figsize, **nRowCol(nProd),
+        figsize=figsize, rel=True, **nRowCol(nProd),
         sharex=True, sharey=True)
 
     # Turn off redundant axes
@@ -354,7 +354,7 @@ def productions2(dct, title="", figsize=(14, 4), nProd=None, legend=True):
     # For each well
     for i in range(nProd):
         ax = axs.ravel()[i]
-        ax.text(1, 1, f"Well {i}" if i == 0 else i, c="k",
+        ax.text(1, 1, f"Well {i}", c="k", fontsize="large",
                 ha="right", va="top", transform=ax.transAxes)
 
         for label, series in dct.items():
@@ -421,15 +421,15 @@ def toggler(plotter):
 
 
 @toggler
-def productions(dct, title="", figsize=(14, 4), nProd=None):
+def productions(dct, title="", figsize=(2, 1), nProd=None):
 
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
 
-    fig, axs = fig_layout.freshfig(
+    fig, axs = place.freshfig(
         dash_join("Production profiles", title),
-        figsize=figsize, **nRowCol(nProd),
+        figsize=figsize, rel=True, **nRowCol(nProd),
         sharex=True, sharey=True)
 
     # Turn off redundant axes
@@ -441,7 +441,7 @@ def productions(dct, title="", figsize=(14, 4), nProd=None):
         for iWell in range(nProd):
             ax = axs.ravel()[iWell]
             ax.clear()
-            ax.text(1, 1, f"Well {iWell}" if iWell == 0 else iWell, c="k",
+            ax.text(1, 1, f"Well {iWell}", c="k", fontsize="large",
                     ha="right", va="top", transform=ax.transAxes)
 
             for label, series in dct.items():
@@ -465,8 +465,8 @@ def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
     ncols = 2
     nAx   = len(water_sat_fields)
     nrows = int(np.ceil(nAx/ncols))
-    fig, axs = fig_layout.freshfig(fignum, figsize=(8, 4*nrows),
-                                   ncols=ncols, nrows=nrows, sharex=True, sharey=True)
+    fig, axs = place.freshfig(fignum, figsize=(1.4, 1*nrows), rel=True,
+                              ncols=ncols, nrows=nrows, sharex=True, sharey=True)
 
     fig.subplots_adjust(hspace=.3)
     fig.suptitle(f"Oil saturation (mean fields) - {title}")
@@ -487,8 +487,8 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
     ncols = 2
     nAx   = len(field_ensembles)
     nrows = int(np.ceil(nAx/ncols))
-    fig, axs = fig_layout.freshfig(
-        fignum, figsize=(8, 4*nrows),
+    fig, axs = place.freshfig(
+        fignum, figsize=(1.4, 1*nrows), rel=True,
         ncols=ncols, nrows=nrows, sharex=True, sharey=True)
 
     fig.subplots_adjust(hspace=.3)
@@ -506,13 +506,13 @@ def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwar
 
 
 def dashboard(self, perm, saturation, production,
-              title="", figsize=(12, 10), pause=200, animate=True, **kwargs):
+              title="", figsize=(2.0, 2.0), pause=200, animate=True, **kwargs):
     # Note: See note in mpl_setup.py about properly displaying the animation.
 
     # Create figure and axes
     fig = plt.figure(constrained_layout=True,
                      num="Dashboard" + title,
-                     figsize=figsize)
+                     figsize=place.relative_figsize(figsize))
     gs = fig.add_gridspec(2, 22)
     ax0 = fig.add_subplot(gs[0, 1:11])
     ax1 = fig.add_subplot(gs[0, 11:21], sharex=ax0, sharey=ax0)

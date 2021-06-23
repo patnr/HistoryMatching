@@ -84,7 +84,7 @@ from copy import deepcopy
 
 import scipy.linalg as sla
 from matplotlib import ticker
-from mpl_tools.fig_layout import freshfig
+from mpl_tools.place import freshfig
 from numpy.random import randn
 from numpy import sqrt
 from struct_tools import DotDict as Dict
@@ -245,7 +245,7 @@ print("Prior var.:", np.var(perm.Prior))
 
 # Let us inspect the parameter values in the form of their histogram.
 
-fig, ax = freshfig("Perm. -- marginal distribution", figsize=(12, 3))
+fig, ax = freshfig("Perm. -- marginal distribution", figsize=(1.3, .5), rel=1)
 for label, data in perm.items():
 
     ax.hist(
@@ -271,7 +271,7 @@ plots.fields(model, plots.field, perm.Prior, "Prior");
 
 U, svals, VT = sla.svd(perm.Prior)
 ii = 1 + np.arange(len(svals))
-fig, ax = freshfig("Spectrum of true cov.", figsize=(12, 5))
+fig, ax = freshfig("Spectrum of true cov.", figsize=(1.3, .5), rel=1)
 ax.loglog(ii, svals)
 # ax.semilogx(ii, svals)
 ax.grid(True, "minor", axis="x")
@@ -659,7 +659,7 @@ prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
 
 # Plot them all together:
 
-v = plots.productions(prod.past, "-- Past")
+v = plots.productions(prod.past, "Past")
 display(v)
 
 # #### RMS summary
@@ -701,7 +701,7 @@ prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 
 # #### Plot future production
 
-v = plots.productions(prod.future, "-- Future");
+v = plots.productions(prod.future, "Future");
 display(v)
 
 print("Stats vs. (supposedly unknown) future production")

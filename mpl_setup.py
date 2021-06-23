@@ -6,7 +6,9 @@ Why not leave defaults:
   programmatic (automatic) placement of figures on screen.
 - nbAgg (%matplotib notebook) is interactive, so cooler.
   Also for animation to work, we need the "jshtml" stuff.
-- Colab does not support nbAgg, but it does appear to support plotly
+- `%matplotlib inline` does not even work on my Mac at all.
+- Colab only supports `%matplotlib inline`,
+  although it does appear to support plotly
   https://stackoverflow.com/a/64297121
 
 Caution: On my Mac, when I step through the cells quickly (or "run all")
@@ -32,17 +34,25 @@ from matplotlib import pyplot as plt
 
 
 def init():
+    mpl.rcParams.update({'font.size': 10})
+
     if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")
+        mpl.rcParams.update({"legend.fontsize": "large"})
         try:
+            # Colab
             import google.colab  # noqa
+
         except ImportError:
+            # Local Jupyter
             mpl.use("nbAgg")
-            mpl.rcParams.update({'font.size': 15})
-            mpl.rcParams["figure.figsize"] = [9, 7]
+            mpl.rcParams["figure.figsize"] = [6, 4]
+
     else:
+        # Script run
         try:
             mpl.use("Qt5Agg")
+            mpl.rcParams["figure.figsize"] = [5, 3.5]
         except ImportError:
             pass  # fall back to e.g. MacOS backend
         plt.ion()

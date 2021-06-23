@@ -28,6 +28,6 @@ scipy~=1.6.3
 tqdm~=4.61.1
 
 # By Patrick
-mpl-tools==0.2.39
+mpl-tools==0.2.41
 patlib==0.3.5
 struct-tools==0.2.5

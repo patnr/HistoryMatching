@@ -100,8 +100,11 @@ from simulator import simulate
 from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
 
 
-plots.COORD_TYPE = "absolute"
-plt.rcParams['image.cmap'] = 'jet'
+# Set default parameters used by plots.field
+plots.field.coord_type = "absolute"
+plots.field.levels = np.linspace(-4, 4, 21)
+plots.field.cmap = plt.get_cmap("jet")
+
 
 # ... and initialize some data containers.
 
@@ -179,10 +182,11 @@ model.config_wells(
 
 # #### Plot true field
 
-fig, ax = freshfig("True perm. field")
+fig, ax = freshfig("True perm. field", figsize=(1.2, .7), rel=1)
 # cs = plots.field(model, ax, perm.Truth)
 cs = plots.field(model, ax, perm_transf(perm.Truth),
-                 locator=ticker.LogLocator(), cmap="viridis")
+                 locator=ticker.LogLocator(), cmap="viridis",
+                 levels=10)
 plots.well_scatter(model, ax, model.producers, inj=False)
 plots.well_scatter(model, ax, model.injectors, inj=True)
 fig.colorbar(cs)
@@ -630,9 +634,9 @@ RMS_all(perm, vs="Truth")
 #
 # NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon familiar from geostatistics (e.g. Kriging). As such, their importance must not be overstated (they're just one estimator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process. This does not mean that you must eyeball each field, but that decision analyses should be based on expected values with respect to ensembles.
 
-perm._means = Dict((k, perm[k].mean(axis=0)) for k in perm if not k.startswith("_"))
+perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plots.fields(model, plots.field, perm._means, "Truth and mean fields.");
+plots.fields(model, plots.field, perm_means, "Truth and means.");
 
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
@@ -681,21 +685,29 @@ RMS_all(prod.past, vs="Noisy")
 # If the assumptions (statistical indistinguishability, Gaussianity) are not too far off, then the ensemble posteriors (ES, EnKS, ES0) should also surround the data, but with a tighter fit.
 
 # ## Prediction
-# We now prediction the future production (and saturation fields) by forecasting using the (updated) estimates.
+# We now prediction the future by forecasting from the current (present-time) ensembles.
+#
+# Note that we must use the current saturation in the "restart" for the predictive simulations. Since the estimates of the current saturation depend on the assumed permeability field, these estimates are also "posterior", and depend on the conditioning method used. For convenience, we first extract the slice of the current saturation fields (which is really the only one we make use of among those of the past), and plot the mean fields.
+
+wsat.current = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
+wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.current.items()})
+plots.oilfields(model, wsat_means, "Truth and means.");
+
+# Now we predict.
 
 print("Future/prediction")
 
 (wsat.future.Truth,
- prod.future.Truth) = simulate(model.step, nTime, wsat.past.Truth[-1], dt, obs)
+ prod.future.Truth) = simulate(model.step, nTime, wsat.current.Truth, dt, obs)
 
 (wsat.future.Prior,
- prod.future.Prior) = forward_model(nTime, wsat.past.Prior[:, -1, :], perm.Prior)
+ prod.future.Prior) = forward_model(nTime, wsat.current.Prior, perm.Prior)
 
 (wsat.future.ES,
- prod.future.ES) = forward_model(nTime, wsat.past.ES[:, -1, :], perm.ES)
+ prod.future.ES) = forward_model(nTime, wsat.current.ES, perm.ES)
 
 (wsat.future.IES,
- prod.future.IES) = forward_model(nTime, wsat.past.IES[:, -1, :], perm.IES)
+ prod.future.IES) = forward_model(nTime, wsat.current.IES, perm.IES)
 
 prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 

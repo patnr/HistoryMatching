@@ -9,53 +9,48 @@ from mpl_tools import place
 from mpl_tools.misc import axprops, fig_colorbar, nRowCol
 from struct_tools import DotDict, get0
 
-# TODO: unify (nRowCol, turn off, ax.text, etc) for fields() and productions() ?
-# TODO: add set_xlabl, set_ylabel to field()
-# TODO: field aspect ratio
-# TODO: better cmap and vmin/vmax management
-# TODO: imporove fig size settings?
+# TODO: unify (nRowCol, turn off, ax.text, etc) for
+#       fields() and productions() ?
+_is_inline = "inline" in mpl.get_backend()
 
 
 def center(E):
     return E - E.mean(axis=0)
 
 
-COORD_TYPE = "relative"
-
-
-def lims(self):
-    if "rel" in COORD_TYPE:
-        Lx, Ly = 1, 1
-    elif "abs" in COORD_TYPE:
-        Lx, Ly = self.Lx, self.Ly
-    elif "ind" in COORD_TYPE:
-        Lx, Ly = self.Nx, self.Ny
-    else:
-        raise ValueError("Unsupported coordinate type: %s" % COORD_TYPE)
-    return Lx, Ly
-
-
-def dash_join(txt, suffix):
-    """If suffix is non-empty, join txt and suffix by a dash."""
-    if suffix:
-        return txt + " -- " + suffix
-    else:
-        return txt
+def dash(*txts):
+    """Join non-empty txts by a dash."""
+    return " -- ".join([t for t in txts if t != ""])
 
 
 def field(self, ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
+    levels     = kwargs.pop("levels"    , field.levels)
+    cmap       = kwargs.pop("cmap"      , field.cmap)
+    coord_type = kwargs.pop("coord_type", field.coord_type)
+
+    ax.set(**axprops(kwargs))
+
+    # Plotting with extent=(0, Lx, 0, Ly), rather than merely changing ticks
+    # has the advantage that set_aspect("equal") yields correct axes size,
+    # and that mouse hovering (with interactive backends) reports correct pos.
+    # Disadvantage: well_scatter must also account for coord_type.
+    if "rel" in coord_type:
+        Lx, Ly = 1, 1
+    elif "abs" in coord_type:
+        Lx, Ly = self.Lx, self.Ly
+    elif "ind" in coord_type:
+        Lx, Ly = self.Nx, self.Ny
+    else:
+        raise ValueError(f"Unsupported coord_type: {coord_type}")
+
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
     Z = zz.reshape(self.shape).T
 
-    Lx, Ly = lims(self)
-
-    ax.set(**axprops(kwargs))
-
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
-        Z, **kwargs,
+        Z, levels, cmap=cmap, **kwargs,
         # Using origin="lower" puts the points in the gridcell centers.
         # This means that the plot wont extend all the way to the edges.
         # Unfortunately, there does not seem to be a way to pad the margins,
@@ -66,13 +61,17 @@ def field(self, ax, zz, **kwargs):
 
     ax.set_xlim((0, Lx))
     ax.set_ylim((0, Ly))
-
-    if ax.is_first_col():
-        ax.set_ylabel("y")
-    if ax.is_last_row():
-        ax.set_xlabel("x")
+    ax.set_aspect("equal")
+    ax.set_xlabel(f"x ({field.coord_type})")
+    ax.set_ylabel(f"y ({field.coord_type})")
 
     return collections
+
+
+# Defaults
+field.coord_type = "relative"
+field.levels = 10  # use a list (inherently provides vmin/vmax)
+field.cmap = plt.get_cmap("jet")
 
 
 def fields(self, plotter, ZZ,
@@ -82,9 +81,11 @@ def fields(self, plotter, ZZ,
            colorbar=True,
            **kwargs):
 
+    # Setup figure
+    title = dash("Fields", title)
     fig, axs = place.freshfig(
-        dash_join("Field realizations", title),
-        figsize=figsize, rel=True, **nRowCol(min(12, len(ZZ))),
+        title, figsize=figsize, rel=True,
+        **nRowCol(min(12, len(ZZ))),
         sharex=True, sharey=True)
     axs = axs.ravel()
 
@@ -96,11 +97,6 @@ def fields(self, plotter, ZZ,
     if not isinstance(ZZ, dict):
         ZZ = {i: Z for (i, Z) in enumerate(ZZ)}
 
-    # Get min/max across all fields
-    flat = np.array(list(ZZ.values())).ravel()
-    vmin = flat.min()
-    vmax = flat.max()
-
     hh = []
     for ax, label in zip(axs, ZZ):
 
@@ -108,20 +104,32 @@ def fields(self, plotter, ZZ,
                 ha="left", va="top", transform=ax.transAxes)
 
         # Call plotter
-        hh.append(plotter(self, ax, ZZ[label],
-                          vmin=vmin, vmax=vmax, **kwargs))
+        hh.append(plotter(self, ax, ZZ[label], **kwargs))
+
+        # Rm any x/y-label
+        if not ax.is_last_row():
+            ax.set_xlabel(None)
+        if not ax.is_first_col():
+            ax.set_ylabel(None)
 
     if colorbar:
         fig_colorbar(fig, hh[0])
 
+    # fig.suptitle
+    suptitle = ""
+    if _is_inline:
+        suptitle += title
     if len(ZZ) > len(axs):
-        fig.suptitle(f"First {len(axs)} instances")
+        suptitle = dash(suptitle, f"First {len(axs)} instances")
+    if suptitle:
+        fig.suptitle(title)
 
     return fig, axs, hh
 
 
-def oilfields(self, fignum, water_sat_fields, **kwargs):
-    return fields(self, fignum, oilfield, **kwargs)
+def oilfields(self, wsats, title="", **kwargs):
+    title = dash("Oil saturation", title)
+    return fields(self, oilfield, wsats, title, **kwargs)
 
 
 # Colormap for saturation
@@ -180,16 +188,16 @@ def corr_field_vs(self, ax, E, xy, title="", **kwargs):
 
 
 def scale_well_geometry(self, ww):
-    """Wells use absolute scaling. Scale to coord_type instead."""
+    """Wells use absolute scaling. Scale to `field.coord_type` instead."""
     ww = ww.copy()  # dont overwrite
-    if "rel" in COORD_TYPE:
+    if "rel" in field.coord_type:
         s = 1/self.Lx, 1/self.Ly
-    elif "abs" in COORD_TYPE:
+    elif "abs" in field.coord_type:
         s = 1, 1
-    elif "ind" in COORD_TYPE:
+    elif "ind" in field.coord_type:
         s = self.Nx/self.Lx, self.Ny/self.Ly
     else:
-        raise ValueError("Unsupported coordinate type: %s" % COORD_TYPE)
+        raise ValueError("Unsupported coordinate type: %s" % field.coord_type)
     ww[:, :2] = ww[:, :2] * s
     return ww
 
@@ -199,21 +207,22 @@ def well_scatter(self, ax, ww, inj=True, text=True, color=None):
 
     # Style
     if inj:
-        c = "w"
-        d = "k"
-        m = "v"
+        c  = "w"
+        ec = "gray"
+        d  = "k"
+        m  = "v"
     else:
-        c = "k"
-        d = "w"
-        m = "^"
+        c  = "k"
+        ec = "gray"
+        d  = "w"
+        m  = "^"
 
     if color:
         c = color
 
     # Markers
     # sh = ax.plot(*ww.T[:2], m+c, ms=16, mec="k", clip_on=False)
-    sh = ax.scatter(*ww.T[:2], s=16**2, c=c, marker=m,
-                    edgecolors="k",
+    sh = ax.scatter(*ww.T[:2], s=16**2, c=c, marker=m, ec=ec,
                     clip_on=False,
                     zorder=1.5,  # required on Jupypter
                     )
@@ -340,10 +349,12 @@ def productions2(dct, title="", figsize=(2, 1), nProd=None, legend=True):
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
+    title = dash("Production profiles", title)
     fig, axs = place.freshfig(
-        dash_join("Production profiles", title),
-        figsize=figsize, rel=True, **nRowCol(nProd),
-        sharex=True, sharey=True)
+        title, figsize=figsize, rel=True,
+        **nRowCol(nProd), sharex=True, sharey=True)
+    if _is_inline:
+        fig.suptitle(title)
 
     # Turn off redundant axes
     for ax in axs.ravel()[nProd:]:
@@ -426,11 +437,12 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
     if nProd is None:
         nProd = get0(dct).shape[1]
         nProd = min(23, nProd)
-
+    title = dash("Production profiles", title)
     fig, axs = place.freshfig(
-        dash_join("Production profiles", title),
-        figsize=figsize, rel=True, **nRowCol(nProd),
-        sharex=True, sharey=True)
+        title, figsize=figsize, rel=True,
+        **nRowCol(nProd), sharex=True, sharey=True)
+    if _is_inline:
+        fig.suptitle(title)
 
     # Turn off redundant axes
     for ax in axs.ravel()[nProd:]:
@@ -461,58 +473,17 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
     return update
 
 
-def oilfield_means(self, fignum, water_sat_fields, title="", **kwargs):
-    ncols = 2
-    nAx   = len(water_sat_fields)
-    nrows = int(np.ceil(nAx/ncols))
-    fig, axs = place.freshfig(fignum, figsize=(1.4, 1*nrows), rel=True,
-                              ncols=ncols, nrows=nrows, sharex=True, sharey=True)
-
-    fig.subplots_adjust(hspace=.3)
-    fig.suptitle(f"Oil saturation (mean fields) - {title}")
-    for ax, label in zip(axs.ravel(), water_sat_fields):
-
-        field = water_sat_fields[label]
-        if field.ndim == 2:
-            field = field.mean(axis=0)
-
-        handle = oilfield(self, ax, field, title=label, **kwargs)
-
-    fig_colorbar(fig, handle)  # type: ignore
-
-
-def correlation_fields(self, fignum, field_ensembles, xy_coord, title="", **kwargs):
-    field_ensembles = {k: v for k, v in field_ensembles.items() if v.ndim == 2}
-
-    ncols = 2
-    nAx   = len(field_ensembles)
-    nrows = int(np.ceil(nAx/ncols))
-    fig, axs = place.freshfig(
-        fignum, figsize=(1.4, 1*nrows), rel=True,
-        ncols=ncols, nrows=nrows, sharex=True, sharey=True)
-
-    fig.subplots_adjust(hspace=.3)
-    fig.suptitle(title)
-    for i, ax in enumerate(axs.ravel()):
-
-        if i >= nAx:
-            ax.set_visible(False)
-        else:
-            label  = list(field_ensembles)[i]
-            field  = field_ensembles[label]
-            handle = corr_field_vs(self, ax, field, xy_coord, label, **kwargs)
-
-    fig_colorbar(fig, handle, ticks=[-1, -0.4, 0, 0.4, 1])  # type: ignore
-
-
 def dashboard(self, perm, saturation, production,
-              title="", figsize=(2.0, 2.0), pause=200, animate=True, **kwargs):
+              title="", figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
     # Note: See note in mpl_setup.py about properly displaying the animation.
 
     # Create figure and axes
+    title = dash("Dashboard", title)
     fig = plt.figure(constrained_layout=True,
-                     num="Dashboard" + title,
+                     num=title,
                      figsize=place.relative_figsize(figsize))
+    if _is_inline:
+        fig.suptitle(title)
     gs = fig.add_gridspec(2, 22)
     ax0 = fig.add_subplot(gs[0, 1:11])
     ax1 = fig.add_subplot(gs[0, 11:21], sharex=ax0, sharey=ax0)
@@ -527,21 +498,19 @@ def dashboard(self, perm, saturation, production,
     # ax0.cc = oilfield(self, ax0, saturation[0], **kwargs)
     ax0.set_title("Permeability")
     ax0.cc = field(self, ax0, perm, **kwargs)
-    ax0.set_xlabel(f"x ({COORD_TYPE})")
     fig.colorbar(ax0.cc, ax0c)
-
-    ax0c.yaxis.set_ticks_position("left")
-    ax0.yaxis.set_ticks_position("right")
-    ax1.set_ylabel(f"y ({COORD_TYPE})")
 
     ax1.set_title("Saturation")
     ax1.cc = oilfield(self, ax1, saturation[-1], **kwargs)
-    ax1.set_xlabel(f"x ({COORD_TYPE})")
     # Add wells
     well_scatter(self, ax1, self.injectors)
     well_scatter(self, ax1, self.producers, False,
                  color=[f"C{i}" for i in range(len(self.producers))])
     fig.colorbar(ax1.cc, ax1c)
+
+    ax0c.yaxis.set_ticks_position("left")
+    ax0.yaxis.set_ticks_position("right")
+    ax1.set_ylabel(None)
 
     prod_handles = production1(ax2, production)
 

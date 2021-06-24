@@ -159,9 +159,9 @@ cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
 # cm_ow = mpl.cm.viridis
 
 
-def oilfield(self, ax, ss, **kwargs):
+def oilfield(self, ax, wsat, **kwargs):
     levels = np.linspace(0 - 1e-7, 1 + 1e-7, 11)
-    return field(self, ax, 1-ss, levels=levels, cmap=cm_ow, **kwargs)
+    return field(self, ax, 1-wsat, levels=levels, cmap=cm_ow, **kwargs)
 
 
 def corr_field(self, ax, A, b, title="", **kwargs):

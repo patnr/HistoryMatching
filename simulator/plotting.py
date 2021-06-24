@@ -52,11 +52,12 @@ def field(self, ax, zz, **kwargs):
     collections = ax.contourf(
         Z, levels, cmap=cmap, **kwargs,
         # Using origin="lower" puts the points in the gridcell centers.
-        # This means that the plot wont extend all the way to the edges.
+        # This is great (agrees with finite-difference point definition)
+        # but means that the plot wont extend all the way to the edges.
         # Unfortunately, there does not seem to be a way to pad the margins,
         # except manually padding Z on all sides, or using origin=None
-        # (the mpl default), which would be wrong because it merely
-        # stretches rather than pads.
+        # (the mpl default), which would be wrong because it stretches
+        # rather than pads.
         origin="lower", extent=(0, Lx, 0, Ly))
 
     ax.set_xlim((0, Lx))

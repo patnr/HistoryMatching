@@ -6,9 +6,8 @@
 # This (Jupyter/Python) notebook presents
 # a tutorial on history matching (HM) using ensemble methods.
 #
-# This is a work in progress.
-# Details may be lacking.
-# Don't hesitate to send me an email with any questions you have.
+# This is a work in progress. Please do not hesitate to file issues on GitHub,
+# or submit pull requests.
 
 # ## Jupyter notebooks
 # the format used for these tutorials.
@@ -100,19 +99,20 @@ from simulator import simulate
 from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
 
 
-# Set default parameters used by plots.field
+# This configures default parameters used in plotting fields.
+
 plots.field.coord_type = "absolute"
 plots.field.levels = np.linspace(-4, 4, 21)
-plots.field.cmap = plt.get_cmap("jet")
+plots.field.cmap = "jet"
 
 
-# ... and initialize some data containers.
+# The following initializes some data containers that we will use to keep organised.
 
 # +
 # Permeability
 perm = Dict()
 
-# Production (water saturation)
+# Production
 prod = Dict(
     past   = Dict(),
     future = Dict(),
@@ -126,7 +126,7 @@ wsat = Dict(
 )
 # -
 
-# Enable exact reproducibility by setting random generator seed.
+# Finally, for reproducibility, we set the random generator seed.
 
 seed = np.random.seed(4)  # very easy
 # seed = np.random.seed(5)  # hard
@@ -285,7 +285,7 @@ plt.pause(.1)
 
 # ## Assimilation
 
-# #### Exc (optional)
+# ### Exc (optional)
 # Before going into iterative methods, we note that
 # the ensemble smoother (ES) is favoured over the ensemble Kalman smoother (EnKS) for history matching. This may come as a surprise, because the EnKS processes the observations sequentially, like the ensemble Kalman filter (EnKF), not in the batch manner of the ES. Because sequential processing is more gradual, one would expect it to achieve better accuracy than batch approaches. However, the ES is preferred because the uncertainty in the state fields is often of less importance than the uncertainty in the parameter fields. More imperatively, (re)starting the simulators (e.g. ECLIPSE) from updated state fields (as well as parameter fields) is a troublesome affair; the fields may have become "unphysical" (or "not realisable") because of the ensemble update, which may hinder the simulator from producing meaningful output (it may crash, or have trouble converging). On the other hand, by going back to the parameter fields before geological modelling (using fast model update (FMU)) tends to yield more realistic parameter fields. Finally, since restarts tend to yield convergence issues in the simulator the following inequality is usually large.
 #
@@ -298,7 +298,7 @@ plt.pause(.1)
 # skjervheim2011ensemble
 # Here, $T_t^n$
 
-# #### Propagation
+# ### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
 
 multiprocess = False  # multiprocessing?
@@ -626,10 +626,12 @@ plt.pause(.1)
 # ### Diagnostics
 # In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior. The "expectation" wording indicates that this is true on average, but not always. To be specific, it means that it is guaranteed to hold true if the RMSE is calculated for infinitely many experiments (each time simulating a new synthetic truth and observations from the prior). The reason for this is that the ES uses the Kalman update, which is the BLUE (best linear unbiased estimate), and "best" means that the variance must get reduced. However, note that this requires the ensemble to be infinitely big, which it most certainly is not in our case. Therefore, we do not need to be very unlucky to observe that the RMSE has actually increased. Despite this, as we will see later, the data match might yield a different conclusions concerning the utility of the update.
 
+# #### RMS summary
+
 print("Stats vs. true field")
 RMS_all(perm, vs="Truth")
 
-# ### Plot of means
+# #### Plot of means
 # Let's plot mean fields.
 #
 # NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon familiar from geostatistics (e.g. Kriging). As such, their importance must not be overstated (they're just one estimator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process. This does not mean that you must eyeball each field, but that decision analyses should be based on expected values with respect to ensembles.
@@ -661,7 +663,7 @@ def with_flattening(fun):
 prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
 
 
-# Plot them all together:
+# #### Plot them all together:
 
 v = plots.productions(prod.past, "Past")
 display(v)
@@ -711,17 +713,21 @@ print("Future/prediction")
 
 prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 
+# ### Diagnostics
+
 # #### Plot future production
 
 v = plots.productions(prod.future, "Future");
 display(v)
 
+# #### RMS summary
+
 print("Stats vs. (supposedly unknown) future production")
 RMS_all(prod.future, vs="Truth")
 
-# ## EnOpt
+# ## Robust optimisation
 
-# This section is still in construction. There are many details missing.
+# This section uses EnOpt to optimise the controls: the relative rates of production of the wells (again, for simplicity, these will be constant in time).
 
 # Cost function definition: total oil from production wells. This cost function takes for an ensemble of (wsat, perm) and controls (Q_prod) and outputs the corresponding ensemble of total oil productions.
 

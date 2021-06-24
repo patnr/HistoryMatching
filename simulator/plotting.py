@@ -62,8 +62,12 @@ def field(self, ax, zz, **kwargs):
     ax.set_xlim((0, Lx))
     ax.set_ylim((0, Ly))
     ax.set_aspect("equal")
-    ax.set_xlabel(f"x ({field.coord_type})")
-    ax.set_ylabel(f"y ({field.coord_type})")
+    if "abs" in coord_type:
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+    else:
+        ax.set_xlabel(f"x ({field.coord_type})")
+        ax.set_ylabel(f"y ({field.coord_type})")
 
     return collections
 

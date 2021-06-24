@@ -1,4 +1,7 @@
-"""Plot functions for reservoir model"""
+"""Plot functions for reservoir model.
+
+Note: before using any function, you must set the module vairable `model`.
+"""
 
 import IPython.display as ip_disp
 import matplotlib as mpl
@@ -13,6 +16,8 @@ from struct_tools import DotDict, get0
 #       fields() and productions() ?
 _is_inline = "inline" in mpl.get_backend()
 
+model = None
+
 
 def center(E):
     return E - E.mean(axis=0)
@@ -23,7 +28,7 @@ def dash(*txts):
     return " -- ".join([t for t in txts if t != ""])
 
 
-def field(self, ax, zz, **kwargs):
+def field(ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
     levels     = kwargs.pop("levels"    , field.levels)
     cmap       = kwargs.pop("cmap"      , field.cmap)
@@ -38,15 +43,15 @@ def field(self, ax, zz, **kwargs):
     if "rel" in coord_type:
         Lx, Ly = 1, 1
     elif "abs" in coord_type:
-        Lx, Ly = self.Lx, self.Ly
+        Lx, Ly = model.Lx, model.Ly
     elif "ind" in coord_type:
-        Lx, Ly = self.Nx, self.Ny
+        Lx, Ly = model.Nx, model.Ny
     else:
         raise ValueError(f"Unsupported coord_type: {coord_type}")
 
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
-    Z = zz.reshape(self.shape).T
+    Z = zz.reshape(model.shape).T
 
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
@@ -79,7 +84,7 @@ field.levels = 10  # use a list (inherently provides vmin/vmax)
 field.cmap = plt.get_cmap("jet")
 
 
-def fields(self, plotter, ZZ,
+def fields(plotter, ZZ,
            title="",
            figsize=(2, 1),
            txt_color="k",
@@ -109,7 +114,7 @@ def fields(self, plotter, ZZ,
                 ha="left", va="top", transform=ax.transAxes)
 
         # Call plotter
-        hh.append(plotter(self, ax, ZZ[label], **kwargs))
+        hh.append(plotter(ax, ZZ[label], **kwargs))
 
         # Rm any x/y-label
         if not ax.is_last_row():
@@ -132,9 +137,9 @@ def fields(self, plotter, ZZ,
     return fig, axs, hh
 
 
-def oilfields(self, wsats, title="", **kwargs):
+def oilfields(wsats, title="", **kwargs):
     title = dash("Oil saturation", title)
-    return fields(self, oilfield, wsats, title, **kwargs)
+    return fields(oilfield, wsats, title, **kwargs)
 
 
 # Colormap for saturation
@@ -159,12 +164,12 @@ cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
 # cm_ow = mpl.cm.viridis
 
 
-def oilfield(self, ax, wsat, **kwargs):
+def oilfield(ax, wsat, **kwargs):
     levels = np.linspace(0 - 1e-7, 1 + 1e-7, 11)
-    return field(self, ax, 1-wsat, levels=levels, cmap=cm_ow, **kwargs)
+    return field(ax, 1-wsat, levels=levels, cmap=cm_ow, **kwargs)
 
 
-def corr_field(self, ax, A, b, title="", **kwargs):
+def corr_field(ax, A, b, title="", **kwargs):
     N = len(b)
     # CovMat = X.T @ X / (N-1)
     # CovMat = np.cov(E.T)
@@ -179,36 +184,36 @@ def corr_field(self, ax, A, b, title="", **kwargs):
     corrs = covs/np.sqrt(varb)/np.sqrt(varA)
 
     ax.set(title=title)
-    cc = field(self, ax, corrs, levels=np.linspace(-1, 1, 11),
+    cc = field(ax, corrs, levels=np.linspace(-1, 1, 11),
                cmap=mpl.cm.bwr, **kwargs)
     return cc
 
 
-def corr_field_vs(self, ax, E, xy, title="", **kwargs):
-    i = self.xy2ind(*xy)
+def corr_field_vs(ax, E, xy, title="", **kwargs):
+    i = model.xy2ind(*xy)
     b = E[:, i]
-    cc = corr_field(self, ax, E, b, title, **kwargs)
+    cc = corr_field(ax, E, b, title, **kwargs)
     ax.plot(*xy, '*k', ms=4)
     return cc
 
 
-def scale_well_geometry(self, ww):
+def scale_well_geometry(ww):
     """Wells use absolute scaling. Scale to `field.coord_type` instead."""
     ww = ww.copy()  # dont overwrite
     if "rel" in field.coord_type:
-        s = 1/self.Lx, 1/self.Ly
+        s = 1/model.Lx, 1/model.Ly
     elif "abs" in field.coord_type:
         s = 1, 1
     elif "ind" in field.coord_type:
-        s = self.Nx/self.Lx, self.Ny/self.Ly
+        s = model.Nx/model.Lx, model.Ny/model.Ly
     else:
         raise ValueError("Unsupported coordinate type: %s" % field.coord_type)
     ww[:, :2] = ww[:, :2] * s
     return ww
 
 
-def well_scatter(self, ax, ww, inj=True, text=True, color=None):
-    ww = scale_well_geometry(self, ww)
+def well_scatter(ax, ww, inj=True, text=True, color=None):
+    ww = scale_well_geometry(ww)
 
     # Style
     if inj:
@@ -478,7 +483,7 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
     return update
 
 
-def dashboard(self, perm, saturation, production,
+def dashboard(perm, saturation, production,
               title="", figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
     # Note: See note in mpl_setup.py about properly displaying the animation.
 
@@ -500,22 +505,23 @@ def dashboard(self, perm, saturation, production,
     ax2 = fig.add_subplot(gs[1, :])
 
     # ax0.set_title("Initial")
-    # ax0.cc = oilfield(self, ax0, saturation[0], **kwargs)
-    ax0.set_title("Permeability")
-    ax0.cc = field(self, ax0, perm, **kwargs)
+    # ax0.cc = oilfield(ax0, saturation[0], **kwargs)
+    ax0.cc = field(ax0, perm, **kwargs)
     fig.colorbar(ax0.cc, ax0c)
+    ax0c.yaxis.set_label_position('left')
+    ax0c.set_ylabel("Permeability")
 
-    ax1.set_title("Saturation")
-    ax1.cc = oilfield(self, ax1, saturation[-1], **kwargs)
+    ax1.cc = oilfield(ax1, saturation[-1], **kwargs)
     # Add wells
-    well_scatter(self, ax1, self.injectors)
-    well_scatter(self, ax1, self.producers, False,
-                 color=[f"C{i}" for i in range(len(self.producers))])
+    well_scatter(ax1, model.injectors)
+    well_scatter(ax1, model.producers, False,
+                 color=[f"C{i}" for i in range(len(model.producers))])
     fig.colorbar(ax1.cc, ax1c)
+    ax1c.set_ylabel("Saturation")
 
     ax0c.yaxis.set_ticks_position("left")
     ax0.yaxis.set_ticks_position("right")
-    ax1.set_ylabel(None)
+    ax0.set_ylabel(None)
 
     prod_handles = production1(ax2, production)
 
@@ -530,7 +536,7 @@ def dashboard(self, perm, saturation, production,
                     ax1.collections.remove(c)
                 except ValueError:
                     pass  # occurs when re-running script
-            ax1.cc = oilfield(self, ax1, saturation[iT], **kwargs)
+            ax1.cc = oilfield(ax1, saturation[iT], **kwargs)
 
             # Update production lines
             if iT >= 1:

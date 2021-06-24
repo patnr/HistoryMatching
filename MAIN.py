@@ -98,14 +98,6 @@ import simulator.plotting as plots
 from simulator import simulate
 from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
 
-
-# This configures default parameters used in plotting fields.
-
-plots.field.coord_type = "absolute"
-plots.field.levels = np.linspace(-4, 4, 21)
-plots.field.cmap = "jet"
-
-
 # The following initializes some data containers that we will use to keep organised.
 
 # +
@@ -137,6 +129,13 @@ seed = np.random.seed(4)  # very easy
 # The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
+
+# This configures default parameters used in plotting fields.
+
+plots.model = model
+plots.field.coord_type = "absolute"
+plots.field.levels = np.linspace(-4, 4, 21)
+plots.field.cmap = "jet"
 
 # #### Permeability sampling
 # We will estimate the log permeability field.
@@ -183,12 +182,12 @@ model.config_wells(
 # #### Plot true field
 
 fig, ax = freshfig("True perm. field", figsize=(1.2, .7), rel=1)
-# cs = plots.field(model, ax, perm.Truth)
-cs = plots.field(model, ax, perm_transf(perm.Truth),
+# cs = plots.field(ax, perm.Truth)
+cs = plots.field(ax, perm_transf(perm.Truth),
                  locator=ticker.LogLocator(), cmap="viridis",
                  levels=10)
-plots.well_scatter(model, ax, model.producers, inj=False)
-plots.well_scatter(model, ax, model.injectors, inj=True)
+plots.well_scatter(ax, model.producers, inj=False)
+plots.well_scatter(ax, model.injectors, inj=True)
 fig.colorbar(cs)
 plt.pause(.1)
 
@@ -215,7 +214,7 @@ nTime = round(T/dt)
 # Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 
 # %%capture
-animation = plots.dashboard(model, perm.Truth, wsat.past.Truth, prod.past.Truth);
+animation = plots.dashboard(perm.Truth, wsat.past.Truth, prod.past.Truth);
 
 
 # Note: can take up to a minute to appear
@@ -268,7 +267,7 @@ plt.pause(.1)
 
 # Below we can see some realizations (members) from the ensemble.
 
-plots.fields(model, plots.field, perm.Prior, "Prior");
+plots.fields(plots.field, perm.Prior, "Prior");
 
 # #### Eigenvalue spectrum
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
@@ -377,6 +376,13 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.initial.Prior, perm.Prior)
 
+# ### Localisation
+
+# #### Correlations
+# corr =
+# plots.corr_field(perm, " My vars");
+
+
 # ### Ensemble smoother
 
 class ES_update:
@@ -424,7 +430,7 @@ perm.ES = ES(perm.Prior)
 # #### Plot ES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(model, plots.field, perm.ES, "ES (posterior)");
+plots.fields(plots.field, perm.ES, "ES (posterior)");
 
 # We will see some more diagnostics later.
 
@@ -602,7 +608,7 @@ perm.IES, stats_IES = IES(
 # #### Plot IES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(model, plots.field, perm.IES, "IES (posterior)");
+plots.fields(plots.field, perm.IES, "IES (posterior)");
 
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
@@ -638,7 +644,7 @@ RMS_all(perm, vs="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plots.fields(model, plots.field, perm_means, "Truth and means.");
+plots.fields(plots.field, perm_means, "Truth and means.");
 
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
@@ -693,7 +699,7 @@ RMS_all(prod.past, vs="Noisy")
 
 wsat.current = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.current.items()})
-plots.oilfields(model, wsat_means, "Truth and means.");
+plots.oilfields(wsat_means, "Truth and means.");
 
 # Now we predict.
 

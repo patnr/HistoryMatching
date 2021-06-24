@@ -641,7 +641,7 @@ perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 plots.fields(model, plots.field, perm_means, "Truth and means.");
 
 # ### Past production (data mismatch)
-# In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
+# In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
 
 (wsat.past.ES,
  prod.past.ES) = forward_model(nTime, wsat.initial.Prior, perm.ES)

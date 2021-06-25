@@ -832,7 +832,7 @@ u   = EnOpt(wsat.past.ES[:, -1, :], perm.ES, u0, C12, stepsize=10)
 # u   = EnOpt(wsat.past.IES[:, -1, :], perm.IES, u0, C12, stepsize=10)
 
 
-#### Final comments
+# ### Final comments
 # Note that result may depend on the sampling of the prior ensemble,
 # as well as other random numbers. This effect should be minimized,
 # and tested by repeat experiments. It should also be ensured that the errors decrease, and NPV increase. This is similar to cross validation. Note that such synthetic experiments are fully possible in the real world as well. Even though the truth is unknown, a synthetic truth can be sampled from the prior uncertainty. And at the very least, the methods should yield improved performance in the synthetic case.

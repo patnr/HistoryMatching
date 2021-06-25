@@ -65,10 +65,10 @@ class ResSim(NicePrint, Grid2D):
         )
 
     def config_wells(self, inj, prod):
+        """Scale production so as to equal injection.
 
-        # Scale production so as to equal injection.
-        # Otherwise, model will silently input deficit from SW corner.
-        # producers[:,2] *= injectors[:,2].sum() / producers[:,2].sum()
+        Otherwise, model will silently input deficit from SW corner.
+        """
 
         def normalize_wellset(ww):
             ww = np.array(ww, float).T
@@ -79,6 +79,15 @@ class ResSim(NicePrint, Grid2D):
 
         injectors = normalize_wellset(inj)
         producers = normalize_wellset(prod)
+
+        def collocate(wells):
+            """Place wells exactly on nodes."""
+            for i in range(len(wells)):
+                x, y, q = wells[i]
+                wells[i, :2] = self.ind2xy(self.xy2ind(x, y))
+
+        collocate(injectors)
+        collocate(producers)
 
         # Insert in source FIELD
         Q = np.zeros(self.M)

@@ -20,7 +20,6 @@ See grid.py for more info.
 from functools import wraps
 
 import numpy as np
-# import matplotlib as mpl
 import scipy.sparse as sparse
 from numpy import errstate
 from scipy.sparse.linalg import spsolve

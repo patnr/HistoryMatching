@@ -21,8 +21,6 @@
 
 jupyter~=1.0.0
 jupytext~=1.11.3
-# Colab only works with this version of mpl:
-matplotlib~=3.2.2
 multiprocessing-on-dill==3.5.0a4
 scipy~=1.6.3
 tqdm~=4.61.1

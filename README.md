@@ -35,7 +35,7 @@ Ensure the output at the end gives version 3.7 or more.
   this repository (see the green button up top)
 - Move the resulting folder wherever you like, and `cd` into it
 - Install requirements:  
-  `pip install -r path/to/requirements.txt`
+  `pip install -r path/to/requirements-dev.txt`
 
 #### Launch
 

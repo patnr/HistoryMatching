@@ -96,7 +96,7 @@ import geostat
 import simulator
 import simulator.plotting as plots
 from simulator import simulate
-from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens
+from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens, corr
 
 # The following initializes some data containers that we will use to keep organised.
 
@@ -130,16 +130,17 @@ seed = np.random.seed(4)  # very easy
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
-# This configures default parameters used in plotting fields.
+# The model comes with a set of plot functionality for convenience.
+# Here are some relevant configuration defaults.
 
 plots.model = model
 plots.field.coord_type = "absolute"
-plots.field.levels = np.linspace(-4, 4, 21)
+plots.field.levels = np.linspace(-3.5, 3.5, 21)
 plots.field.cmap = "jet"
 
 # #### Permeability sampling
 # We will estimate the log permeability field.
-# We parameterize the permeability parameters via some transform, which becomes part of the forward model. *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also difficult for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  However, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
+# We parameterize the permeability parameters via some transform, which becomes part of the forward model. We term the parameterized permeability fields "pre-permeability". *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also difficult for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  However, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
 
 def sample_prior_perm(N=1):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
@@ -378,10 +379,40 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
 # ### Localisation
 
-# #### Correlations
-# corr =
-# plots.corr_field(perm, " My vars");
+# #### Correlation plots
+# One of the main advantages of ensemble methods is that they inherently
+# work with reduced-rank representations of covariance (and correlation) matrices. The conditioning "update" of ensemble methods
+# is often formulated in terms of a "Kalman gain" matrix,
+# derived so as to achieve particular optimality properties
+# (either the correct posterior in the linear-Gaussian case, or the BLUE otherwise). However, we can also look at the update in another way.
+# What does it do?
+# Well, in fact, it is largely based on these correlation.
+# The update also takes into account the variables' scales variances,
+# as well as the "intermingling" of correlations (e.g. two highly correlated obs will barely contribute more than either one).
+# However, if there is no correlation, there will be no update
+# (even for iterative methods).
+# Localisation invervenes to fix-up correlations before they are used.
+# It is a method of injecting prior information (distant points are likely not strongly codependent) that is not encoded in the ensemble (usually due to their finite size).
+# Defining an effective localisation mask or tapering function can be a difficult task.
+# In summary, it is useful to investigate the correlation relations of the ensemble, especially for the prior.
 
+# ##### Correlations perm
+iT = -1
+corrs = [corr(perm.Prior, p) for p in prod.past.Prior[:, iT, :].T]
+fig, axs, _ = plots.corr_fields(corrs, f"pre-perm vs. obs (time {iT}).")
+# Add wells
+for i, (ax, well) in enumerate(zip(axs, model.producers)):
+    plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
+    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*")  # maxima
+
+# ##### Correlations wsat
+iT = -1
+corrs = [corr(wsat.past.Prior[:, iT], p) for p in prod.past.Prior[:, iT, :].T]
+fig, axs, _ = plots.corr_fields(corrs, f"Saturation vs. obs (time {iT}).")
+# Add wells and maxima
+for i, (ax, well) in enumerate(zip(axs, model.producers)):
+    plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
+    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*")  # maxima
 
 # ### Ensemble smoother
 
@@ -404,7 +435,7 @@ class ES_update:
 
     def __init__(self, obs_ens, observation, obs_err_cov):
         """Prepare the update."""
-        Y           = mean0(obs_ens)
+        Y           = mean0(obs_ens, rescale=False)
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
         obs_pert    = randn(N, len(observation)) @ sqrt(obs_err_cov)
         innovations = observation - (obs_ens + obs_pert)
@@ -415,7 +446,7 @@ class ES_update:
 
     def __call__(self, E):
         """Do the update."""
-        return E + self.KGdY @ mean0(E)
+        return E + self.KGdY @ mean0(E, rescale=False)
 
 # #### Update
 ES = ES_update(
@@ -777,8 +808,8 @@ def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
         Ej = total_oil(E, Eu)
         # print("Approx. total oil, average: %.3f"%Ej.mean())
 
-        Xu = mean0(Eu)
-        Xj = mean0(Ej)
+        Xu = mean0(Eu, rescale=False)
+        Xj = mean0(Ej, rescale=False)
 
         G  = Xj.T @ Xu / (N-1)
 
@@ -799,3 +830,9 @@ u0 /= sum(u0)
 C12 = 0.03 * np.eye(nProd)
 u   = EnOpt(wsat.past.ES[:, -1, :], perm.ES, u0, C12, stepsize=10)
 # u   = EnOpt(wsat.past.IES[:, -1, :], perm.IES, u0, C12, stepsize=10)
+
+
+#### Final comments
+# Note that result may depend on the sampling of the prior ensemble,
+# as well as other random numbers. This effect should be minimized,
+# and tested by repeat experiments. It should also be ensured that the errors decrease, and NPV increase. This is similar to cross validation. Note that such synthetic experiments are fully possible in the real world as well. Even though the truth is unknown, a synthetic truth can be sampled from the prior uncertainty. And at the very least, the methods should yield improved performance in the synthetic case.

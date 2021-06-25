@@ -78,7 +78,11 @@ def center(E, axis=0, rescale=False):
 
 
 def mean0(E, axis=0, rescale=True):
-    """Same as: center(E,rescale=True)[0]"""
+    """Like `center`, but only return the anomalies (not the mean).
+
+    Uses `rescale=True` by default, which is beneficial
+    when used to center observation perturbations.
+    """
     return center(E, axis=axis, rescale=rescale)[0]
 
 
@@ -88,3 +92,21 @@ def inflate_ens(E, factor):
         return E
     X, x = center(E)
     return x + X*factor
+
+
+def cov(a, b):
+    """Compute covariance between multivariate ensembles.
+
+    Input `a` and `b` must have same `shape[0]` (ensemble size).
+    """
+    A, _ = center(a)
+    B, _ = center(b)
+    return A.T @ B / (len(B) - 1)
+
+
+def corr(a, b):
+    """Compute correlation between multivariate ensembles. See `cov`."""
+    C = cov(a, b)
+    sa = np.std(a, axis=0, ddof=1)
+    sb = np.std(b, axis=0, ddof=1)[..., None]
+    return C / sa / sb

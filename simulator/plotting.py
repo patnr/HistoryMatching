@@ -19,10 +19,6 @@ _is_inline = "inline" in mpl.get_backend()
 model = None
 
 
-def center(E):
-    return E - E.mean(axis=0)
-
-
 def dash(*txts):
     """Join non-empty txts by a dash."""
     return " -- ".join([t for t in txts if t != ""])
@@ -81,8 +77,12 @@ def field(ax, zz, **kwargs):
 
 # Defaults
 field.coord_type = "relative"
-field.levels = 10  # use a list (inherently provides vmin/vmax)
-field.cmap = plt.get_cmap("jet")
+field.cmap = "jet"
+field.levels = 10
+# Use a list for more control, including vmin/vmax.
+# Note that providing vmin/vmax (and not a levels list) to mpl
+# yields prettier colobar ticks, but destorys the consistency
+# of the colorbars from one figure to another.
 
 
 def fields(plotter, ZZ,
@@ -90,6 +90,7 @@ def fields(plotter, ZZ,
            figsize=(2, 1),
            txt_color="k",
            colorbar=True,
+           cticks=None,
            **kwargs):
 
     # Setup figure
@@ -124,7 +125,7 @@ def fields(plotter, ZZ,
             ax.set_ylabel(None)
 
     if colorbar:
-        fig_colorbar(fig, hh[0])
+        fig_colorbar(fig, hh[0], ticks=cticks)
 
     # fig.suptitle
     suptitle = ""
@@ -136,11 +137,6 @@ def fields(plotter, ZZ,
         fig.suptitle(title)
 
     return fig, axs, hh
-
-
-def oilfields(wsats, title="", **kwargs):
-    title = dash("Oil saturation", title)
-    return fields(oilfield, wsats, title, **kwargs)
 
 
 # Colormap for saturation
@@ -162,40 +158,27 @@ cWater = "blue"
 # Pastel:
 cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
 
-# cm_ow = mpl.cm.viridis
-
 
 def oilfield(ax, wsat, **kwargs):
-    levels = np.linspace(0 - 1e-7, 1 + 1e-7, 11)
-    return field(ax, 1-wsat, levels=levels, cmap=cm_ow, **kwargs)
+    lvls = np.linspace(0 - 1e-7, 1 + 1e-7, 20)
+    return field(ax, 1-wsat, levels=lvls, cmap=cm_ow, **kwargs)
 
 
-def corr_field(ax, A, b, title="", **kwargs):
-    N = len(b)
-    # CovMat = X.T @ X / (N-1)
-    # CovMat = np.cov(E.T)
-    # vv = diag(CovMat)
-    # CorrMat = CovMat/sqrt(vv)/sqrt(vv[:,None])
-    # corrs = CorrMat[i]
-    A     = center(A)
-    b     = center(b)
-    covs  = b @ A / (N-1)
-    varA  = np.sum(A*A, 0) / (N-1)
-    varb  = np.sum(b*b, 0) / (N-1)
-    corrs = covs/np.sqrt(varb)/np.sqrt(varA)
-
-    ax.set(title=title)
-    cc = field(ax, corrs, levels=np.linspace(-1, 1, 11),
-               cmap=mpl.cm.bwr, **kwargs)
-    return cc
+def corr_field(ax, corr, **kwargs):
+    lvls = np.linspace(-1, 1, 20)
+    return field(ax, corr, levels=lvls, cmap="bwr", **kwargs)
 
 
-def corr_field_vs(ax, E, xy, title="", **kwargs):
-    i = model.xy2ind(*xy)
-    b = E[:, i]
-    cc = corr_field(ax, E, b, title, **kwargs)
-    ax.plot(*xy, '*k', ms=4)
-    return cc
+def oilfields(wsats, title="", **kwargs):
+    title = dash("Oil saturation", title)
+    ticks = np.linspace(0, 1, 11)
+    return fields(oilfield, wsats, title, cticks=ticks, **kwargs)
+
+
+def corr_fields(corrs, title="", **kwargs):
+    title = dash("Correlations", title)
+    ticks = np.linspace(-1, 1, 11)
+    return fields(corr_field, corrs, title, cticks=ticks, **kwargs)
 
 
 def scale_well_geometry(ww):
@@ -213,7 +196,7 @@ def scale_well_geometry(ww):
     return ww
 
 
-def well_scatter(ax, ww, inj=True, text=True, color=None):
+def well_scatter(ax, ww, inj=True, text=None, color=None):
     ww = scale_well_geometry(ww)
 
     # Style
@@ -239,11 +222,11 @@ def well_scatter(ax, ww, inj=True, text=True, color=None):
                     )
 
     # Text labels
-    if text:
+    if text != False:
         if not inj:
             ww.T[1] -= 0.01
         for i, w in enumerate(ww):
-            ax.text(*w[:2], i, color=d, fontsize="large",
+            ax.text(*w[:2], i if text is None else text, color=d, fontsize="large",
                     ha="center", va="center")
 
     return sh
@@ -517,7 +500,7 @@ def dashboard(perm, saturation, production,
     well_scatter(ax1, model.injectors)
     well_scatter(ax1, model.producers, False,
                  color=[f"C{i}" for i in range(len(model.producers))])
-    fig.colorbar(ax1.cc, ax1c)
+    fig.colorbar(ax1.cc, ax1c, ticks=np.linspace(0, 1, 6))
     ax1c.set_ylabel("Saturation")
 
     ax0c.yaxis.set_ticks_position("left")

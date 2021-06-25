@@ -57,13 +57,14 @@ def field(ax, zz, **kwargs):
     collections = ax.contourf(
         Z, levels, cmap=cmap, **kwargs,
         # Using origin="lower" puts the points in the gridcell centers.
-        # This is great (agrees with finite-difference point definition)
-        # but means that the plot wont extend all the way to the edges.
-        # Unfortunately, there does not seem to be a way to pad the margins,
-        # except manually padding Z on all sides, or using origin=None
-        # (the mpl default), which would be wrong because it stretches
-        # rather than pads.
-        origin="lower", extent=(0, Lx, 0, Ly))
+        # This is great (agrees with finite-volume point definition)
+        # but means that the plot wont extend all the way to the edges,
+        # which can only be circumvented by manuallly padding.
+        # Using `origin=None` stretches the field to the edges, which
+        # might be slightly erroneous compared with finite-volume defs.
+        # However, it is the definition that agrees with line and scatter
+        # plots (e.g. well_scatter), and that correspondence is more important.
+        origin=None, extent=(0, Lx, 0, Ly))
 
     ax.set_xlim((0, Lx))
     ax.set_ylim((0, Ly))

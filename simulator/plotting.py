@@ -476,6 +476,7 @@ def dashboard(perm, saturation, production,
     fig = plt.figure(constrained_layout=True,
                      num=title,
                      figsize=place.relative_figsize(figsize))
+    fig.clear()
     if _is_inline:
         fig.suptitle(title)
     gs = fig.add_gridspec(10, 22)

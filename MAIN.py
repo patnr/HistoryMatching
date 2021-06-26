@@ -187,7 +187,7 @@ plt.pause(.1)
 
 
 # #### Define obs operator
-# The data will consist in the water saturation of at the well locations, i.e. of the production. I.e. there is no well model. It should be pointed out, however, that ensemble methods technically support observation models of any complexity, though your accuracy mileage may wary (again, depending on the incurred nonlinearity and non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the observation model.
+# The data will consist in the water saturation of at the well locations, i.e. of the production. I.e. there is no well model. It should be pointed out, however, that ensemble methods technically support observation models of any complexity, though your accuracy mileage may vary (again, depending on the incurred nonlinearity and non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the observation model.
 
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 def obs_model(water_sat):
@@ -304,7 +304,8 @@ def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
     (implicitly used by the simulator). Setting parameter values
     is as much part of the forward model as running the simulator.
     """
-    # Compose ensemble
+    # Compose ensemble. This a-priori packing/bundling is a technicality
+    # necessary for the syntax of multiprocessing.
     if Q_prod is None:
         E = zip(wsats0, perms)
     else:
@@ -318,22 +319,20 @@ def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
         # Alternatively, we can re-initialize the model each time.
         model_n = deepcopy(model)
 
-        if Q_prod is None:
-            wsat0, perm = x
-            # Set ensemble
-            set_perm(model_n, perm)
-        else:
-            wsat0, perm, q_prod = x
-            # Set production rates
-            model_n.config_wells(
-                inj  = model_n.injectors,
-                prod = np.hstack((wlGrid, q_prod[:, None])),
-            )
-            # Set ensemble
-            set_perm(model_n, perm)
+        # Un-pack/bundle
+        wsat0, perm, *q_prod = x
 
-        # Simulate
+        # Set production rates
+        if q_prod:
+            model_n.producers[:, 2] = q_prod[0]
+            model_n.config_wells(model_n.injectors, model_n.producers, remap=False)
+
+        # Set ensemble
+        set_perm(model_n, perm)
+
+        # Run model
         s, p = tools.repeat(model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
+
         return s, p
 
     # Allocate

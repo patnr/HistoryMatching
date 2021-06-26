@@ -60,42 +60,44 @@ class ResSim(NicePrint, Grid2D):
             swc=0.0, sor=0.0,  # Irreducible saturations
         )
 
-    def config_wells(self, inj, prod):
+    def config_wells(self, inj, prod, remap=True):
         """Scale production so as to equal injection.
 
         Otherwise, model will silently input deficit from SW corner.
         """
 
-        def normalize_wellset(ww):
-            ww = np.array(ww, float).T
-            ww[0] *= self.Lx
-            ww[1] *= self.Ly
-            ww[2] /= ww[2].sum()
-            return ww.T
+        def remap_and_collocate(ww):
+            """Scale rel -> abs coords. Place wells on nodes."""
+            # Ensure array
+            ww = np.array(ww, float)
+            # Remap
+            ww[:, 0] *= self.Lx
+            ww[:, 1] *= self.Ly
+            # Collocate
+            for i in range(len(ww)):
+                x, y, q = ww[i]
+                ww[i, :2] = self.ind2xy(self.xy2ind(x, y))
+            return ww
 
-        injectors = normalize_wellset(inj)
-        producers = normalize_wellset(prod)
+        if remap:
+            inj  = remap_and_collocate(inj)
+            prod = remap_and_collocate(prod)
 
-        def collocate(wells):
-            """Place wells exactly on nodes."""
-            for i in range(len(wells)):
-                x, y, q = wells[i]
-                wells[i, :2] = self.ind2xy(self.xy2ind(x, y))
-
-        collocate(injectors)
-        collocate(producers)
+        inj [:, 2] /= inj [:, 2].sum()  # noqa
+        prod[:, 2] /= prod[:, 2].sum()
 
         # Insert in source FIELD
         Q = np.zeros(self.M)
-        for x, y, q in injectors:
+        for x, y, q in inj:
             Q[self.xy2ind(x, y)] += q
-        for x, y, q in producers:
+        for x, y, q in prod:
             Q[self.xy2ind(x, y)] -= q
         assert np.isclose(Q.sum(), 0)
 
         self.Q = Q
-        self.injectors = injectors
-        self.producers = producers
+        # Not used by model, but kept for reference:
+        self.injectors = inj
+        self.producers = prod
 
     def spdiags(self, data, diags):
         return sparse.spdiags(data, diags, self.M, self.M)

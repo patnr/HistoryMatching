@@ -4,17 +4,14 @@ Based on Matlab codes from NTNU/Sintef:
 http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 Translated to python by Patrick N. Raanes.
 
-Originally this simulator/model was a set of functions,
-related through shared module variables, which is perfectly pythonic,
-and worked well when estimating only the simulator state (saturation field),
-which is THE input/output (by definition of "state").
-However, if we want to estimate other parameters,
-e.g. the (fixed) permeability field,
-we need to make copies (members) of the entire model.
-=> Use OOP.
+Implemented with OOP so as to facilitate multiple realisations, by ensuring
+that the parameter values of one instance do not influence another instance.
+Depending on thread-safety, this might not be necessary, but is usually cleaner
+when estimating anything other than the model's input/output (i.e. the state
+variables).
 
 Note: Index ordering/labels: `x` is 1st coord., `y` is 2nd.
-See grid.py for more info.
+See `grid.py` for more info.
 """
 
 from functools import wraps
@@ -25,9 +22,9 @@ from numpy import errstate
 from scipy.sparse.linalg import spsolve
 # from scipy.sparse.linalg import cg
 from struct_tools import DotDict, NicePrint
-from tqdm.auto import tqdm as progbar
 
 from simulator.grid import Grid2D
+from tools import repeat
 
 # TODO
 # - Protect Nx, Ny, shape, etc?
@@ -40,8 +37,8 @@ class ResSim(NicePrint, Grid2D):
     Example:
     >>> model = ResSim(Lx=1, Ly=1, Nx=32, Ny=32)
     >>> model.config_wells([[0, 0, 1]], [[1, 1, -1]])
-    >>> S0 = np.zeros(model.M)
-    >>> saturation = simulate(model.step, 3, S0, 0.025)
+    >>> water_sat0 = np.zeros(model.M)
+    >>> saturation = repeat(model.step, 3, water_sat0, 0.025)
     >>> saturation[-1, :3]
     array([0.9884098 , 0.97347222, 0.95294563])
     """
@@ -225,31 +222,6 @@ class ResSim(NicePrint, Grid2D):
         return S
 
 
-def simulate(model_step, nSteps, x0, dt=.025, obs=None, pbar=True):
-
-    # Range with or w/o progbar
-    rge = np.arange(nSteps)
-    if pbar:
-        rge = progbar(rge, "Simulation")
-
-    # Init
-    xx = np.zeros((nSteps+1,)+x0.shape)
-    xx[0] = x0
-
-    # Step
-    for iT in rge:
-        xx[iT+1] = model_step(xx[iT], dt)
-
-    if obs is None:
-        return xx
-
-    # Observe
-    yy = np.zeros((nSteps,)+(obs.length,))
-    for iT in rge:
-        yy[iT] = obs(xx[iT+1])
-    return xx, yy
-
-
 # Example run
 if __name__ == '__main__':
     from matplotlib import pyplot as plt
@@ -258,6 +230,7 @@ if __name__ == '__main__':
     from geostat import gaussian_fields
 
     model = ResSim(Lx=1, Ly=1, Nx=20, Ny=20)
+    plots.model = model
 
     # Relative coordinates
     injectors = [[0.1, 0.0, 1.0], [0.9, 0.0, 1.0]]
@@ -274,16 +247,15 @@ if __name__ == '__main__':
     # Insert barrier
     surf[:model.Nx//2, model.Ny//3] = 0.001
     # Set permeabilities to surf.
-    model.Gridded.K = np.stack([surf, surf])  # type: ignore
+    model.Gridded.K = np.stack([surf, surf])
 
     # Define obs operator
     obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
     def obs(saturation):  # noqa
         return [saturation[i] for i in obs_inds]
-    obs.length = len(obs_inds)  # noqa
 
     # Simulate
-    S0 = np.zeros(model.M)  # type: ignore
+    S0 = np.zeros(model.M)
 
     # dt=0.025 was used in Matlab code with 64x64 (and 1x1),
     # but I find that dt=0.1 works alright too.
@@ -292,9 +264,9 @@ if __name__ == '__main__':
     T = 28*0.025
     dt = 0.4
     nTime = round(T/dt)
-    saturation, production = simulate(model.step, nTime, S0, dt, obs)
+    saturation, production = repeat(model.step, nTime, S0, dt, obs)
 
     # Animation
     plots.COORD_TYPE = "index"
-    animation = plots.dashboard(model, surf, saturation, production, animate=False)
+    animation = plots.dashboard(surf, saturation, production, animate=False)
     plt.pause(.1)

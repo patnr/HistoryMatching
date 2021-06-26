@@ -2,6 +2,41 @@
 
 import numpy as np
 import scipy.linalg as sla
+from tqdm.auto import tqdm as progbar
+
+
+def repeat(model_step, nSteps, x0, dt, obs_model=None, pbar=True, **kwargs):
+    """Recursively apply `model_step` `nSteps` times. Also apply `obs_model`.
+
+    Note that the output time series of states includes the initial conditions
+    `x0`, while the observation model is not applied at time 0, so that
+    `len(xx) = len(yy) + 1`.
+    """
+    # Range with or w/o progbar
+    rge = np.arange(nSteps)
+    if pbar:
+        rge = progbar(rge, "Simulation")
+
+    # Init
+    xx = np.zeros((nSteps+1,)+x0.shape)
+    xx[0] = x0
+
+    # Step
+    for iT in rge:
+        xx[iT+1] = model_step(xx[iT], dt, **kwargs)
+
+    # Observe
+    if obs_model:
+        for iT in rge:
+            y = obs_model(xx[iT+1])
+            if iT == 0:
+                yy = np.zeros((nSteps,)+(len(y),))
+            yy[iT] = y
+
+        return xx, yy
+
+    else:
+        return xx
 
 
 def norm(xx):

@@ -478,15 +478,15 @@ def dashboard(perm, saturation, production,
                      figsize=place.relative_figsize(figsize))
     if _is_inline:
         fig.suptitle(title)
-    gs = fig.add_gridspec(2, 22)
-    ax0 = fig.add_subplot(gs[0, 1:11])
-    ax1 = fig.add_subplot(gs[0, 11:21], sharex=ax0, sharey=ax0)
+    gs = fig.add_gridspec(10, 22)
+    ax0 = fig.add_subplot(gs[:5, 1:11])
+    ax1 = fig.add_subplot(gs[:5, 11:21], sharex=ax0, sharey=ax0)
     ax1.yaxis.set_tick_params(labelleft=False)
     # Colorbars
-    ax0c = fig.add_subplot(gs[0, 0])
-    ax1c = fig.add_subplot(gs[0, 21])
+    ax0c = fig.add_subplot(gs[:5, 0])
+    ax1c = fig.add_subplot(gs[:5, 21])
     # Production plot
-    ax2 = fig.add_subplot(gs[1, :])
+    ax2 = fig.add_subplot(gs[6:, :])
 
     # ax0.set_title("Initial")
     # ax0.cc = oilfield(ax0, saturation[0], **kwargs)

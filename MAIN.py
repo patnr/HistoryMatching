@@ -9,10 +9,8 @@
 # This is a work in progress. Please do not hesitate to file issues on GitHub,
 # or submit pull requests.
 
-# ## Jupyter notebooks
-# the format used for these tutorials.
+# ## The Jupyter notebook format
 # Notebooks combine **cells** of code (Python) with cells of text (markdown).
-# The exercises in these tutorials only require light Python experience.
 # For example, edit the cell below (double-click it),
 # insert your name,
 # and run it (press "Run" in the toolbar).
@@ -27,18 +25,12 @@ print("Hello world! I'm " + name)
 # | -------------                 | -- | ----------------- | -- | --------       | -- | -------                          | -- | -----------------                 |
 # | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
 #
-# When you open a notebook it starts a **session (kernel/runtime)**
-# of Python in the background.
-# All of the Python code cells (in a given notebook) are connected
-# (they use the same Python kernel and thus share variables, functions, and classes).
-# Thus, the **order** in which you run the cells matters.
-
-# One thing you must know is how to **restart** the Python session,
-# which clears all of your variables, functions, etc,
-# so that you can start over.
-# Test this now by going through the top menu bar:
-# `Kernel` → `Restart & Clear Output`.
-# But rembember to run the above cell again!
+# When you open a notebook it starts a **session (kernel/runtime)** of Python
+# in the background.  All of the code cells (in a given notebook) are connected
+# (they use the same kernel and thus share variables, functions, and classes).
+# Thus, the **order** in which you run the cells matters.  One thing you must
+# know is how to **restart** the session, so that you can start over. Try to
+# locate this option via the top menu bar.
 
 # There is a huge amount of libraries available in **Python**,
 # including the popular `scipy` (with `numpy` at its core) and `matplotlib` packages.
@@ -75,9 +67,9 @@ for i in range(4):
     plt.plot(i * a**2, label="i = %d" % i)
 plt.legend();
 
-# ## Setup
+# ## Load tools
 
-# Run the following cells to import some tools...
+# Run the following cells to import some tools.
 
 from copy import deepcopy
 
@@ -90,15 +82,15 @@ from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
 from IPython.display import display
 
-# and the model, ...
+# The next cell imports the model and associate tools.
 
 import geostat
 import simulator
 import simulator.plotting as plots
-from simulator import simulate
-from tools import RMS, RMS_all, center, mean0, pad0, svd0, inflate_ens, corr
+import tools
+from tools import center, mean0
 
-# The following initializes some data containers that we will use to keep organised.
+# The following declares some data containers that we will use to keep organised.
 
 # +
 # Permeability
@@ -118,6 +110,8 @@ wsat = Dict(
 )
 # -
 
+# This data hierarchy is convienient in *this* notebook/script, especially for plotting purposes. For example, we can with ease refer to `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape `(nTime, M)` where `M` is the length of the unknowns, and the latter will have shape `(N, nTime, M)` where `N` is the size of the ensemble. However, in other implementations, different choices of hierarchy and dimension orders may be more convenient.
+#
 # Finally, for reproducibility, we set the random generator seed.
 
 seed = np.random.seed(4)  # very easy
@@ -126,7 +120,7 @@ seed = np.random.seed(4)  # very easy
 # seed = np.random.seed(7)  # easy
 
 # ## Model and case specification
-# The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -140,7 +134,7 @@ plots.field.cmap = "jet"
 
 # #### Permeability sampling
 # We will estimate the log permeability field.
-# We parameterize the permeability parameters via some transform, which becomes part of the forward model. We term the parameterized permeability fields "pre-permeability". *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also difficult for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  However, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
+# We parameterize the permeability parameters via some transform, which becomes part of the forward model. We term the parameterized permeability fields "pre-permeability". *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also a difficulty for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  In any case, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
 
 def sample_prior_perm(N=1):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
@@ -150,7 +144,7 @@ def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
 
-# Lastly, for any type of parameter, one typically has to write a "setter" function that takes the vector of parameter parameter values, and applies it to the model implementation. We could merge this functionality with `perm_transf` (and indeed the "setter" function is part of the composite forward model) but it is convenient to separate implementation specifics from the mathematics going on in `perm_transf`.
+# For any type of parameter, one typically has to write a "setter" function that takes the vector of parameter parameter values, and applies it to the specific model implementation. We could merge this functionality with `perm_transf` (and indeed the "setter" function is also part of the composite forward model) but it is convenient to separate these implementation specifics from the mathematics going on in `perm_transf`.
 
 def set_perm(model, log_perm_array):
     """Set perm. in model code. Duplicates the perm. values in x- and y- dir."""
@@ -158,29 +152,28 @@ def set_perm(model, log_perm_array):
     p = p.reshape(model.shape)
     model.Gridded.K = np.stack([p, p])
 
-# Now, let's sample the permeability of the (synthetic) truth.
+# Now we are in position to sample the permeability of the (synthetic) truth.
 
 perm.Truth = sample_prior_perm()
 set_perm(model, perm.Truth)
 
 # #### Well specification
-# We here specify the wells as point *sources* and *sinks*, giving their placement and flux.
+# In this model, wells are represented simply by point **sources** and **sinks**. So all we need to specify is their placement and flux. The particular code below puts the wells onto a grid. Try `print(wlGrid)` to see how to easily specify another well configuration.
 #
-# The boundary conditions are of the Dirichlet type, specifying zero flux. The source terms must therefore equal the sink terms. This is ensured by the `config_wells` function used below.
-#
-# The code below configures the wells on a grid. Try `print(wells)` to see how to easily specify another well configuration.
+# Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid is incompressible, the total of the source terms must equal that of the sinks. This is ensured by the `config_wells` function used below.
 
-wells = [.1, .9]
-wells = np.dstack(np.meshgrid(wells, wells)).reshape((-1, 2))
-rates = np.ones((len(wells), 1))  # ==> all wells use the same (constant) rate
+grid1d = [.1, .9]
+wlGrid = np.dstack(np.meshgrid(grid1d, grid1d)).reshape((-1, 2))
+rates = np.ones((len(wlGrid), 1))  # ==> all wells use the same (constant) rate
 model.config_wells(
     # Each row in `inj` and `prod` should be a tuple: (x, y, rate),
     # where x, y ∈ (0, 1) and rate > 0.
     inj  = [[0.50, 0.50, 1.00]],
-    prod = np.hstack((wells, rates)),
+    prod = np.hstack((wlGrid, rates)),
 );
 
 # #### Plot true field
+# Let's take a moment to visualize the model permeability field, and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.2, .7), rel=1)
 # cs = plots.field(ax, perm.Truth)
@@ -194,12 +187,11 @@ plt.pause(.1)
 
 
 # #### Define obs operator
-# The data will consist in the water saturation of the production (at the well locations). I.e. there is no well model.
+# The data will consist in the water saturation of at the well locations, i.e. of the production. I.e. there is no well model. It should be pointed out, however, that ensemble methods technically support observation models of any complexity, though your accuracy mileage may wary (again, depending on the incurred nonlinearity and non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the observation model.
 
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
-def obs(water_sat):
-    return [water_sat[i] for i in obs_inds]
-obs.length = len(obs_inds)
+def obs_model(water_sat):
+    return water_sat[obs_inds]
 
 # #### Simulation to generate the synthetic truth evolution and data
 
@@ -208,11 +200,10 @@ T     = 1
 dt    = 0.025
 nTime = round(T/dt)
 (wsat.past.Truth,
- prod.past.Truth) = simulate(model.step, nTime, wsat.initial.Truth, dt, obs)
+ prod.past.Truth) = tools.repeat(model.step, nTime, wsat.initial.Truth, dt, obs_model)
 
 # ##### Animation
-# Run the code cells below to get an animation of the oil saturation evolution.
-# Injection (resp. production) wells are marked with triangles pointing down (resp. up).
+# Run the code cells below to get an animation of the oil saturation evolution. Injection (resp. production) wells are marked with triangles pointing down (resp. up).
 
 # %%capture
 animation = plots.dashboard(perm.Truth, wsat.past.Truth, prod.past.Truth);
@@ -222,7 +213,7 @@ animation = plots.dashboard(perm.Truth, wsat.past.Truth, prod.past.Truth);
 animation
 
 # #### Noisy obs
-# In reality, observations are never perfect. To account for this, we corrupt the observations by adding a bit of noise.
+# In reality, observations are never perfect. To emulate this, we corrupt the observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd           = len(model.producers)  # num. of obs (each time)
@@ -336,13 +327,13 @@ def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
             # Set production rates
             model_n.config_wells(
                 inj  = model_n.injectors,
-                prod = np.hstack((wells, q_prod[:, None])),
+                prod = np.hstack((wlGrid, q_prod[:, None])),
             )
             # Set ensemble
             set_perm(model_n, perm)
 
         # Simulate
-        s, p = simulate(model_n.step, nTime, wsat0, dt, obs, pbar=False)
+        s, p = tools.repeat(model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
         return s, p
 
     # Allocate
@@ -378,41 +369,38 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
  prod.past.Prior) = forward_model(nTime, wsat.initial.Prior, perm.Prior)
 
 # ### Localisation
+# Localisation invervenes to fix-up the estimated correlations before they are used. It is a method of injecting prior information (distant points are likely not strongly codependent) that is not *encoded* in the ensemble (usually due to their finite size). Defining an effective localisation mask or tapering function can be a difficult task.
 
 # #### Correlation plots
-# One of the main advantages of ensemble methods is that they inherently
-# work with reduced-rank representations of covariance (and correlation) matrices. The conditioning "update" of ensemble methods
-# is often formulated in terms of a "Kalman gain" matrix,
-# derived so as to achieve particular optimality properties
-# (either the correct posterior in the linear-Gaussian case, or the BLUE otherwise). However, we can also look at the update in another way.
-# What does it do?
-# Well, in fact, it is largely based on these correlation.
-# The update also takes into account the variables' scales variances,
-# as well as the "intermingling" of correlations (e.g. two highly correlated obs will barely contribute more than either one).
-# However, if there is no correlation, there will be no update
-# (even for iterative methods).
-# Localisation invervenes to fix-up correlations before they are used.
-# It is a method of injecting prior information (distant points are likely not strongly codependent) that is not encoded in the ensemble (usually due to their finite size).
-# Defining an effective localisation mask or tapering function can be a difficult task.
+# The conditioning "update" of ensemble methods is often formulated in terms of a "**Kalman gain**" matrix, derived so as to achieve particular optimality properties (in the linear-Gaussian case: it computes the correct posterior; otherwise: at least it is the BLUE). The ensemble Kalman gain can also be seen as linear regression coefficients, incorporating the effect of observation errors.
+#
+# Another way to look at it is to ask "what does it do?". Heuristically, this may be answered in 3 points:
+#
+# - It uses *estimated correlation* coefficients to establish relationships between observations and unknowns. For example, if there is no correlation, there will be no update (even for iterative methods).
+# - It takes into account the variables' scales **and** relative uncertainties, via their variances. Hence why it works with covariances, and not just correlations. One of the main advantages of ensemble methods is that the estimation inherently provides reduced-rank representations of covariance matrices.
+# - It takes into account the "intermingling" of correlations (e.g. two highly correlated observations will barely contribute more than either one).
+#
 # In summary, it is useful to investigate the correlation relations of the ensemble, especially for the prior.
 
-# ##### Correlations perm
+# ##### Correlations `wsat`
+# As a sanity check, it is useful to plot the correlations vs. the saturation at the same time. The correlation should be maximal (1.00) at the location of the well. Let us verify this.
 iT = -1
-corrs = [corr(perm.Prior, p) for p in prod.past.Prior[:, iT, :].T]
-fig, axs, _ = plots.corr_fields(corrs, f"pre-perm vs. obs (time {iT}).")
-# Add wells
-for i, (ax, well) in enumerate(zip(axs, model.producers)):
-    plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
-    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*")  # maxima
-
-# ##### Correlations wsat
-iT = -1
-corrs = [corr(wsat.past.Prior[:, iT], p) for p in prod.past.Prior[:, iT, :].T]
+corrs = [tools.corr(wsat.past.Prior[:, iT], p) for p in prod.past.Prior[:, iT, :].T]
 fig, axs, _ = plots.corr_fields(corrs, f"Saturation vs. obs (time {iT}).")
 # Add wells and maxima
 for i, (ax, well) in enumerate(zip(axs, model.producers)):
     plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
-    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*")  # maxima
+    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*", label="max")
+
+
+# ##### Correlations vs unknowns (pre-permeability)
+iT = -1
+corrs = [tools.corr(perm.Prior, p) for p in prod.past.Prior[:, iT, :].T]
+fig, axs, _ = plots.corr_fields(corrs, f"pre-perm vs. obs (time {iT}).")
+# Add wells
+for i, (ax, well) in enumerate(zip(axs, model.producers)):
+    plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
+    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*", label="max")
 
 # ### Ensemble smoother
 
@@ -435,7 +423,7 @@ class ES_update:
 
     def __init__(self, obs_ens, observation, obs_err_cov):
         """Prepare the update."""
-        Y           = mean0(obs_ens, rescale=False)
+        Y, _        = center(obs_ens, rescale=True)
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
         obs_pert    = randn(N, len(observation)) @ sqrt(obs_err_cov)
         innovations = observation - (obs_ens + obs_pert)
@@ -446,7 +434,7 @@ class ES_update:
 
     def __call__(self, E):
         """Do the update."""
-        return E + self.KGdY @ mean0(E, rescale=False)
+        return E + self.KGdY @ center(E)[0]
 
 # #### Update
 ES = ES_update(
@@ -551,7 +539,7 @@ def IES(ensemble, observation, obs_err_cov,
     for itr in range(nIter):
         # Reconstruct smoothed ensemble.
         E = x0 + (w + EPS*T)@X0
-        stats.rmse[itr] = RMS(perm.Truth, E).rmse
+        stats.rmse[itr] = tools.RMS(perm.Truth, E).rmse
 
         # Forecast.
         E_state, E_obs = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
@@ -559,8 +547,8 @@ def IES(ensemble, observation, obs_err_cov,
 
         # Undo the bundle scaling of ensemble.
         if EPS != 1.0:
-            E     = inflate_ens(E, 1/EPS)
-            E_obs = inflate_ens(E_obs, 1/EPS)
+            E     = tools.inflate_ens(E, 1/EPS)
+            E_obs = tools.inflate_ens(E_obs, 1/EPS)
 
         # Prepare analysis.Ç
         y      = observation        # Get current obs.
@@ -578,8 +566,8 @@ def IES(ensemble, observation, obs_err_cov,
 
         # Compute Cowp: the (approx) posterior cov. of w
         # (estiamted at this iteration), raised to some power.
-        V, s, UT = svd0(Y0)
-        def Cowp(expo): return (V * (pad0(s**2, N) + za)**-expo) @ V.T
+        V, s, UT = tools.svd0(Y0)
+        def Cowp(expo): return (V * (tools.pad0(s**2, N) + za)**-expo) @ V.T
 
         # TODO: NB: these stats are only valid for Sqrt
         stat2 = Dict(
@@ -666,7 +654,7 @@ plt.pause(.1)
 # #### RMS summary
 
 print("Stats vs. true field")
-RMS_all(perm, vs="Truth")
+tools.RMS_all(perm, vs="Truth")
 
 # #### Plot of means
 # Let's plot mean fields.
@@ -708,7 +696,7 @@ display(v)
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)")
-RMS_all(prod.past, vs="Noisy")
+tools.RMS_all(prod.past, vs="Noisy")
 
 # Note that the data mismatch is significantly reduced. This may be the case even if the updated permeability field did not have a reduced rmse (overall, relative to that of the prior prior). The "direct" forecast (essentially just linear regression) may achieve even lower rmse, but generally, less realistic production plots.
 
@@ -737,7 +725,7 @@ plots.oilfields(wsat_means, "Truth and means.");
 print("Future/prediction")
 
 (wsat.future.Truth,
- prod.future.Truth) = simulate(model.step, nTime, wsat.current.Truth, dt, obs)
+ prod.future.Truth) = tools.repeat(model.step, nTime, wsat.current.Truth, dt, obs_model)
 
 (wsat.future.Prior,
  prod.future.Prior) = forward_model(nTime, wsat.current.Prior, perm.Prior)
@@ -760,7 +748,7 @@ display(v)
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production")
-RMS_all(prod.future, vs="Truth")
+tools.RMS_all(prod.future, vs="Truth")
 
 # ## Robust optimisation
 
@@ -808,8 +796,8 @@ def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
         Ej = total_oil(E, Eu)
         # print("Approx. total oil, average: %.3f"%Ej.mean())
 
-        Xu = mean0(Eu, rescale=False)
-        Xj = mean0(Ej, rescale=False)
+        Xu = center(Eu)[0]
+        Xj = center(Ej)[0]
 
         G  = Xj.T @ Xu / (N-1)
 

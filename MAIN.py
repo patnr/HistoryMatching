@@ -294,65 +294,59 @@ plt.pause(.1)
 
 multiprocess = False  # multiprocessing?
 
-def forward_model(nTime, wsats0, perms, Q_prod=None, desc="En. forecast"):
-    """Run forward model, i.e. forecast. Input args should be ensembles.
+def forward_model(nTime, *args, desc="En. forecast"):
+    """Create the forward model, i.e. forecast. Supports ensemble input.
 
-    The main work consists of running the reservoir simulator
-    for each realisation in the ensemble.
-    However, the simulator only inputs/outputs state variables,
-    so we also have to take the necessary steps to set the parameter values
-    (implicitly used by the simulator). Setting parameter values
-    is as much part of the forward model as running the simulator.
+    This is a composite function.  The main work consists of running the
+    reservoir simulator for each realisation in the ensemble.  However, the
+    simulator only inputs/outputs state variables, so we also have to take
+    the necessary steps to set the parameter values
     """
-    # Compose ensemble. This a-priori packing/bundling is a technicality
-    # necessary for the syntax of multiprocessing.
-    if Q_prod is None:
-        E = zip(wsats0, perms)
-    else:
-        E = zip(wsats0, perms, Q_prod)
 
-    def forecast1(x):
-        # Since some parameters are implemented not as input/output of the model,
-        # but as instance attributes, there is a risk (especially with multiprocessing)
-        # that the values that are set for one member overwrites the values
-        # that should be used by another member. We will do a deepcopy to avoid this.
-        # Alternatively, we can re-initialize the model each time.
+    def forecast1(estimable):
+        """Forward model for a single member/realisation."""
+        # Avoid the risk (difficult to diagnose with multiprocessing) that
+        # the parameter values of one member overwrite those of another.
+        # Alternative: re-initialize the model.
         model_n = deepcopy(model)
 
-        # Un-pack/bundle
-        wsat0, perm, *q_prod = x
+        # Unpack/unbundle variables
+        wsat0, perm, *q_prod = estimable
 
-        # Set production rates
+        # If provided: set production rates
         if q_prod:
             model_n.producers[:, 2] = q_prod[0]
             model_n.config_wells(model_n.injectors, model_n.producers, remap=False)
 
-        # Set ensemble
+        # Set permeabilities
         set_perm(model_n, perm)
 
-        # Run model
-        s, p = tools.repeat(model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
+        # Run simulator
+        wsats, prods = tools.repeat(
+            model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
 
-        return s, p
+        return wsats, prods
 
-    # Allocate
-    production = np.zeros((N, nTime, nProd))
-    saturation = np.zeros((N, nTime+1, model.M))
+    # Compose ensemble. This a-priori packing/bundling is a technicality
+    # necessary for the syntax of `map` (necessary for multiprocessing).
+    # Code help: zip(*) acts like matrix transposition.
+    E = zip(*args)
 
-    # Dispatch
+    # Dispatch jobs
     if multiprocess:
         import multiprocessing_on_dill as mpd
         with mpd.Pool() as pool:
-            E = list(progbar(pool.imap(forecast1, E), total=N, desc=desc))
-        # Write
-        for n, member in enumerate(E):
-            saturation[n], production[n] = member
-
+            Ef = list(progbar(pool.imap(forecast1, E), total=N, desc=desc))
     else:
-        for n, xn in enumerate(progbar(list(E), "Members")):
-            s, p = forecast1(xn)
-            # Write
-            saturation[n], production[n] = s, p
+        Ef = list(progbar(map(forecast1, E), total=N, desc="Members"))
+
+    # Decompose (unpack) ensemble
+    # Here we output everything, but really we need only emit
+    # - The state at the final time, for restarts (predictions).
+    # - The observations (for the assimilation update).
+    # - The variables used for production optimisation
+    #   (in this case the same as the obs, namely the production).
+    saturation, production = [np.array(x) for x in zip(*Ef)]
 
     return saturation, production
 
@@ -757,7 +751,7 @@ tools.RMS_all(prod.future, vs="Truth")
 
 def total_oil(E, Eu):
     wsat, perm = E
-    wsat, prod = forward_model(nTime, wsat, perm, Q_prod=Eu)
+    wsat, prod = forward_model(nTime, wsat, perm, Eu)
     return np.sum(prod, axis=(1, 2))
 
 # Define step modulator by adding momentum to vanilla gradient descent.

@@ -388,12 +388,7 @@ for i, (ax, well) in enumerate(zip(axs, model.producers)):
 
 
 # ##### Correlation vs unknowns (pre-permeability)
-# The following plots the correlation fields for the unknown field (pre-permeability) vs the productions at a given time. Use the interative slider below the plot to walk through time. Note that
-
-# - The variances in the initial productions (when the slider is all the way to the left) are zero, yielding nan's and blank plots.
-# - The maximum is not quite superimposed with the well in question.
-# - The correlation fields grow stronger in time. This is because it takes time for the permeability field to impact the flow at the well. TODO: improve reasoning.
-# - The opposite corner of a given well is anti-correlated with it. This makes sense, since larger permeability in the opposite corner to a well will subtract from its production.
+# The following plots the correlation fields for the unknown field (pre-permeability) vs the productions at a given time.
 
 fig, axs, _ = plots.fields(plots.corr_field, corrs, "Pre-perm vs. obs.");  # Init fig
 #
@@ -408,6 +403,13 @@ def _plot(time_index=nTime//2):
             plots.corr_field(ax, corr)
             plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
             ax.plot(*model.ind2xy(corr.argmax()), "g*", ms=12, label="max")
+
+# Use the interative slider below the plot to walk through time. Note that
+#
+# - The variances in the initial productions (when the slider is all the way to the left) are zero, yielding nan's and blank plots.
+# - The maximum is not quite superimposed with the well in question.
+# - The correlation fields grow stronger in time. This is because it takes time for the permeability field to impact the flow at the well. TODO: improve reasoning.
+# - The opposite corner of a given well is anti-correlated with it. This makes sense, since larger permeability in the opposite corner to a well will subtract from its production.
 
 # ### Ensemble smoother
 

@@ -430,12 +430,12 @@ class ES_update:
     Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
     """
 
-    def __init__(self, obs_ens, observation, obs_err_cov):
+    def __init__(self, obs_ens, observations, obs_err_cov):
         """Prepare the update."""
         Y, _        = center(obs_ens, rescale=True)
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
-        obs_pert    = randn(N, len(observation)) @ sqrt(obs_err_cov)
-        innovations = observation - (obs_ens + obs_pert)
+        obs_pert    = randn(N, len(observations)) @ sqrt(obs_err_cov)
+        innovations = observations - (obs_ens + obs_pert)
 
         # (pre-) Kalman gain * Innovations
         # Also called the X5 matrix by Evensen'2003.
@@ -447,9 +447,9 @@ class ES_update:
 
 # #### Update
 ES = ES_update(
-    obs_ens     = prod.past.Prior.reshape((N, -1)),
-    observation = prod.past.Noisy.reshape(-1),
-    obs_err_cov = sla.block_diag(*[R]*nTime),
+    obs_ens      = prod.past.Prior.reshape((N, -1)),
+    observations = prod.past.Noisy.reshape(-1),
+    obs_err_cov  = sla.block_diag(*[R]*nTime),
 )
 
 # Apply update
@@ -512,7 +512,7 @@ def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
 
 # This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
-def IES(ensemble, observation, obs_err_cov,
+def IES(ensemble, observations, obs_err_cov,
         flavour="Sqrt", MDA=False, bundle=False,
         stepsize=1, nIter=10, wtol=1e-4):
 
@@ -560,7 +560,7 @@ def IES(ensemble, observation, obs_err_cov,
             E_obs = tools.inflate_ens(E_obs, 1/EPS)
 
         # Prepare analysis.Ç
-        y      = observation        # Get current obs.
+        y      = observations       # Get current obs.
         Y, xo  = center(E_obs)      # Get obs {anomalies, mean}.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
         Y      = Y        @ Rm12T   # Transform obs space.
@@ -626,9 +626,9 @@ def IES(ensemble, observation, obs_err_cov,
 # #### Apply the IES
 
 perm.IES, stats_IES = IES(
-    ensemble    = perm.Prior,
-    observation = prod.past.Noisy.reshape(-1),
-    obs_err_cov = sla.block_diag(*[R]*nTime),
+    ensemble     = perm.Prior,
+    observations = prod.past.Noisy.reshape(-1),
+    obs_err_cov  = sla.block_diag(*[R]*nTime),
     flavour="Sqrt", MDA=False, bundle=False, stepsize=1,
 )
 

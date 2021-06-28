@@ -465,56 +465,42 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 # ### Iterative ensemble smoother
 # The following is (almost) all that distinguishes all of the fully-Bayesian iterative ensemble smoothers in the literature.
 
-def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
+def iES_flavours(w, T, Y, Y0, dy, Cowp, N, nIter, itr, flavour):
     N1 = N - 1
     Cow1 = Cowp(1.0)
 
-    if MDA:  # View update as annealing (progressive assimilation).
-        Cow1 = Cow1 @ T  # apply previous update
-        dw = dy @ Y.T @ Cow1
-        if 'PertObs' in flavour:   # == "ES-MDA". By Emerick/Reynolds
-            D   = mean0(randn(*Y.shape)) * sqrt(nIter)
-            T  -= (Y + D) @ Y.T @ Cow1
-        elif 'Sqrt' in flavour:    # == "ETKF-ish". By Raanes
-            T   = Cowp(0.5) * sqrt(za) @ T
-        elif 'Order1' in flavour:  # == "DEnKF-ish". By Emerick
-            T  -= 0.5 * Y @ Y.T @ Cow1
-        Tinv = np.eye(N)  # [as initialized] coz MDA does not de-condition.
-
-    else:  # View update as Gauss-Newton optimzt. of log-posterior.
-        grad  = Y0@dy - w*za                  # Cost function gradient
-        dw    = grad@Cow1                     # Gauss-Newton step
-        # ETKF-ish". By Bocquet/Sakov.
-        if 'Sqrt' in flavour:
-            # Sqrt-transforms
-            T     = Cowp(0.5) * sqrt(N1)
-            Tinv  = Cowp(-.5) / sqrt(N1)
-            # Tinv saves time [vs tinv(T)] when Nx<N
-        # "EnRML". By Oliver/Chen/Raanes/Evensen/Stordal.
-        elif 'PertObs' in flavour:
-            if itr == 0:
-                D = mean0(randn(*Y.shape))
-                iES_flavours.D = D
-            else:
-                D = iES_flavours.D
-            gradT = -(Y+D)@Y0.T + N1*(np.eye(N) - T)
-            T     = T + gradT@Cow1
-            # Tinv= tinv(T, threshold=N1)  # unstable
-            Tinv  = sla.inv(T+1)           # the +1 is for stability.
-        # "DEnKF-ish". By Raanes.
-        elif 'Order1' in flavour:
-            # Included for completeness; does not make much sense.
-            gradT = -0.5*Y@Y0.T + N1*(np.eye(N) - T)
-            T     = T + gradT@Cow1
-            Tinv  = sla.pinv2(T)
+    grad  = Y0@dy - w*N1                  # Cost function gradient
+    dw    = grad@Cow1                     # Gauss-Newton step
+    # ETKF-ish". By Bocquet/Sakov.
+    if 'Sqrt' in flavour:
+        # Sqrt-transforms
+        T     = Cowp(0.5) * sqrt(N1)
+        Tinv  = Cowp(-.5) / sqrt(N1)
+        # Tinv saves time [vs tinv(T)] when Nx<N
+    # "EnRML". By Oliver/Chen/Raanes/Evensen/Stordal.
+    elif 'PertObs' in flavour:
+        if itr == 0:
+            D = mean0(randn(*Y.shape))
+            iES_flavours.D = D
+        else:
+            D = iES_flavours.D
+        gradT = -(Y+D)@Y0.T + N1*(np.eye(N) - T)
+        T     = T + gradT@Cow1
+        # Tinv= tinv(T, threshold=N1)  # unstable
+        Tinv  = sla.inv(T+1)           # the +1 is for stability.
+    # "DEnKF-ish". By Raanes.
+    elif 'Order1' in flavour:
+        # Included for completeness; does not make much sense.
+        gradT = -0.5*Y@Y0.T + N1*(np.eye(N) - T)
+        T     = T + gradT@Cow1
+        Tinv  = sla.pinv2(T)
 
     return dw, T, Tinv
 
 # This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
 def IES(ensemble, observations, obs_err_cov,
-        flavour="Sqrt", MDA=False,
-        stepsize=1, nIter=10, wtol=1e-4):
+        flavour="Sqrt", stepsize=1, nIter=10, wtol=1e-4):
 
     E = ensemble
     N = len(E)
@@ -540,24 +526,17 @@ def IES(ensemble, observations, obs_err_cov,
         E_state, E_obs = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
         E_obs = E_obs.reshape((N, -1))
 
-        # Prepare analysis.Ç
+        # Prepare analysis.
         y      = observations       # Get current obs.
         Y, xo  = center(E_obs)      # Get obs {anomalies, mean}.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
         Y      = Y        @ Rm12T   # Transform obs space.
         Y0     = Tinv @ Y           # "De-condition" the obs anomalies.
 
-        # Set "cov normlzt fctr" za ("effective ensemble size")
-        # => pre_infl^2 = (N-1)/za.
-        za = N1
-        if MDA:
-            # inflation (factor: nIter) of the ObsErrCov.
-            za *= nIter
-
         # Compute Cowp: the (approx) posterior cov. of w
         # (estiamted at this iteration), raised to some power.
         V, s, UT = tools.svd0(Y0)
-        def Cowp(expo): return (V * (tools.pad0(s**2, N) + za)**-expo) @ V.T
+        def Cowp(expo): return (V * (tools.pad0(s**2, N) + N1)**-expo) @ V.T
 
         # TODO: NB: these stats are only valid for Sqrt
         stats.obj.prior += [w@w * N1]
@@ -574,7 +553,7 @@ def IES(ensemble, observations, obs_err_cov,
             old         = w, T, Tinv
             stepsize   *= 2
             stepsize    = min(1, stepsize)
-            dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour)
+            dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, N, nIter, itr, flavour)
 
         stats.dw += [dw@dw / N]
         stats.stepsize += [stepsize]
@@ -585,10 +564,9 @@ def IES(ensemble, observations, obs_err_cov,
         if stepsize * np.sqrt(dw@dw/N) < wtol:
             break
 
-    if not MDA:
-        # The last step (dw, T) must be discarded,
-        # because it cannot be validated without re-running the model.
-        w, T, Tinv  = old
+    # The last step (dw, T) must be discarded,
+    # because it cannot be validated without re-running the model.
+    w, T, Tinv  = old
 
     # Reconstruct the ensemble.
     E = x0 + (w+T)@X0
@@ -602,7 +580,7 @@ perm.IES, stats_IES = IES(
     ensemble     = perm.Prior,
     observations = prod.past.Noisy.reshape(-1),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
-    flavour="Sqrt", MDA=False, bundle=False, stepsize=1,
+    flavour="Sqrt", bundle=False, stepsize=1,
 )
 
 

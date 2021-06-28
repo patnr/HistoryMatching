@@ -3,23 +3,19 @@
 #
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
-# This (Jupyter/Python) notebook presents
-# a tutorial on history matching (HM) using ensemble methods.
-#
-# This is a work in progress. Please do not hesitate to file issues on GitHub,
+# This (Jupyter/Python) notebook is a self-contained tutorial on
+# history matching (HM) using ensemble methods.
+# Please do not hesitate to file issues on GitHub,
 # or submit pull requests.
 
 # ## The Jupyter notebook format
 # Notebooks combine **cells** of code (Python) with cells of text (markdown).
-# For example, edit the cell below (double-click it),
-# insert your name,
-# and run it (press "Run" in the toolbar).
+# For example, try to edit the cell below to insert your name, and then run it.
 
 name = "Batman"
 print("Hello world! I'm " + name)
 
-# You will likely be more efficient if you know these
-# **keyboard shortcuts** to interact with cells:
+# You will likely be more efficient if you know these **keyboard shortcuts**:
 #
 # | Navigate                      |    | Edit              |    | Exit           |    | Run                              |    | Run & go to next                  |
 # | -------------                 | -- | ----------------- | -- | --------       | -- | -------                          | -- | -----------------                 |
@@ -90,7 +86,7 @@ import simulator.plotting as plots
 import tools
 from tools import center, mean0
 
-# The following declares some data containers that we will use to keep organised.
+# The following declares some data containers to help us keep organised.
 
 # +
 # Permeability
@@ -110,8 +106,8 @@ wsat = Dict(
 )
 # -
 
-# This data hierarchy is convienient in *this* notebook/script, especially for plotting purposes. For example, we can with ease refer to `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape `(nTime, M)` where `M` is the length of the unknowns, and the latter will have shape `(N, nTime, M)` where `N` is the size of the ensemble. However, in other implementations, different choices of hierarchy and dimension orders may be more convenient.
-#
+# Technical note: This data hierarchy is convienient in *this* notebook/script, especially for plotting purposes. For example, we can with ease refer to `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where `N` is the size of the ensemble. However, in other implementations, different choices of data structure may be more convenient, e.g. where the different components of the unknowns are merely concatenated along the last axis, rather than being kept in separate dicts.
+
 # Finally, for reproducibility, we set the random generator seed.
 
 seed = np.random.seed(4)  # very easy
@@ -120,7 +116,7 @@ seed = np.random.seed(4)  # very easy
 # seed = np.random.seed(7)  # easy
 
 # ## Model and case specification
-# The reservoir model, which takes up about 100 lines of python code, is a 2D, two-phase, immiscible, incompressible simulator using TPFA discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# The reservoir model, which takes up about 100 lines of python code, is outrageously simple, serving the purpose of *illustrating* the history matching process. The model is a 2D, two-phase, immiscible, incompressible simulator using TPFA discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -158,7 +154,7 @@ perm.Truth = sample_prior_perm()
 set_perm(model, perm.Truth)
 
 # #### Well specification
-# In this model, wells are represented simply by point **sources** and **sinks**. So all we need to specify is their placement and flux. The particular code below puts the wells onto a grid. Try `print(wlGrid)` to see how to easily specify another well configuration.
+# In this model, wells are represented simply by point **sources** and **sinks**. This is of course incredibly basic and not realistic, but works for our purposes. So all we need to specify is their placement and flux (which we will not vary in time). The code below puts wells on a grid. Try `print(wlGrid)` to see how to easily specify another well configuration.
 #
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid is incompressible, the total of the source terms must equal that of the sinks. This is ensured by the `config_wells` function used below.
 
@@ -294,8 +290,8 @@ plt.pause(.1)
 
 multiprocess = False  # multiprocessing?
 
-def forward_model(nTime, *args, desc="En. forecast"):
-    """Create the forward model, i.e. forecast. Supports ensemble input.
+def forward_model(nTime, *args, desc="Ens. run"):
+    """Create the (composite) forward model, i.e. forecast. Supports ensemble input.
 
     This is a composite function.  The main work consists of running the
     reservoir simulator for each realisation in the ensemble.  However, the
@@ -365,13 +361,13 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 # Localisation invervenes to fix-up the estimated correlations before they are used. It is a method of injecting prior information (distant points are likely not strongly codependent) that is not *encoded* in the ensemble (usually due to their finite size). Defining an effective localisation mask or tapering function can be a difficult task.
 
 # #### Correlation plots
-# The conditioning "update" of ensemble methods is often formulated in terms of a "**Kalman gain**" matrix, derived so as to achieve particular optimality properties (in the linear-Gaussian case: it computes the correct posterior; otherwise: at least it is the BLUE). The ensemble Kalman gain can also be seen as linear regression coefficients, incorporating the effect of observation errors.
+# The conditioning "update" of ensemble methods is often formulated in terms of a "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties (see e.g. [[Jaz70]](#Jaz70)): in the linear-Gaussian case, to compute the correct posterior moments; in the linear (non-Gaussian) case, to compute the BLUE, or achieve orthogonality of the posterior error and innovation; in the non-linear, non-Gaussian case, the ensemble version can be derived as linear regression (with some tweaks) from the perturbed observations to the unknowns.
 #
 # Another way to look at it is to ask "what does it do?". Heuristically, this may be answered in 3 points:
 #
 # - It uses *estimated correlation* coefficients to establish relationships between observations and unknowns. For example, if there is no correlation, there will be no update (even for iterative methods).
-# - It takes into account the variables' scales **and** relative uncertainties, via their variances. Hence why it works with covariances, and not just correlations. One of the main advantages of ensemble methods is that the estimation inherently provides reduced-rank representations of covariance matrices.
-# - It takes into account the "intermingling" of correlations (e.g. two highly correlated observations will barely contribute more than either one).
+# - It takes into account the variables' scales *and* relative uncertainties, via their variances. Hence why it works with covariances, and not just correlations. One of the main advantages of ensemble methods is that the estimation inherently provides reduced-rank representations of covariance matrices.
+# - It takes into account the "intermingling" of correlations. For example, two measurements/observations that are highly correlated (when including both prior and observation errors) will barely contribute more than either one.
 #
 # In summary, it is useful to investigate the correlation relations of the ensemble, especially for the prior.
 
@@ -817,3 +813,6 @@ u   = EnOpt(wsat.past.ES[:, -1, :], perm.ES, u0, C12, stepsize=10)
 # Note that result may depend on the sampling of the prior ensemble,
 # as well as other random numbers. This effect should be minimized,
 # and tested by repeat experiments. It should also be ensured that the errors decrease, and NPV increase. This is similar to cross validation. Note that such synthetic experiments are fully possible in the real world as well. Even though the truth is unknown, a synthetic truth can be sampled from the prior uncertainty. And at the very least, the methods should yield improved performance in the synthetic case.
+
+# ## References
+# <a id="Jaz70">[Jaz70]</a>: Jazwinski, A. H. 1970. *Stochastic Processes and Filtering Theory*. Vol. 63. Academic Press.

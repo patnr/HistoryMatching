@@ -85,7 +85,7 @@ import geostat
 import simulator
 import simulator.plotting as plots
 import tools
-from tools import center, mean0
+from tools import center
 
 # The following declares some data containers to help us keep organised.
 
@@ -463,45 +463,9 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 # We will see some more diagnostics later.
 
 # ### Iterative ensemble smoother
-# The following is (almost) all that distinguishes all of the fully-Bayesian iterative ensemble smoothers in the literature.
 
-def iES_flavours(w, T, Y, Y0, dy, Cowp, N, nIter, itr, flavour):
-    N1 = N - 1
-    Cow1 = Cowp(1.0)
-
-    grad  = Y0@dy - w*N1                  # Cost function gradient
-    dw    = grad@Cow1                     # Gauss-Newton step
-    # ETKF-ish". By Bocquet/Sakov.
-    if 'Sqrt' in flavour:
-        # Sqrt-transforms
-        T     = Cowp(0.5) * sqrt(N1)
-        Tinv  = Cowp(-.5) / sqrt(N1)
-        # Tinv saves time [vs tinv(T)] when Nx<N
-    # "EnRML". By Oliver/Chen/Raanes/Evensen/Stordal.
-    elif 'PertObs' in flavour:
-        if itr == 0:
-            D = mean0(randn(*Y.shape))
-            iES_flavours.D = D
-        else:
-            D = iES_flavours.D
-        gradT = -(Y+D)@Y0.T + N1*(np.eye(N) - T)
-        T     = T + gradT@Cow1
-        # Tinv= tinv(T, threshold=N1)  # unstable
-        Tinv  = sla.inv(T+1)           # the +1 is for stability.
-    # "DEnKF-ish". By Raanes.
-    elif 'Order1' in flavour:
-        # Included for completeness; does not make much sense.
-        gradT = -0.5*Y@Y0.T + N1*(np.eye(N) - T)
-        T     = T + gradT@Cow1
-        Tinv  = sla.pinv2(T)
-
-    return dw, T, Tinv
-
-# This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
-
-def IES(ensemble, observations, obs_err_cov,
-        flavour="Sqrt", stepsize=1, nIter=10, wtol=1e-4):
-
+def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
+    """Iterative ensemble smoother."""
     E = ensemble
     N = len(E)
     N1 = N - 1
@@ -523,37 +487,39 @@ def IES(ensemble, observations, obs_err_cov,
         stats.rmse += [tools.RMS(perm.Truth, E).rmse]
 
         # Forecast.
-        E_state, E_obs = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
-        E_obs = E_obs.reshape((N, -1))
+        _, Eo = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
+        Eo = Eo.reshape((N, -1))
 
         # Prepare analysis.
-        y      = observations       # Get current obs.
-        Y, xo  = center(E_obs)      # Get obs {anomalies, mean}.
+        y      = observations       # Current obs.
+        Y, xo  = center(Eo)         # Get anomalies, mean.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
         Y      = Y        @ Rm12T   # Transform obs space.
         Y0     = Tinv @ Y           # "De-condition" the obs anomalies.
 
-        # Compute Cowp: the (approx) posterior cov. of w
-        # (estiamted at this iteration), raised to some power.
-        V, s, UT = tools.svd0(Y0)
-        def Cowp(expo): return (V * (tools.pad0(s**2, N) + N1)**-expo) @ V.T
-
-        # TODO: NB: these stats are only valid for Sqrt
         stats.obj.prior += [w@w * N1]
         stats.obj.lklhd += [dy@dy]
         stats.obj.postr += [w@w * N1 + dy@dy]
 
-        # Accept previous increment? ...
-        if itr > 0 and stats.obj.postr[itr] > np.min(stats.obj.postr):
-            # ... No. Restore previous ensemble & lower the stepsize (don't compute new increment).
+        reject_step = itr > 0 and stats.obj.postr[itr] > np.min(stats.obj.postr)
+        if reject_step:
+            # Restore prev. ensemble, lower stepsize
             stepsize   /= 10
             w, T, Tinv  = old  # noqa
         else:
-            # ... Yes. Store this ensemble, boost the stepsize, and compute new increment.
+            # Store current ensemble, boost stepsize
             old         = w, T, Tinv
             stepsize   *= 2
             stepsize    = min(1, stepsize)
-            dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, N, nIter, itr, flavour)
+
+            # Compute update
+            V, s, UT = tools.svd0(Y0)
+            Cowp     = tools.pows(V, tools.pad0(s**2, N) + N1)
+            Cow1     = Cowp(-1.0)             # Posterior cov of w
+            grad     = Y0@dy - w*(N-1)        # Cost function gradient
+            dw       = grad@Cow1              # Gauss-Newton step
+            T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+            Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
 
         stats.dw += [dw@dw / N]
         stats.stepsize += [stepsize]
@@ -580,7 +546,7 @@ perm.IES, stats_IES = IES(
     ensemble     = perm.Prior,
     observations = prod.past.Noisy.reshape(-1),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
-    flavour="Sqrt", bundle=False, stepsize=1,
+    stepsize=1,
 )
 
 

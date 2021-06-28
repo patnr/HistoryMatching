@@ -93,6 +93,16 @@ def pad0(ss, N):
     return out
 
 
+def pows(U, sig):
+    """Prepare the computation of the matrix power of a symmetric matrix.
+
+    The input matrix is specified by its eigen-vectors (U) and -values (sig).
+    """
+    def compute(expo):
+        return (U * sig**expo) @ U.T
+    return compute
+
+
 def center(E, axis=0, rescale=False):
     """Center ensemble.
 

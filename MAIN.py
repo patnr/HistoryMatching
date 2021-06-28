@@ -513,7 +513,7 @@ def iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour):
 # This outer function loops through the iterations, forecasting, de/re-composing the ensemble, performing the linear regression, validating step, and making statistics.
 
 def IES(ensemble, observations, obs_err_cov,
-        flavour="Sqrt", MDA=False, bundle=False,
+        flavour="Sqrt", MDA=False,
         stepsize=1, nIter=10, wtol=1e-4):
 
     E = ensemble
@@ -524,35 +524,21 @@ def IES(ensemble, observations, obs_err_cov,
     stats = Dict(dw=[], rmse=[], stepsize=[],
                  obj=Dict(lklhd=[], prior=[], postr=[]))
 
-    if bundle:
-        if isinstance(bundle, bool):
-            EPS = 1e-4  # Sakov/Boc use T=EPS*eye(N), with EPS=1e-4, but I ...
-        else:
-            EPS = bundle
-    else:
-        EPS = 1.0  # ... prefer using  T=EPS*T, yielding a conditional cloud shape
-
     # Init ensemble decomposition.
     X0, x0 = center(E)    # Decompose ensemble.
     w      = np.zeros(N)  # Control vector for the mean state.
     T      = np.eye(N)    # Anomalies transform matrix.
     Tinv   = np.eye(N)
-    # Explicit Tinv [instead of tinv(T)] allows for merging MDA code
-    # with iEnKS/EnRML code, and flop savings in 'Sqrt' case.
 
     for itr in range(nIter):
         # Reconstruct smoothed ensemble.
-        E = x0 + (w + EPS*T)@X0
+        E = x0 + (w + T)@X0
+        # Compute rmse (vs. Truth)
         stats.rmse += [tools.RMS(perm.Truth, E).rmse]
 
         # Forecast.
         E_state, E_obs = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
         E_obs = E_obs.reshape((N, -1))
-
-        # Undo the bundle scaling of ensemble.
-        if EPS != 1.0:
-            E     = tools.inflate_ens(E, 1/EPS)
-            E_obs = tools.inflate_ens(E_obs, 1/EPS)
 
         # Prepare analysis.Ç
         y      = observations       # Get current obs.

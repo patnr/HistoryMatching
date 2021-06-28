@@ -471,8 +471,9 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     N1 = N - 1
     Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
 
-    stats = Dict(dw=[], rmse=[], stepsize=[],
-                 obj=Dict(lklhd=[], prior=[], postr=[]))
+    # Init
+    stat = Dict(dw=[], rmse=[], stepsize=[],
+                obj=Dict(lklhd=[], prior=[], postr=[]))
 
     # Init ensemble decomposition.
     X0, x0 = center(E)    # Decompose ensemble.
@@ -484,7 +485,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         # Reconstruct smoothed ensemble.
         E = x0 + (w + T)@X0
         # Compute rmse (vs. Truth)
-        stats.rmse += [tools.RMS(perm.Truth, E).rmse]
+        stat.rmse += [tools.RMS(perm.Truth, E).rmse]
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
@@ -497,11 +498,12 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         Y      = Y        @ Rm12T   # Transform obs space.
         Y0     = Tinv @ Y           # "De-condition" the obs anomalies.
 
-        stats.obj.prior += [w@w * N1]
-        stats.obj.lklhd += [dy@dy]
-        stats.obj.postr += [w@w * N1 + dy@dy]
+        # Diagnostics
+        stat.obj.prior += [w@w * N1]
+        stat.obj.lklhd += [dy@dy]
+        stat.obj.postr += [w@w * N1 + dy@dy]
 
-        reject_step = itr > 0 and stats.obj.postr[itr] > np.min(stats.obj.postr)
+        reject_step = itr > 0 and stat.obj.postr[itr] > np.min(stat.obj.postr)
         if reject_step:
             # Restore prev. ensemble, lower stepsize
             stepsize   /= 10
@@ -521,8 +523,8 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
             T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
             Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
 
-        stats.dw += [dw@dw / N]
-        stats.stepsize += [stepsize]
+        stat.dw += [dw@dw / N]
+        stat.stepsize += [stepsize]
 
         # Step
         w = w + stepsize*dw
@@ -537,7 +539,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     # Reconstruct the ensemble.
     E = x0 + (w+T)@X0
 
-    return E, stats
+    return E, stat
 
 
 # #### Apply the IES

@@ -90,11 +90,13 @@ def fields(plotter, ZZ,
            figsize=(2, 1),
            txt_color="k",
            colorbar=True,
-           cticks=None,
            **kwargs):
 
+    # Get plotter defaults
+    title = dash("Fields", getattr(plotter, "title", ""), title)
+    ticks = getattr(plotter, "ticks", None)
+
     # Setup figure
-    title = dash("Fields", title)
     fig, axs = place.freshfig(
         title, figsize=figsize, rel=True,
         **nRowCol(min(12, len(ZZ))),
@@ -125,7 +127,7 @@ def fields(plotter, ZZ,
             ax.set_ylabel(None)
 
     if colorbar:
-        fig_colorbar(fig, hh[0], ticks=cticks)
+        fig_colorbar(fig, hh[0], ticks=ticks)
 
     # fig.suptitle
     suptitle = ""
@@ -141,12 +143,12 @@ def fields(plotter, ZZ,
 
 # Colormap for saturation
 lin_cm = mpl.colors.LinearSegmentedColormap.from_list
-def ccnvrt(c): return np.array(mpl.colors.colorConverter.to_rgb(c))
+# def ccnvrt(c): return np.array(mpl.colors.colorConverter.to_rgb(c))
 
 
 # Plain:
-cOil   = "red"
-cWater = "blue"
+# cOil   = "red"
+# cWater = "blue"
 # Pastel/neon:
 # cWater = "#01a9b4"
 # cOil   = "#d8345f"
@@ -162,23 +164,15 @@ cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
 def oilfield(ax, wsat, **kwargs):
     lvls = np.linspace(0 - 1e-7, 1 + 1e-7, 20)
     return field(ax, 1-wsat, levels=lvls, cmap=cm_ow, **kwargs)
+oilfield.title = "Oil saturation"  # noqa
+oilfield.ticks = np.linspace(0, 1, 11)
 
 
 def corr_field(ax, corr, **kwargs):
     lvls = np.linspace(-1, 1, 20)
     return field(ax, corr, levels=lvls, cmap="bwr", **kwargs)
-
-
-def oilfields(wsats, title="", **kwargs):
-    title = dash("Oil saturation", title)
-    ticks = np.linspace(0, 1, 11)
-    return fields(oilfield, wsats, title, cticks=ticks, **kwargs)
-
-
-def corr_fields(corrs, title="", **kwargs):
-    title = dash("Correlations", title)
-    ticks = np.linspace(-1, 1, 11)
-    return fields(corr_field, corrs, title, cticks=ticks, **kwargs)
+corr_field.title = "Correlations"  # noqa
+corr_field.ticks = np.linspace(-1, 1, 11)
 
 
 def scale_well_geometry(ww):

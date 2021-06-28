@@ -77,6 +77,7 @@ from numpy import sqrt
 from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
 from IPython.display import display
+from ipywidgets import interact
 
 # The next cell imports the model and associate tools.
 
@@ -270,6 +271,8 @@ ax.grid(True, "major", axis="y")
 ax.set(xlabel="eigenvalue #", ylabel="variance");
 plt.pause(.1)
 
+# With our limited ensemble size, we see no clear cutoff index. In other words, we are not so fortunate that the prior is implicitly restricted to some subspace that is of lower rank than our ensemble. This is a very realistic situation, and indicates that localisation (implemented further below) will be very beneficial.
+
 # ## Assimilation
 
 # ### Exc (optional)
@@ -323,10 +326,9 @@ def forward_model(nTime, *args, desc="Ens. run"):
 
         return wsats, prods
 
-    # Compose ensemble. This a-priori packing/bundling is a technicality
+    # Compose ensemble. This packing/bundling is a technicality
     # necessary for the syntax of `map` (necessary for multiprocessing).
-    # Code help: zip(*) acts like matrix transposition.
-    E = zip(*args)
+    E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
     if multiprocess:
@@ -336,21 +338,21 @@ def forward_model(nTime, *args, desc="Ens. run"):
     else:
         Ef = list(progbar(map(forecast1, E), total=N, desc="Members"))
 
-    # Decompose (unpack) ensemble
+    # Transpose (to unpack)
     # Here we output everything, but really we need only emit
     # - The state at the final time, for restarts (predictions).
     # - The observations (for the assimilation update).
     # - The variables used for production optimisation
     #   (in this case the same as the obs, namely the production).
-    saturation, production = [np.array(x) for x in zip(*Ef)]
+    saturation, production = zip(*Ef)
 
-    return saturation, production
+    return np.array(saturation), np.array(production)
 
 # Note that the forward model not only takes an ensemble of permeability fields, but also an ensemble of initial water saturations. This is not because the initial saturations are uncertain (unknown); indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). Therefore, the initial water saturation is set to the true value for each member (giving it uncertainty 0).
 
 wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 
-# So why does the forward_model take saturation as an input? Because the posterior of this state (i.e. time-dependent) variable does depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
+# So why does the `forward_model` take saturation as an input? Because the posterior of this state (i.e. time-dependent) variable does depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
 
 # Now we run the forward model.
 
@@ -371,25 +373,41 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 #
 # In summary, it is useful to investigate the correlation relations of the ensemble, especially for the prior.
 
-# ##### Correlations `wsat`
-# As a sanity check, it is useful to plot the correlations vs. the saturation at the same time. The correlation should be maximal (1.00) at the location of the well. Let us verify this.
+# ##### Auto-correlation for `wsat`
+# First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times, centering on the green star, to verify that it lies on top of the well of that panel.
+
 iT = -1
-corrs = [tools.corr(wsat.past.Prior[:, iT], p) for p in prod.past.Prior[:, iT, :].T]
-fig, axs, _ = plots.corr_fields(corrs, f"Saturation vs. obs (time {iT}).")
+xx = wsat.past.Prior[:, iT]
+yy = prod.past.Prior[:, iT].T
+corrs = [tools.corr(xx, y) for y in yy]
+fig, axs, _ = plots.fields(plots.corr_field, corrs, f"Saturation vs. obs (time {iT})");
 # Add wells and maxima
 for i, (ax, well) in enumerate(zip(axs, model.producers)):
     plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
-    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*", label="max")
+    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*", ms=12, label="max")
 
 
-# ##### Correlations vs unknowns (pre-permeability)
-iT = -1
-corrs = [tools.corr(perm.Prior, p) for p in prod.past.Prior[:, iT, :].T]
-fig, axs, _ = plots.corr_fields(corrs, f"pre-perm vs. obs (time {iT}).")
-# Add wells
-for i, (ax, well) in enumerate(zip(axs, model.producers)):
-    plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
-    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*", label="max")
+# ##### Correlation vs unknowns (pre-permeability)
+# The following plots the correlation fields for the unknown field (pre-permeability) vs the productions at a given time. Use the interative slider below the plot to walk through time. Note that
+
+# - The variances in the initial productions (when the slider is all the way to the left) are zero, yielding nan's and blank plots.
+# - The maximum is not quite superimposed with the well in question.
+# - The correlation fields grow stronger in time. This is because it takes time for the permeability field to impact the flow at the well. TODO: improve reasoning.
+# - The opposite corner of a given well is anti-correlated with it. This makes sense, since larger permeability in the opposite corner to a well will subtract from its production.
+
+fig, axs, _ = plots.fields(plots.corr_field, corrs, "Pre-perm vs. obs.");  # Init fig
+#
+@interact(time_index=(0, nTime-1))
+def _plot(time_index=nTime//2):
+    xx = perm.Prior
+    yy = prod.past.Prior[:, time_index].T
+    with np.errstate(divide="ignore", invalid="ignore"):
+        corrs = [tools.corr(xx, y) for y in yy]
+        for i, (ax, corr, well) in enumerate(zip(axs, corrs, model.producers)):
+            ax.clear()
+            plots.corr_field(ax, corr)
+            plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
+            ax.plot(*model.ind2xy(corr.argmax()), "g*", ms=12, label="max")
 
 # ### Ensemble smoother
 
@@ -652,7 +670,7 @@ tools.RMS_all(perm, vs="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plots.fields(plots.field, perm_means, "Truth and means.");
+plots.fields(plots.field, perm_means);
 
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
@@ -705,25 +723,25 @@ tools.RMS_all(prod.past, vs="Noisy")
 #
 # Note that we must use the current saturation in the "restart" for the predictive simulations. Since the estimates of the current saturation depend on the assumed permeability field, these estimates are also "posterior", and depend on the conditioning method used. For convenience, we first extract the slice of the current saturation fields (which is really the only one we make use of among those of the past), and plot the mean fields.
 
-wsat.current = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
-wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.current.items()})
-plots.oilfields(wsat_means, "Truth and means.");
+wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
+wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
+plots.fields(plots.oilfield, wsat_means);
 
 # Now we predict.
 
 print("Future/prediction")
 
 (wsat.future.Truth,
- prod.future.Truth) = tools.repeat(model.step, nTime, wsat.current.Truth, dt, obs_model)
+ prod.future.Truth) = tools.repeat(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
 (wsat.future.Prior,
- prod.future.Prior) = forward_model(nTime, wsat.current.Prior, perm.Prior)
+ prod.future.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)
 
 (wsat.future.ES,
- prod.future.ES) = forward_model(nTime, wsat.current.ES, perm.ES)
+ prod.future.ES) = forward_model(nTime, wsat.curnt.ES, perm.ES)
 
 (wsat.future.IES,
- prod.future.IES) = forward_model(nTime, wsat.current.IES, perm.IES)
+ prod.future.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
 prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
 

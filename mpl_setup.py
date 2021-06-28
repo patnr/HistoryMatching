@@ -28,6 +28,8 @@ This worked both locally and on Colab. Refs:
 - https://stackoverflow.com/q/47138023
 - https://stackoverflow.com/a/36685236
 """
+import warnings
+
 import matplotlib as mpl
 import mpl_tools
 from matplotlib import pyplot as plt
@@ -35,6 +37,9 @@ from matplotlib import pyplot as plt
 
 def init():
     mpl.rcParams.update({'font.size': 10})
+
+    # Ignore warnings due to contour/nan
+    warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib.contour")
 
     if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")

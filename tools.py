@@ -45,7 +45,7 @@ def norm(xx):
 
 
 class RMS:
-    """Compute RMS error & dev."""
+    """Compute RMS error & dev of ensemble."""
 
     def __init__(self, truth, ensemble):
         mean = ensemble.mean(axis=0)

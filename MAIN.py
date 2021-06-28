@@ -521,13 +521,8 @@ def IES(ensemble, observations, obs_err_cov,
     N1 = N - 1
     Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
 
-    stats = Dict()
-    stats.J_lklhd  = np.full(nIter, np.nan)
-    stats.J_prior  = np.full(nIter, np.nan)
-    stats.J_postr  = np.full(nIter, np.nan)
-    stats.rmse     = np.full(nIter, np.nan)
-    stats.stepsize = np.full(nIter, np.nan)
-    stats.dw       = np.full(nIter, np.nan)
+    stats = Dict(dw=[], rmse=[], stepsize=[],
+                 obj=Dict(lklhd=[], prior=[], postr=[]))
 
     if bundle:
         if isinstance(bundle, bool):
@@ -548,7 +543,7 @@ def IES(ensemble, observations, obs_err_cov,
     for itr in range(nIter):
         # Reconstruct smoothed ensemble.
         E = x0 + (w + EPS*T)@X0
-        stats.rmse[itr] = tools.RMS(perm.Truth, E).rmse
+        stats.rmse += [tools.RMS(perm.Truth, E).rmse]
 
         # Forecast.
         E_state, E_obs = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
@@ -579,18 +574,12 @@ def IES(ensemble, observations, obs_err_cov,
         def Cowp(expo): return (V * (tools.pad0(s**2, N) + za)**-expo) @ V.T
 
         # TODO: NB: these stats are only valid for Sqrt
-        stat2 = Dict(
-            J_prior = w@w * N1,
-            J_lklhd = dy@dy,
-        )
-        # J_posterior is sum of the other two
-        stat2.J_postr = stat2.J_prior + stat2.J_lklhd
-        # Take root, insert for [itr]:
-        for name in stat2:
-            stats[name][itr] = sqrt(stat2[name])
+        stats.obj.prior += [w@w * N1]
+        stats.obj.lklhd += [dy@dy]
+        stats.obj.postr += [w@w * N1 + dy@dy]
 
         # Accept previous increment? ...
-        if (not MDA) and itr > 0 and stats.J_postr[itr] > np.nanmin(stats.J_postr):
+        if itr > 0 and stats.obj.postr[itr] > np.min(stats.obj.postr):
             # ... No. Restore previous ensemble & lower the stepsize (don't compute new increment).
             stepsize   /= 10
             w, T, Tinv  = old  # noqa
@@ -601,16 +590,14 @@ def IES(ensemble, observations, obs_err_cov,
             stepsize    = min(1, stepsize)
             dw, T, Tinv = iES_flavours(w, T, Y, Y0, dy, Cowp, za, N, nIter, itr, MDA, flavour)
 
-        stats.      dw[itr] = dw@dw / N
-        stats.stepsize[itr] = stepsize
+        stats.dw += [dw@dw / N]
+        stats.stepsize += [stepsize]
 
         # Step
         w = w + stepsize*dw
 
         if stepsize * np.sqrt(dw@dw/N) < wtol:
             break
-
-    stats.nIter = itr + 1
 
     if not MDA:
         # The last step (dw, T) must be discarded,
@@ -641,12 +628,9 @@ plots.fields(plots.field, perm.IES, "IES (posterior)");
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
 fig, ax = freshfig("IES Objective function")
-ls = dict(J_prior=":", J_lklhd="--", J_postr="-")
-for name, J in stats_IES.items():
-    try:
-        ax.plot(J, color="b", label=name.split("J_")[1], ls=ls[name])
-    except IndexError:
-        pass
+ls = [":", "--", "-"]
+for name, J in stats_IES.obj.items():
+    ax.plot(np.sqrt(J), color="b", ls=ls.pop(), label=name)
 ax.set_xlabel("iteration")
 ax.set_ylabel("RMS mismatch", color="b")
 ax.tick_params(axis='y', labelcolor="b")

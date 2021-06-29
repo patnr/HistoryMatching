@@ -275,19 +275,6 @@ plt.pause(.1)
 
 # ## Assimilation
 
-# ### Exc (optional)
-# Before going into iterative methods, we note that
-# the ensemble smoother (ES) is favoured over the ensemble Kalman smoother (EnKS) for history matching. This may come as a surprise, because the EnKS processes the observations sequentially, like the ensemble Kalman filter (EnKF), not in the batch manner of the ES. Because sequential processing is more gradual, one would expect it to achieve better accuracy than batch approaches. However, the ES is preferred because the uncertainty in the state fields is often of less importance than the uncertainty in the parameter fields. More imperatively, (re)starting the simulators (e.g. ECLIPSE) from updated state fields (as well as parameter fields) is a troublesome affair; the fields may have become "unphysical" (or "not realisable") because of the ensemble update, which may hinder the simulator from producing meaningful output (it may crash, or have trouble converging). On the other hand, by going back to the parameter fields before geological modelling (using fast model update (FMU)) tends to yield more realistic parameter fields. Finally, since restarts tend to yield convergence issues in the simulator the following inequality is usually large.
-#
-# $$
-# \begin{align}
-# 	\max_n \sum_{t}^{} T_t^n < \sum_{t}^{} \max_n T_t^n,
-# 	\label{eqn:max_sum_sum_max}
-# \end{align}
-# $$
-# skjervheim2011ensemble
-# Here, $T_t^n$
-
 # ### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
 
@@ -413,6 +400,16 @@ def _plot(time_index=nTime//2):
 # - The opposite corner of a given well is anti-correlated with it. This makes sense, since larger permeability in the opposite corner to a well will subtract from its production.
 
 # ### Ensemble smoother
+
+# #### Why smoothing?
+# Why do we only use smoothers (and not filters) for history matching?
+# When ensemble methods were first being used for history matching, it was
+# though that filtering, rather than smoothing, should be used.
+# Filters sequentially assimilate the time-series data,
+# running the model simulator in between each observation time,
+# (re)starting each step from saturation fields that
+# have been conditioned on all of the data up until that point.
+# Typically, the filters would be augmented with parameter fields (time-independent unknowns) as well. Either way, re-starting the simulator with ensemble-updated fields tends to be problematic, because the updated members might not be physically realistic and realisable, causing the simulator's solver to slow down or fail to converge. This issue is generally aggravated by not having run the simulator from time 0, since the linear updates provided by the ensemble will yield saturation fields that differ from those obtained by re-running the simulator. Therefore, updating the unknowns only once, using all of the observations, is far more convenient.
 
 class ES_update:
     """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.

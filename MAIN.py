@@ -463,6 +463,10 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 
 # ### Iterative ensemble smoother
 
+# def IES_analysis():
+#     """Compute the ensemble update given Eo."""
+
+
 def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     """Iterative ensemble smoother."""
     E = ensemble
@@ -487,7 +491,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         stat.rmse += [misc.RMS(perm.Truth, E).rmse]
 
         # Forecast.
-        _, Eo = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
+        _, Eo = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iter #{itr}")
         Eo = Eo.reshape((N, -1))
 
         # Prepare analysis.
@@ -495,7 +499,6 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         Y, xo  = center(Eo)         # Get anomalies, mean.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
         Y      = Y        @ Rm12T   # Transform obs space.
-        Y0     = Tinv @ Y           # "De-condition" the obs anomalies.
 
         # Diagnostics
         stat.obj.prior += [w@w * N1]
@@ -513,8 +516,11 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
             stepsize   *= 2
             stepsize    = min(1, stepsize)
 
+            # IES_analysis(Y, dy, W)
+
             # Compute update
-            V, s, UT = misc.svd0(Y0)
+            Y0       = Tinv @ Y               # "De-condition"
+            V, s, UT = misc.svd0(Y0)          # Decompose
             Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
             Cow1     = Cowp(-1.0)             # Posterior cov of w
             grad     = Y0@dy - w*(N-1)        # Cost function gradient

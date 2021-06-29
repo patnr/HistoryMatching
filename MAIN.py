@@ -504,15 +504,18 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
 
     # Init
-    stat = Dict(dW=[], rmse=[], stepsize=[],
+    stat = Dict(dw=[], rmse=[], stepsize=[],
                 obj=Dict(lklhd=[], prior=[], postr=[]))
 
     # Init ensemble decomposition.
-    X0, x0 = center(E)  # Decompose ensemble.
-    W      = np.eye(N)  # Ensemble coefficients (controls)
-    D      = misc.mean0(randn(N, len(y)))
+    X0, x0 = center(E)    # Decompose ensemble.
+    w      = np.zeros(N)  # Control vector for the mean state.
+    T      = np.eye(N)    # Anomalies transform matrix.
+    Tinv   = np.eye(N)
 
     for itr in range(nIter):
+        # Reconstruct smoothed ensemble.
+        E = x0 + (w + T)@X0
         # Compute rmse (vs. Truth)
         stat.rmse += [misc.RMS(perm.Truth, E).rmse]
 
@@ -526,27 +529,48 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         Y      = Y        @ Rm12T   # Transform obs space.
 
         # Diagnostics
-        stat.obj.prior += [misc.square_sum(N1*(np.eye(N) - W))]
-        stat.obj.lklhd += [misc.square_sum(dy - Y)]
+        stat.obj.prior += [w@w * N1]
+        stat.obj.lklhd += [dy@dy]
         stat.obj.postr += [stat.obj.prior[-1] + stat.obj.lklhd[-1]]
 
-        # Compute update
-        dW = IES_analysis(W, Y, dy, D)
+        reject_step = itr > 0 and stat.obj.postr[itr] > np.min(stat.obj.postr)
+        if reject_step:
+            # Restore prev. ensemble, lower stepsize
+            stepsize   /= 10
+            w, T, Tinv  = old  # noqa
+        else:
+            # Store current ensemble, boost stepsize
+            old         = w, T, Tinv
+            stepsize   *= 2
+            stepsize    = min(1, stepsize)
 
-        stat.dW += [stepsize*misc.square_sum(dW) / N**2]
+            # IES_analysis(Y, dy, W)
+
+            # Compute update
+            Y0       = Tinv @ Y               # "De-condition"
+            V, s, UT = misc.svd0(Y0)          # Decompose
+            Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
+            Cow1     = Cowp(-1.0)             # Posterior cov of w
+            grad     = Y0@dy - w*(N-1)        # Cost function gradient
+            dw       = grad@Cow1              # Gauss-Newton step
+            T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+            Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
+
+        stat.dw += [dw@dw / N]
         stat.stepsize += [stepsize]
 
-        if stat.dW[-1] < wtol:
+        # Step
+        w = w + stepsize*dw
+
+        if stepsize * np.sqrt(dw@dw/N) < wtol:
             break
 
-        # Step
-        W += dW
-        E = x0 + W@X0
-
-    # The last step must be discarded,
+    # The last step (dw, T) must be discarded,
     # because it cannot be validated without re-running the model.
-    # w, T, Tinv  = old
-    # E = x0 + (w+T)@X0
+    w, T, Tinv  = old
+
+    # Reconstruct the ensemble.
+    E = x0 + (w+T)@X0
 
     return E, stat
 
@@ -597,7 +621,7 @@ misc.RMS_all(perm, vs="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plots.fields(plots.field, perm_means);
+plots.fields(plots.field, perm_means, "Means");
 
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
@@ -651,7 +675,7 @@ misc.RMS_all(prod.past, vs="Noisy")
 
 wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
-plots.fields(plots.oilfield, wsat_means);
+plots.fields(plots.oilfield, wsat_means, "Means");
 
 # Now we predict.
 

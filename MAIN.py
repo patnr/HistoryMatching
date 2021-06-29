@@ -444,14 +444,24 @@ class ES_update:
         """Do the update."""
         return E + self.KGdY @ center(E)[0]
 
-# #### Update
+# #### Compute
+def ravel_time(x, undo=False):
+    """Ravel/flatten the last two axes, or undo this operation."""
+    if undo:
+        *N, ab = x.shape
+        return x.reshape(N + [nTime, ab//nTime])
+    else:
+        *N, a, b = x.shape
+        return x.reshape(N + [a*b])
+
+# Pre-compute
 ES = ES_update(
-    obs_ens      = prod.past.Prior.reshape((N, -1)),
-    observations = prod.past.Noisy.reshape(-1),
+    obs_ens      = ravel_time(prod.past.Prior),
+    observations = ravel_time(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
 )
 
-# Apply update
+# Apply
 perm.ES = ES(perm.Prior)
 
 # #### Plot ES
@@ -521,7 +531,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")
-        Eo = Eo.reshape((N, -1))
+        Eo = ravel_time(Eo)
 
         # Prepare analysis.
         Y, xo  = center(Eo)         # Get anomalies, mean.
@@ -579,7 +589,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 perm.IES, stats_IES = IES(
     ensemble     = perm.Prior,
-    observations = prod.past.Noisy.reshape(-1),
+    observations = ravel_time(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
     stepsize=1,
 )
@@ -634,16 +644,7 @@ plots.fields(plots.field, perm_means, "Means");
 
 # It is Bayesian(ally) consistent to apply the pre-computed ES gain to any un-conditioned ensemble, e.g. that of the prior's production predictions. This can be seen (by those familiar with that trick) by state augmentation. This provides another posterior approximation of the production history -- one which doesn't require running the model again (in contrast to what we did for `prod.past.(I)ES` immediately above). Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-def with_flattening(fun):
-    """Redefine `fun` so that it first flattens the input."""
-    def fun2(xx):
-        shape = xx.shape
-        xx = xx.reshape((shape[0], -1))
-        yy = fun(xx)
-        return yy.reshape(shape)
-    return fun2
-
-prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
+prod.past.ES0 = ravel_time(ES(ravel_time(prod.past.Prior)), undo=True)
 
 # #### Plot them all together:
 
@@ -693,7 +694,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = with_flattening(ES)(prod.futr.Prior)
+prod.futr.ES0 = ravel_time(ES(ravel_time(prod.futr.Prior)), undo=True)
 
 # ### Diagnostics
 

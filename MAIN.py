@@ -683,6 +683,7 @@ misc.RMS_all(prod.futr, vs="Truth")
 
 
 # ## Robust optimisation
+# NB: This section is very unfinished, and should not be seen as a reference.
 
 # This section uses EnOpt to optimise the controls: the relative rates of production of the wells (again, for simplicity, these will be constant in time).
 

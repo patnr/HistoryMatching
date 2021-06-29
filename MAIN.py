@@ -476,18 +476,17 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 # #### Why iterate?
 # Because of the non-linearity of the forward model.
 
-def IES_analysis(w, T, Tinv, Y, dy):
+def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
     N = len(Y)
-    Y0       = Tinv @ Y               # "De-condition"
+    Y0       = sla.pinv(T) @ Y        # "De-condition"
     V, s, UT = misc.svd0(Y0)          # Decompose
     Cowp     = misc.pows(V, misc.pad0(s**2, N) + N-1)
     Cow1     = Cowp(-1.0)             # Posterior cov of w
     grad     = Y0@dy - w*(N-1)        # Cost function gradient
     dw       = grad@Cow1              # Gauss-Newton step
     T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
-    Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
-    return dw, T, Tinv
+    return dw, T
 
 
 def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
@@ -506,7 +505,6 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     X0, x0 = center(E)    # Decompose ensemble.
     w      = np.zeros(N)  # Control vector for the mean state.
     T      = np.eye(N)    # Anomalies transform matrix.
-    Tinv   = np.eye(N)
 
     for itr in range(nIter):
         # Reconstruct smoothed ensemble.
@@ -532,14 +530,14 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         if reject_step:
             # Restore prev. ensemble, lower stepsize
             stepsize   /= 10
-            w, T, Tinv  = old  # noqa
+            w, T        = old  # noqa
         else:
             # Store current ensemble, boost stepsize
-            old         = w, T, Tinv
+            old         = w, T
             stepsize   *= 2
             stepsize    = min(1, stepsize)
 
-            dw, T, Tinv = IES_analysis(w, T, Tinv, Y, dy)
+            dw, T = IES_analysis(w, T, Y, dy)
 
         stat.dw += [dw@dw / N]
         stat.stepsize += [stepsize]
@@ -552,7 +550,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     # The last step (dw, T) must be discarded,
     # because it cannot be validated without re-running the model.
-    w, T, Tinv  = old
+    w, T        = old
 
     # Reconstruct the ensemble.
     E = x0 + (w+T)@X0

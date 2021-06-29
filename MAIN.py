@@ -507,8 +507,6 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     T      = np.eye(N)    # Anomalies transform matrix.
 
     for itr in range(nIter):
-        # Reconstruct smoothed ensemble.
-        E = x0 + (w + T)@X0
         # Compute rmse (vs. Truth)
         stat.rmse += [misc.RMS(perm.Truth, E).rmse]
 
@@ -544,15 +542,14 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
         # Step
         w = w + stepsize*dw
+        E = x0 + (w + T)@X0
 
         if stepsize * np.sqrt(dw@dw/N) < wtol:
             break
 
-    # The last step (dw, T) must be discarded,
+    # The last step must be discarded,
     # because it cannot be validated without re-running the model.
-    w, T        = old
-
-    # Reconstruct the ensemble.
+    w, T = old
     E = x0 + (w+T)@X0
 
     return E, stat

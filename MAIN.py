@@ -298,11 +298,11 @@ def forward_model(nTime, *args, desc=""):
         model_n = deepcopy(model)
 
         # Unpack/unbundle variables
-        wsat0, perm, *q_prod = estimable
+        wsat0, perm, *rates = estimable
 
         # If provided: set production rates
-        if q_prod:
-            model_n.producers[:, 2] = q_prod[0]
+        if rates:
+            model_n.producers[:, 2] = rates[0]
             model_n.config_wells(model_n.injectors, model_n.producers, remap=False)
 
         # Set permeabilities
@@ -445,6 +445,8 @@ class ES_update:
         return E + self.KGdY @ center(E)[0]
 
 # #### Compute
+
+# +
 def ravel_time(x, undo=False):
     """Ravel/flatten the last two axes, or undo this operation."""
     if undo:
@@ -460,6 +462,7 @@ ES = ES_update(
     observations = ravel_time(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
 )
+# -
 
 # Apply
 perm.ES = ES(perm.Prior)
@@ -683,14 +686,14 @@ misc.RMS_all(prod.futr, vs="Truth")
 
 # This section uses EnOpt to optimise the controls: the relative rates of production of the wells (again, for simplicity, these will be constant in time).
 
-# Cost function definition: total oil from production wells. This cost function takes for an ensemble of (wsat, perm) and controls (Q_prod) and outputs the corresponding ensemble of total oil productions.
+# Ojective function definition: total oil from production wells. This objective function takes an ensemble (`*E`) of unknowns (`wsat, perm`) and controls (`rates`) and outputs the corresponding ensemble of total oil productions.
 
-def total_oil(E, Eu):
-    wsat, perm = E
-    wsat, prod = forward_model(nTime, wsat, perm, Eu)
+def total_oil(E, rates):
+    # bounded = np.all((0 < rates) & (rates < 1), axis=1)
+    wsat, prod = forward_model(nTime, *E, rates)
     return np.sum(prod, axis=(1, 2))
 
-# Define step modulator by adding momentum to vanilla gradient descent.
+# Define step modifier to improve on "vanilla" gradient descent.
 
 def GDM(beta1=0.9):
     """Gradient descent with (historical) momentum."""
@@ -708,22 +711,22 @@ def GDM(beta1=0.9):
 
 # Define EnOpt
 
-def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
-    N = len(wsats0)
-    E = wsats0, perms
-
+def EnOpt(obj, E, ctrls, C12, stepsize=1, nIter=10):
+    N = len(E[0])
     stepper = GDM()
 
-    print("Initial controls:", u)
-    J = total_oil(E, np.tile(u, (N, 1))).mean()
-    print("Total oil, averaged, initial: %.3f" % J)
+    # Diagnostics
+    print("Initial controls:", ctrls)
+    repeated = np.tile(ctrls, (N, 1))
+    J = obj(E, repeated).mean()
+    print("Total oil (mean) for initial guess: %.3f" % J)
 
     for _itr in progbar(range(nIter), desc="EnOpt"):
-        Eu = u + randn(N, len(u)) @ C12.T
+        Eu = ctrls + randn(N, len(ctrls)) @ C12.T
         Eu = Eu.clip(1e-5)
 
-        Ej = total_oil(E, Eu)
-        # print("Approx. total oil, average: %.3f"%Ej.mean())
+        Ej = obj(E, Eu)
+        # print("Total oil (mean): %.3f"%Ej.mean())
 
         Xu = center(Eu)[0]
         Xj = center(Ej)[0]
@@ -731,22 +734,27 @@ def EnOpt(wsats0, perms, u, C12, stepsize=1, nIter=10):
         G  = Xj.T @ Xu / (N-1)
 
         du = stepper(G)
-        u  = u + stepsize*du
-        u  = u.clip(1e-5)
+        ctrls  = ctrls + stepsize*du
+        ctrls  = ctrls.clip(1e-5)
 
-    print("Final controls:", u)
-    J = total_oil(E, np.tile(u, (N, 1))).mean()
-    print("Total oil, averaged, final: %.3f" % J)
-    return u
+    # Diagnostics
+    print("Final controls:", ctrls)
+    repeated = np.tile(ctrls, (N, 1))
+    J = obj(E, repeated).mean()
+    print("Total oil (mean) after optimisation: %.3f" % J)
+
+    return ctrls
 
 # Run EnOpt
 
-# u0  = model.producers[:, 2]
-u0  = np.random.rand(nProd)
-u0 /= sum(u0)
-C12 = 0.03 * np.eye(nProd)
-u   = EnOpt(wsat.past.ES[:, -1, :], perm.ES, u0, C12, stepsize=10)
-# u   = EnOpt(wsat.past.IES[:, -1, :], perm.IES, u0, C12, stepsize=10)
+np.random.seed(3)
+# ctrls0  = model.producers[:, 2]
+ctrls0  = np.random.rand(nProd)
+ctrls0 /= sum(ctrls0)
+C12     = 0.03 * np.eye(nProd)
+E       = wsat.curnt.ES, perm.ES
+# E       = wsat.curnt.IES, perm.IES
+ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 
 
 # ### Final comments

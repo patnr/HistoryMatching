@@ -24,7 +24,6 @@ from scipy.sparse.linalg import spsolve
 from struct_tools import DotDict, NicePrint
 
 from simulator.grid import Grid2D
-from tools import repeat
 
 # TODO
 # - Protect Nx, Ny, shape, etc?
@@ -226,10 +225,11 @@ class ResSim(NicePrint, Grid2D):
 
 # Example run
 if __name__ == '__main__':
+    from geostat import gaussian_fields
     from matplotlib import pyplot as plt
 
     import simulator.plotting as plots
-    from geostat import gaussian_fields
+    from tools.misc import repeat
 
     model = ResSim(Lx=1, Ly=1, Nx=20, Ny=20)
     plots.model = model

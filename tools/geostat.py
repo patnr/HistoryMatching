@@ -6,9 +6,6 @@ from matplotlib import pyplot as plt
 from mpl_tools.place import freshfig
 from numpy.random import randn
 
-from simulator import plotting as plots
-from simulator.grid import Grid2D
-
 
 def variogram_gauss(xx, r, n=0, a=1/3):
     """Compute the Gaussian variogram for the 1D points xx.
@@ -70,6 +67,9 @@ def gaussian_fields(pts, N=1, r=0.2):
 
 
 if __name__ == "__main__":
+    from simulator import plotting as plots
+    from simulator.grid import Grid2D
+
     np.random.seed(3000)
     plt.ion()
     N = 15  # ensemble size
@@ -81,8 +81,9 @@ if __name__ == "__main__":
     ax.plot(xx, fields.T, lw=2)
 
     ## 2D
-    grid   = Grid2D(Lx=1, Ly=1, Nx=20, Ny=20)
+    grid = Grid2D(Lx=1, Ly=1, Nx=20, Ny=20)
+    plots.model = grid
     fields = gaussian_fields(grid.mesh(), N)
     fields = 0.5 + .2*fields
     # fields = truncate_01(fields)
-    plots.oilfields(grid, 2, fields)
+    plots.fields(plots.field, fields)

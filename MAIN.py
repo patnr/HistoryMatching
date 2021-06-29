@@ -36,7 +36,7 @@ print("Hello world! I'm " + name)
 
 import numpy as np
 from matplotlib import pyplot as plt
-import mpl_setup
+from tools import mpl_setup
 mpl_setup.init()
 
 # Use numpy's arrays for vectors and matrices. Example constructions:
@@ -81,11 +81,10 @@ from ipywidgets import interact
 
 # The next cell imports the model and associate tools.
 
-import geostat
 import simulator
 import simulator.plotting as plots
-import tools
-from tools import center
+from tools import geostat, misc
+from tools.misc import center
 
 # The following declares some data containers to help us keep organised.
 
@@ -197,7 +196,7 @@ T     = 1
 dt    = 0.025
 nTime = round(T/dt)
 (wsat.past.Truth,
- prod.past.Truth) = tools.repeat(model.step, nTime, wsat.initial.Truth, dt, obs_model)
+ prod.past.Truth) = misc.repeat(model.step, nTime, wsat.initial.Truth, dt, obs_model)
 
 # ##### Animation
 # Run the code cells below to get an animation of the oil saturation evolution. Injection (resp. production) wells are marked with triangles pointing down (resp. up).
@@ -321,7 +320,7 @@ def forward_model(nTime, *args, desc="Ens. run"):
         set_perm(model_n, perm)
 
         # Run simulator
-        wsats, prods = tools.repeat(
+        wsats, prods = misc.repeat(
             model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
 
         return wsats, prods
@@ -379,7 +378,7 @@ wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
 iT = -1
 xx = wsat.past.Prior[:, iT]
 yy = prod.past.Prior[:, iT].T
-corrs = [tools.corr(xx, y) for y in yy]
+corrs = [misc.corr(xx, y) for y in yy]
 fig, axs, _ = plots.fields(plots.corr_field, corrs, f"Saturation vs. obs (time {iT})");
 # Add wells and maxima
 for i, (ax, well) in enumerate(zip(axs, model.producers)):
@@ -397,7 +396,7 @@ def _plot(time_index=nTime//2):
     xx = perm.Prior
     yy = prod.past.Prior[:, time_index].T
     with np.errstate(divide="ignore", invalid="ignore"):
-        corrs = [tools.corr(xx, y) for y in yy]
+        corrs = [misc.corr(xx, y) for y in yy]
         for i, (ax, corr, well) in enumerate(zip(axs, corrs, model.producers)):
             ax.clear()
             plots.corr_field(ax, corr)
@@ -485,7 +484,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         # Reconstruct smoothed ensemble.
         E = x0 + (w + T)@X0
         # Compute rmse (vs. Truth)
-        stat.rmse += [tools.RMS(perm.Truth, E).rmse]
+        stat.rmse += [misc.RMS(perm.Truth, E).rmse]
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iteration {itr}")
@@ -515,8 +514,8 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
             stepsize    = min(1, stepsize)
 
             # Compute update
-            V, s, UT = tools.svd0(Y0)
-            Cowp     = tools.pows(V, tools.pad0(s**2, N) + N1)
+            V, s, UT = misc.svd0(Y0)
+            Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
             Cow1     = Cowp(-1.0)             # Posterior cov of w
             grad     = Y0@dy - w*(N-1)        # Cost function gradient
             dw       = grad@Cow1              # Gauss-Newton step
@@ -579,7 +578,7 @@ plt.pause(.1)
 # #### RMS summary
 
 print("Stats vs. true field")
-tools.RMS_all(perm, vs="Truth")
+misc.RMS_all(perm, vs="Truth")
 
 # #### Plot of means
 # Let's plot mean fields.
@@ -621,7 +620,7 @@ display(v)
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)")
-tools.RMS_all(prod.past, vs="Noisy")
+misc.RMS_all(prod.past, vs="Noisy")
 
 # Note that the data mismatch is significantly reduced. This may be the case even if the updated permeability field did not have a reduced rmse (overall, relative to that of the prior prior). The "direct" forecast (essentially just linear regression) may achieve even lower rmse, but generally, less realistic production plots.
 
@@ -650,7 +649,7 @@ plots.fields(plots.oilfield, wsat_means);
 print("Future/prediction")
 
 (wsat.future.Truth,
- prod.future.Truth) = tools.repeat(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
+ prod.future.Truth) = misc.repeat(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
 (wsat.future.Prior,
  prod.future.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)
@@ -673,7 +672,7 @@ display(v)
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production")
-tools.RMS_all(prod.future, vs="Truth")
+misc.RMS_all(prod.future, vs="Truth")
 
 # ## Robust optimisation
 

@@ -278,7 +278,8 @@ plt.pause(.1)
 # ### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
 
-multiprocess = True  # multiprocessing?
+# Set False/True, or to the (int) number of CPU cores to use
+multiprocess = True
 
 def forward_model(nTime, *args, desc=""):
     """Create the (composite) forward model, i.e. forecast. Supports ensemble input.
@@ -321,7 +322,7 @@ def forward_model(nTime, *args, desc=""):
     desc = plots.dash("Ens.simul.", desc)
     if multiprocess:
         import multiprocessing_on_dill as mpd
-        with mpd.Pool() as pool:
+        with mpd.Pool(max(multiprocess, True)) as pool:
             Ef = list(progbar(pool.imap(forecast1, E), desc, N))
     else:
         Ef = list(progbar(map(forecast1, E), desc, N))

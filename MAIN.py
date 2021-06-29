@@ -466,25 +466,32 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 # #### Why iterate?
 # Because of the non-linearity of the forward model.
 
-def IES_analysis(W, Y, dy):
+def IES_analysis(W, Y, dy, D):
     """Compute the ensemble update given Eo."""
     N = len(Y)
 
-    T, w = center(W)
-    w -= w.mean()
-    T += np.ones((N, N))/N
-    Tinv = sla.pinv(T)
+    # T, w = center(W)
+    # w -= w.mean()
+    # T += np.ones((N, N))/N
+    # Tinv = sla.pinv(T)
 
+    Tinv     = misc.center(sla.pinv(W))[0]
     Y0       = Tinv @ Y               # "De-condition"
     V, s, UT = misc.svd0(Y0)          # Decompose
     Cowp     = misc.pows(V, misc.pad0(s**2, N) + N-1)
     Cow1     = Cowp(-1.0)             # Posterior cov of w
-    grad     = Y0@dy - w*(N-1)        # Cost function gradient
-    dw       = grad@Cow1              # Gauss-Newton step
-    T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
-    # Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
 
-    dW = (T + w + dw) - W
+    # grad     = Y0@dy - w*(N-1)        # Cost function gradient
+    # dw       = grad@Cow1              # Gauss-Newton step
+    # T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+    # # Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
+    # dW = (T + w + dw) - W
+
+    dPrior = (N-1)*(np.eye(N) - W)
+    dLklhd = (dy + D - Y) @ Y0.T
+
+    dW = (dPrior + dLklhd) @ Cow1
+
     return dW
 
 
@@ -503,6 +510,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     # Init ensemble decomposition.
     X0, x0 = center(E)  # Decompose ensemble.
     W      = np.eye(N)  # Ensemble coefficients (controls)
+    D      = misc.mean0(randn(N, len(y)))
 
     for itr in range(nIter):
         # Compute rmse (vs. Truth)
@@ -523,7 +531,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         stat.obj.postr += [stat.obj.prior[-1] + stat.obj.lklhd[-1]]
 
         # Compute update
-        dW = IES_analysis(W, Y, dy)
+        dW = IES_analysis(W, Y, dy, D)
 
         stat.dW += [stepsize*misc.square_sum(dW) / N**2]
         stat.stepsize += [stepsize]
@@ -561,9 +569,9 @@ plots.fields(plots.field, perm.IES, "IES (posterior)");
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
 fig, ax = freshfig("IES Objective function")
-ls = [":", "--", "-"]
+ls = dict(postr="-", prior=":", lklhd="--")
 for name, J in stats_IES.obj.items():
-    ax.plot(np.sqrt(J), color="b", ls=ls.pop(), label=name)
+    ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
 ax.set_xlabel("iteration")
 ax.set_ylabel("RMS mismatch", color="b")
 ax.tick_params(axis='y', labelcolor="b")

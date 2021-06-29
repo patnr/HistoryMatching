@@ -39,6 +39,10 @@ def repeat(model_step, nSteps, x0, dt, obs_model=None, pbar=True, **kwargs):
         return xx
 
 
+def square_sum(X):
+    return np.sum(X*X)
+
+
 def norm(xx):
     # return nla.norm(xx/xx.size)
     return np.sqrt(np.mean(xx * xx))

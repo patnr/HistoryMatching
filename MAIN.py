@@ -463,25 +463,46 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 
 # ### Iterative ensemble smoother
 
-# def IES_analysis():
-#     """Compute the ensemble update given Eo."""
+# #### Why iterate?
+# Because of the non-linearity of the forward model.
+
+def IES_analysis(W, Y, dy):
+    """Compute the ensemble update given Eo."""
+    N = len(Y)
+
+    T, w = center(W)
+    w -= w.mean()
+    T += np.ones((N, N))/N
+    Tinv = sla.pinv(T)
+
+    Y0       = Tinv @ Y               # "De-condition"
+    V, s, UT = misc.svd0(Y0)          # Decompose
+    Cowp     = misc.pows(V, misc.pad0(s**2, N) + N-1)
+    Cow1     = Cowp(-1.0)             # Posterior cov of w
+    grad     = Y0@dy - w*(N-1)        # Cost function gradient
+    dw       = grad@Cow1              # Gauss-Newton step
+    T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+    # Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
+
+    dW = (T + w + dw) - W
+    return dW
 
 
 def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     """Iterative ensemble smoother."""
     E = ensemble
+    y = observations
     N = len(E)
     N1 = N - 1
     Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
 
     # Init
-    stat = Dict(dw=[], rmse=[], stepsize=[],
+    stat = Dict(dW=[], rmse=[], stepsize=[],
                 obj=Dict(lklhd=[], prior=[], postr=[]))
 
     # Init ensemble decomposition.
-    X0, x0 = center(E)    # Decompose ensemble.
-    W      = np.eye(N)    # Ens. coefficients
-    D      = misc.mean0(randn(N, len(observations)))
+    X0, x0 = center(E)  # Decompose ensemble.
+    W      = np.eye(N)  # Ensemble coefficients (controls)
 
     for itr in range(nIter):
         # Compute rmse (vs. Truth)
@@ -492,44 +513,32 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         Eo = Eo.reshape((N, -1))
 
         # Prepare analysis.
-        y      = observations       # Current obs.
         Y, xo  = center(Eo)         # Get anomalies, mean.
         dy     = (y - xo) @ Rm12T   # Transform obs space.
         Y      = Y        @ Rm12T   # Transform obs space.
 
         # Diagnostics
-        T, w = center(W)
-        w -= w.mean()
-        stat.obj.prior += [w@w * N1]
-        stat.obj.lklhd += [dy@dy]
-        stat.obj.postr += [w@w * N1 + dy@dy]
+        stat.obj.prior += [misc.square_sum(N1*(np.eye(N) - W))]
+        stat.obj.lklhd += [misc.square_sum(dy - Y)]
+        stat.obj.postr += [stat.obj.prior[-1] + stat.obj.lklhd[-1]]
 
         # Compute update
-        Tinv     = center(sla.pinv(W))[0]
-        Y0       = Tinv @ Y               # "De-condition"
-        V, s, UT = misc.svd0(Y0)          # Decompose
-        Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
-        Cow1     = Cowp(-1.0)             # Posterior cov of w
+        dW = IES_analysis(W, Y, dy)
 
-        dPrior = N1*(np.eye(N) - W)
-        dLklhd = (dy + D - Y) @ Y0.T
-        dW     = (dPrior + dLklhd) @ Cow1
+        stat.dW += [stepsize*misc.square_sum(dW) / N**2]
+        stat.stepsize += [stepsize]
 
-        dT, dw = center(dW)
-        stat.dw += [dw@dw / N]
-        # stat.stepsize += [stepsize]
+        if stat.dW[-1] < wtol:
+            break
 
         # Step
-        W += W + stepsize*dW
+        W += dW
         E = x0 + W@X0
-
-        if stepsize * np.sqrt(dw@dw/N) < wtol:
-            break
 
     # The last step must be discarded,
     # because it cannot be validated without re-running the model.
-    # W = old
-    # E = x0 + W@X0
+    # w, T, Tinv  = old
+    # E = x0 + (w+T)@X0
 
     return E, stat
 

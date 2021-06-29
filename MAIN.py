@@ -87,6 +87,8 @@ from tools import geostat, misc
 from tools.misc import center
 
 # The following declares some data containers to help us keep organised.
+# The names have all been shortened to 4 characters, but this is just
+# to obtain more convenient code alignment for readability.
 
 # +
 # Permeability
@@ -94,15 +96,15 @@ perm = Dict()
 
 # Production
 prod = Dict(
-    past   = Dict(),
-    future = Dict(),
+    past = Dict(),
+    futr = Dict(),
 )
 
 # Water saturation
 wsat = Dict(
-    initial = Dict(),
-    past    = Dict(),
-    future  = Dict(),
+    init = Dict(),
+    past = Dict(),
+    futr = Dict(),
 )
 # -
 
@@ -116,7 +118,7 @@ seed = np.random.seed(4)  # very easy
 # seed = np.random.seed(7)  # easy
 
 # ## Model and case specification
-# The reservoir model, which takes up about 100 lines of python code, is outrageously simple, serving the purpose of *illustrating* the history matching process. The model is a 2D, two-phase, immiscible, incompressible simulator using TPFA discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# The reservoir model takes up about 100 lines of python code. This may seem borderline too simple, but serves the purpose of *illustrating* the main features of the history matching process. The model is a 2D, two-phase, immiscible, incompressible simulator using TPFA discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
@@ -191,12 +193,12 @@ def obs_model(water_sat):
 
 # #### Simulation to generate the synthetic truth evolution and data
 
-wsat.initial.Truth = np.zeros(model.M)
+wsat.init.Truth = np.zeros(model.M)
 T     = 1
 dt    = 0.025
 nTime = round(T/dt)
 (wsat.past.Truth,
- prod.past.Truth) = misc.repeat(model.step, nTime, wsat.initial.Truth, dt, obs_model)
+ prod.past.Truth) = misc.repeat(model.step, nTime, wsat.init.Truth, dt, obs_model)
 
 # ##### Animation
 # Run the code cells below to get an animation of the oil saturation evolution. Injection (resp. production) wells are marked with triangles pointing down (resp. up).
@@ -226,7 +228,6 @@ plt.pause(.1)
 
 # ## Prior
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the same mean and covariance.  Thus, the members are "statistically indistinguishable" to the truth. This assumption underlies ensemble methods.
-
 N = 200
 perm.Prior = sample_prior_perm(N)
 
@@ -290,7 +291,7 @@ plt.pause(.1)
 # ### Propagation
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
 
-multiprocess = False  # multiprocessing?
+multiprocess = True  # multiprocessing?
 
 def forward_model(nTime, *args, desc=""):
     """Create the (composite) forward model, i.e. forecast. Supports ensemble input.
@@ -330,7 +331,7 @@ def forward_model(nTime, *args, desc=""):
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
-    desc = plots.dash("En-simul", desc)
+    desc = plots.dash("Ens.simul.", desc)
     if multiprocess:
         import multiprocessing_on_dill as mpd
         with mpd.Pool() as pool:
@@ -348,16 +349,16 @@ def forward_model(nTime, *args, desc=""):
 
     return np.array(saturation), np.array(production)
 
-# Note that the forward model not only takes an ensemble of permeability fields, but also an ensemble of initial water saturations. This is not because the initial saturations are uncertain (unknown); indeed, this case study assumes that it is perfectly known (i.e. equal to the true initial water saturation, which is a constant field of 0). Therefore, the initial water saturation is set to the true value for each member (giving it uncertainty 0).
+# Note that the forward model not only takes an ensemble of permeability fields, but also an ensemble of initial water saturations. This is not because the initial saturations are uncertain (unknown); indeed, this here case study assumes that it is perfectly known, and equal to the true initial water saturation (a constant field of 0). Therefore, the initial water saturation is set to the true value for each member (giving it uncertainty 0).
 
-wsat.initial.Prior = np.tile(wsat.initial.Truth, (N, 1))
+wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
-# So why does the `forward_model` take saturation as an input? Because the posterior of this state (i.e. time-dependent) variable does depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
+# But why does `forward_model` have saturation as an input and output? Because the posterior of this state (i.e. time-dependent, prognostic) variable *does* depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
 
 # Now we run the forward model.
 
 (wsat.past.Prior,
- prod.past.Prior) = forward_model(nTime, wsat.initial.Prior, perm.Prior)
+ prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
 # ### Localisation
 # Localisation invervenes to fix-up the estimated correlations before they are used. It is a method of injecting prior information (distant points are likely not strongly codependent) that is not *encoded* in the ensemble (usually due to their finite size). Defining an effective localisation mask or tapering function can be a difficult task.
@@ -481,18 +482,15 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     # Init ensemble decomposition.
     X0, x0 = center(E)    # Decompose ensemble.
-    w      = np.zeros(N)  # Control vector for the mean state.
-    T      = np.eye(N)    # Anomalies transform matrix.
-    Tinv   = np.eye(N)
+    W      = np.eye(N)    # Ens. coefficients
+    D      = misc.mean0(randn(N, len(observations)))
 
     for itr in range(nIter):
-        # Reconstruct smoothed ensemble.
-        E = x0 + (w + T)@X0
         # Compute rmse (vs. Truth)
         stat.rmse += [misc.RMS(perm.Truth, E).rmse]
 
         # Forecast.
-        _, Eo = forward_model(nTime, wsat.initial.Prior, E, desc=f"Iter #{itr}")
+        _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")
         Eo = Eo.reshape((N, -1))
 
         # Prepare analysis.
@@ -502,48 +500,38 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         Y      = Y        @ Rm12T   # Transform obs space.
 
         # Diagnostics
+        T, w = center(W)
+        w -= w.mean()
         stat.obj.prior += [w@w * N1]
         stat.obj.lklhd += [dy@dy]
         stat.obj.postr += [w@w * N1 + dy@dy]
 
-        reject_step = itr > 0 and stat.obj.postr[itr] > np.min(stat.obj.postr)
-        if reject_step:
-            # Restore prev. ensemble, lower stepsize
-            stepsize   /= 10
-            w, T, Tinv  = old  # noqa
-        else:
-            # Store current ensemble, boost stepsize
-            old         = w, T, Tinv
-            stepsize   *= 2
-            stepsize    = min(1, stepsize)
+        # Compute update
+        Tinv     = center(sla.pinv(W))[0]
+        Y0       = Tinv @ Y               # "De-condition"
+        V, s, UT = misc.svd0(Y0)          # Decompose
+        Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
+        Cow1     = Cowp(-1.0)             # Posterior cov of w
 
-            # IES_analysis(Y, dy, W)
+        dPrior = N1*(np.eye(N) - W)
+        dLklhd = (dy + D - Y) @ Y0.T
+        dW     = (dPrior + dLklhd) @ Cow1
 
-            # Compute update
-            Y0       = Tinv @ Y               # "De-condition"
-            V, s, UT = misc.svd0(Y0)          # Decompose
-            Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
-            Cow1     = Cowp(-1.0)             # Posterior cov of w
-            grad     = Y0@dy - w*(N-1)        # Cost function gradient
-            dw       = grad@Cow1              # Gauss-Newton step
-            T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
-            Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
-
+        dT, dw = center(dW)
         stat.dw += [dw@dw / N]
-        stat.stepsize += [stepsize]
+        # stat.stepsize += [stepsize]
 
         # Step
-        w = w + stepsize*dw
+        W += W + stepsize*dW
+        E = x0 + W@X0
 
         if stepsize * np.sqrt(dw@dw/N) < wtol:
             break
 
-    # The last step (dw, T) must be discarded,
+    # The last step must be discarded,
     # because it cannot be validated without re-running the model.
-    w, T, Tinv  = old
-
-    # Reconstruct the ensemble.
-    E = x0 + (w+T)@X0
+    # W = old
+    # E = x0 + W@X0
 
     return E, stat
 
@@ -600,12 +588,12 @@ plots.fields(plots.field, perm_means);
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
 
 (wsat.past.ES,
- prod.past.ES) = forward_model(nTime, wsat.initial.Prior, perm.ES)
+ prod.past.ES) = forward_model(nTime, wsat.init.Prior, perm.ES)
 
 (wsat.past.IES,
- prod.past.IES) = forward_model(nTime, wsat.initial.Prior, perm.IES)
+ prod.past.IES) = forward_model(nTime, wsat.init.Prior, perm.IES)
 
-# We can also apply the ES update directly to the production data of the prior, which doesn't require running the model again (in contrast to what we had to do immediately above). Let us try that as well.
+# It is Bayesian(ally) consistent to apply the pre-computed ES gain to any un-conditioned ensemble, e.g. that of the prior's production predictions. This provides another posterior approximation of the production history -- one which doesn't require running the model again (in contrast to what we did for `prod.past.(I)ES` immediately above). Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
 def with_flattening(fun):
     """Redefine `fun` so that it first flattens the input."""
@@ -617,7 +605,6 @@ def with_flattening(fun):
     return fun2
 
 prod.past.ES0 = with_flattening(ES)(prod.past.Prior)
-
 
 # #### Plot them all together:
 
@@ -655,31 +642,32 @@ plots.fields(plots.oilfield, wsat_means);
 
 print("Future/prediction")
 
-(wsat.future.Truth,
- prod.future.Truth) = misc.repeat(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
+(wsat.futr.Truth,
+ prod.futr.Truth) = misc.repeat(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
-(wsat.future.Prior,
- prod.future.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)
+(wsat.futr.Prior,
+ prod.futr.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)
 
-(wsat.future.ES,
- prod.future.ES) = forward_model(nTime, wsat.curnt.ES, perm.ES)
+(wsat.futr.ES,
+ prod.futr.ES) = forward_model(nTime, wsat.curnt.ES, perm.ES)
 
-(wsat.future.IES,
- prod.future.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
+(wsat.futr.IES,
+ prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.future.ES0 = with_flattening(ES)(prod.future.Prior)
+prod.futr.ES0 = with_flattening(ES)(prod.futr.Prior)
 
 # ### Diagnostics
 
 # #### Plot future production
 
-v = plots.productions(prod.future, "Future");
+v = plots.productions(prod.futr, "Future");
 display(v)
 
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production")
-misc.RMS_all(prod.future, vs="Truth")
+misc.RMS_all(prod.futr, vs="Truth")
+
 
 # ## Robust optimisation
 

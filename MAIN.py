@@ -476,33 +476,18 @@ plots.fields(plots.field, perm.ES, "ES (posterior)");
 # #### Why iterate?
 # Because of the non-linearity of the forward model.
 
-def IES_analysis(W, Y, dy, D):
-    """Compute the ensemble update given Eo."""
+def IES_analysis(w, T, Tinv, Y, dy):
+    """Compute the ensemble analysis."""
     N = len(Y)
-
-    # T, w = center(W)
-    # w -= w.mean()
-    # T += np.ones((N, N))/N
-    # Tinv = sla.pinv(T)
-
-    Tinv     = misc.center(sla.pinv(W))[0]
     Y0       = Tinv @ Y               # "De-condition"
     V, s, UT = misc.svd0(Y0)          # Decompose
     Cowp     = misc.pows(V, misc.pad0(s**2, N) + N-1)
     Cow1     = Cowp(-1.0)             # Posterior cov of w
-
-    # grad     = Y0@dy - w*(N-1)        # Cost function gradient
-    # dw       = grad@Cow1              # Gauss-Newton step
-    # T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
-    # # Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
-    # dW = (T + w + dw) - W
-
-    dPrior = (N-1)*(np.eye(N) - W)
-    dLklhd = (dy + D - Y) @ Y0.T
-
-    dW = (dPrior + dLklhd) @ Cow1
-
-    return dW
+    grad     = Y0@dy - w*(N-1)        # Cost function gradient
+    dw       = grad@Cow1              # Gauss-Newton step
+    T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+    Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
+    return dw, T, Tinv
 
 
 def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
@@ -554,17 +539,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
             stepsize   *= 2
             stepsize    = min(1, stepsize)
 
-            # IES_analysis(Y, dy, W)
-
-            # Compute update
-            Y0       = Tinv @ Y               # "De-condition"
-            V, s, UT = misc.svd0(Y0)          # Decompose
-            Cowp     = misc.pows(V, misc.pad0(s**2, N) + N1)
-            Cow1     = Cowp(-1.0)             # Posterior cov of w
-            grad     = Y0@dy - w*(N-1)        # Cost function gradient
-            dw       = grad@Cow1              # Gauss-Newton step
-            T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
-            Tinv     = Cowp(+.5) / sqrt(N-1)  # Inv. transform
+            dw, T, Tinv = IES_analysis(w, T, Tinv, Y, dy)
 
         stat.dw += [dw@dw / N]
         stat.stepsize += [stepsize]

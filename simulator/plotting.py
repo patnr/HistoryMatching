@@ -274,7 +274,7 @@ def style(label, N=100):
         style.c      = "C2"
         style.alpha  = .3
         style.zorder = 1.9
-    if label == "iES":
+    if label == "IES":
         style.c      = "C4"
         style.alpha  = .3
 

@@ -262,7 +262,7 @@ plots.fields(plots.field, perm.Prior, "Prior");
 
 U, svals, VT = sla.svd(perm.Prior)
 ii = 1 + np.arange(len(svals))
-fig, ax = freshfig("Spectrum of true cov.", figsize=(1.3, .5), rel=1)
+fig, ax = freshfig("Spectrum of prior cov.", figsize=(1.3, .5), rel=1)
 ax.loglog(ii, svals)
 # ax.semilogx(ii, svals)
 ax.grid(True, "minor", axis="x")
@@ -292,7 +292,7 @@ plt.pause(.1)
 
 multiprocess = False  # multiprocessing?
 
-def forward_model(nTime, *args, desc="Ens. run"):
+def forward_model(nTime, *args, desc=""):
     """Create the (composite) forward model, i.e. forecast. Supports ensemble input.
 
     This is a composite function.  The main work consists of running the
@@ -330,12 +330,13 @@ def forward_model(nTime, *args, desc="Ens. run"):
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
+    desc = plots.dash("En-simul", desc)
     if multiprocess:
         import multiprocessing_on_dill as mpd
         with mpd.Pool() as pool:
-            Ef = list(progbar(pool.imap(forecast1, E), total=N, desc=desc))
+            Ef = list(progbar(pool.imap(forecast1, E), desc, N))
     else:
-        Ef = list(progbar(map(forecast1, E), total=N, desc="Members"))
+        Ef = list(progbar(map(forecast1, E), desc, N))
 
     # Transpose (to unpack)
     # Here we output everything, but really we need only emit

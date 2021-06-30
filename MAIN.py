@@ -17,7 +17,7 @@ print("Hello world! I'm " + name)
 
 # You will likely be more efficient if you know these **keyboard shortcuts**:
 #
-# | Navigate                      |    | Edit              |    | Exit           |    | Run                              |    | Run & go to next                  |
+# | Navigate                      |    | Edit              |    | De-select      |    | Run                              |    | Run & go to next                  |
 # | -------------                 | -- | ----------------- | -- | --------       | -- | -------                          | -- | -----------------                 |
 # | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
 #
@@ -29,8 +29,8 @@ print("Hello world! I'm " + name)
 # locate this option via the top menu bar.
 
 # There is a huge amount of libraries available in **Python**,
-# including the popular `scipy` (with `numpy` at its core) and `matplotlib` packages.
-# These are imported (and abbreviated) as `sp`, `np`, and `mpl` and `plt`.
+# including the popular `numpy` and `matplotlib/pyplot` packages.
+# These are imported (and abbreviated) as `np`, and `mpl` and `plt`.
 # Try them out by running the following, which illustrates some algebra
 # using syntax reminiscent of Matlab.
 

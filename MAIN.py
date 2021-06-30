@@ -301,8 +301,11 @@ def forward_model(nTime, *args, desc=""):
         # Unpack/unbundle variables
         wsat0, perm, *rates = estimable
 
-        # If provided: set production rates
+        # Set production rates, if provided.
         if rates:
+            # The historical rates (couble be, but) are not unknowns;
+            # Instead, this "setter" is provided for the purpose
+            # of optimising future production.
             model_n.producers[:, 2] = rates[0]
             model_n.config_wells(model_n.injectors, model_n.producers, remap=False)
 
@@ -316,7 +319,8 @@ def forward_model(nTime, *args, desc=""):
         return wsats, prods
 
     # Compose ensemble. This packing/bundling is a technicality
-    # necessary for the syntax of `map` (necessary for multiprocessing).
+    # necessary for the syntax of `map`, which is used instead of
+    # a `for`-loop in order to support multiprocessing.
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
@@ -342,9 +346,9 @@ def forward_model(nTime, *args, desc=""):
 
 wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
-# But why does `forward_model` have saturation as an input and output? Because the posterior of this state (i.e. time-dependent, prognostic) variable *does* depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
+# So why does `forward_model` have saturation as an input and output? Because the posterior of this state (i.e. time-dependent, prognostic) variable *does* depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
 
-# Now we run the forward model.
+# Now, let's run the forward model on the prior.
 
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
@@ -760,9 +764,11 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 
 
 # ### Final comments
-# Note that result may depend on the sampling of the prior ensemble,
-# as well as other random numbers. This effect should be minimized,
-# and tested by repeat experiments. It should also be ensured that the errors decrease, and NPV increase. This is similar to cross validation. Note that such synthetic experiments are fully possible in the real world as well. Even though the truth is unknown, a synthetic truth can be sampled from the prior uncertainty. And at the very least, the methods should yield improved performance in the synthetic case.
+# It is instructive to run this notebook/script again, but with a different random seed. This will yield a different truth, and noisy production data, and so a new case/problem, which may be more, or less, difficult.
+#
+# Another alternative is to only re-run the notebook cells starting from where the prior was sampled. Thus, the truth and observations will not change, yet because the prior sample will change, the results will change. If this change is significant (which can only be asserted by re-running the experiments several times), then you can not have much confidence in your result. In order to fix this, you must increase the ensemble size (to reduce sampling error), or play with the tuning parameters such as the localisation radius (or more generally, improve your localisation implementation).
+#
+# Such re-running of the synthetic experiments is similar in aim to statistical cross-validation. Note that it may (and should) also be applied in real applications! Of couse, then the truth is unknown. But even though the truth is unknown, a synthetic truth can be sampled from the prior uncertainty. And at the very least, the history matching and optimisation methods should yield improved performance (reduced errors and increased NPV) in the synthetic case.
 
 # ## References
 # <a id="Jaz70">[Jaz70]</a>: Jazwinski, A. H. 1970. *Stochastic Processes and Filtering Theory*. Vol. 63. Academic Press.

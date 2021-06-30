@@ -1,16 +1,5 @@
 -r requirements.txt
 
-# On recent MacOS, we need mpl>=3.3 because of
-# https://bugs.python.org/issue33725
-# I tried (with no luck) the other suggested workarounds from here
-# github.com/matplotlib/matplotlib/issues/15410#issuecomment-632283639
-# namely using python>=3.8 or `mp.set_start_method('forkserver')`,
-# BUT: Colab comes (and only works) with matplotlib==3.2.2.
-# So let's put mpl requirement here (instead of base requirements file).
-# A cleaner solution might be to use even more requirements files,
-# or setup.py for a programmatic solution.
-matplotlib~=3.3.4
-
 ipython
 
 autopep8

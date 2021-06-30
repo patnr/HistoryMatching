@@ -1,0 +1,28 @@
+# Why?
+#
+# - Colab has special needs, usually conflicting with the (detailed)
+#   output of `pip freeze`.
+# - Installing the output of `pip freeze` on Colab takes
+#   much longer than installing a list of abstract deps.
+# - For the above reasons `pip install -r requirements-dev.txt`
+#   is not suitable for Colab. On the other hand, not doing it
+#   yields different local/Colab environments.
+# - Tools like pip-tools might fix this, but are pretty complicated
+#   (uses requirements.in (or setup.py) just to produce requirements.txt,
+#   all the while suggests using one requirements file for each python env and OS)
+#   Also, we don't want to use poetry/pipenv in this case.
+#
+# As a moderately reasonable fix, we manually pin the top-level dependencies.
+# Note that this goes against the general recommendation that apps/notebooks
+# (unlike libs/packages) should use `pip freeze`, while also maintaining
+# (also in VCS) a list of direct/top-level and abstract (unpinned) deps
+# (to be able to easily update & refresh the requirements).
+
+p_tqdm~=1.3.3
+
+# By Patrick
+mpl-tools==0.2.41
+patlib==0.3.5
+struct-tools==0.2.5
+
+# vim: ft=requirements

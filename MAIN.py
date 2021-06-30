@@ -63,28 +63,44 @@ for i in range(4):
     plt.plot(i * a**2, label="i = %d" % i)
 plt.legend();
 
-# ## Load tools
+# Run the following cells to import yet more tools.
 
-# Run the following cells to import some tools.
-
-from copy import deepcopy
-
+import copy
+import numpy.random as rnd
 import scipy.linalg as sla
-from matplotlib import ticker
+from IPython.display import display
+from ipywidgets import interact
+from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
-from numpy.random import randn
 from numpy import sqrt
 from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
-from IPython.display import display
-from ipywidgets import interact
 
-# The next cell imports the model and associate tools.
+# ## Model and case specification
+
+# For exact reproducibility of our problem/case, we set the random generator seed.
+
+seed = rnd.seed(4)  # very easy
+# seed = rnd.seed(5)  # hard
+# seed = rnd.seed(6)  # very easy
+# seed = rnd.seed(7)  # easy
+
+# Our reservoir simulator takes up about 100 lines of python code. This may seem borderline too simple, but serves the purpose of *illustrating* the main features of the history matching process. Indeed, we do not detail the code here, but simply import it from the accompanying python modules. We also import some associated tools, e.g. for plotting, whose details we shall not belabour. If you want to inspect/modify this code, have a look in the git repository.
 
 import simulator
 import simulator.plotting as plots
 from tools import geostat, misc
 from tools.misc import center
+
+# In short, the model is a 2D, two-phase, immiscible, incompressible simulator using two-point flux approximation (TPFA) discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+
+model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
+
+# Plot configuration
+plots.model = model
+plots.field.coord_type = "absolute"
+plots.field.levels = np.linspace(-3.8, 3.8, 21)
+plots.field.cmap = "jet"
 
 # The following declares some data containers to help us keep organised.
 # The names have all been shortened to 4 characters, but this is just
@@ -109,26 +125,6 @@ wsat = Dict(
 # -
 
 # Technical note: This data hierarchy is convienient in *this* notebook/script, especially for plotting purposes. For example, we can with ease refer to `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where `N` is the size of the ensemble. However, in other implementations, different choices of data structure may be more convenient, e.g. where the different components of the unknowns are merely concatenated along the last axis, rather than being kept in separate dicts.
-
-# Finally, for reproducibility, we set the random generator seed.
-
-seed = np.random.seed(4)  # very easy
-# seed = np.random.seed(5)  # hard
-# seed = np.random.seed(6)  # very easy
-# seed = np.random.seed(7)  # easy
-
-# ## Model and case specification
-# The reservoir model takes up about 100 lines of python code. This may seem borderline too simple, but serves the purpose of *illustrating* the main features of the history matching process. The model is a 2D, two-phase, immiscible, incompressible simulator using TPFA discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
-
-model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
-
-# The model comes with a set of plot functionality for convenience.
-# Here are some relevant configuration defaults.
-
-plots.model = model
-plots.field.coord_type = "absolute"
-plots.field.levels = np.linspace(-3.5, 3.5, 21)
-plots.field.cmap = "jet"
 
 # #### Permeability sampling
 # We will estimate the log permeability field.
@@ -176,12 +172,10 @@ model.config_wells(
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # cs = plots.field(ax, perm.Truth)
 cs = plots.field(ax, perm_transf(perm.Truth),
-                 locator=ticker.LogLocator(), cmap="viridis",
-                 levels=10)
+                 locator=LogLocator(), cmap="viridis", levels=10)
 plots.well_scatter(ax, model.producers, inj=False)
 plots.well_scatter(ax, model.injectors, inj=True)
 fig.colorbar(cs)
-plt.pause(.1)
 
 
 # #### Define obs operator
@@ -201,7 +195,7 @@ nTime = round(T/dt)
  prod.past.Truth) = misc.repeat(model.step, nTime, wsat.init.Truth, dt, obs_model)
 
 # ##### Animation
-# Run the code cells below to get an animation of the oil saturation evolution. Injection (resp. production) wells are marked with triangles pointing down (resp. up).
+# Run the code cells below to get an animation of the oil saturation evolution. Injection/production wells are marked with triangles pointing down/up.
 
 # %%capture
 animation = plots.dashboard(perm.Truth, wsat.past.Truth, prod.past.Truth);
@@ -217,14 +211,13 @@ prod.past.Noisy = prod.past.Truth.copy()
 nProd           = len(model.producers)  # num. of obs (each time)
 R               = 1e-3 * np.eye(nProd)
 for iT in range(nTime):
-    prod.past.Noisy[iT] += sqrt(R) @ randn(nProd)
+    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nProd)
 
 
 # Plot of observations (and their noise):
 
-fig, ax = freshfig("Observations", figsize=(1.8, 1), rel=1)
-hh_y = plots.production1(ax, prod.past.Truth, obs=prod.past.Noisy)
-plt.pause(.1)
+fig, ax = freshfig("Observations")
+plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 
 # ## Prior
 
@@ -251,7 +244,6 @@ for label, data in perm.items():
 
     ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
     ax.legend();
-plt.pause(.1)
 
 # Since the x-scale is logarithmic, the prior's histogram should look Gaussian if `perm_transf` is purely exponential. By contrast, the historgram of the truth is from a single (spatially extensive) realisation, and therefore will contain significant sampling "error".
 
@@ -270,7 +262,6 @@ ax.loglog(ii, svals)
 ax.grid(True, "minor", axis="x")
 ax.grid(True, "major", axis="y")
 ax.set(xlabel="eigenvalue #", ylabel="variance");
-plt.pause(.1)
 
 # With our limited ensemble size, we see no clear cutoff index. In other words, we are not so fortunate that the prior is implicitly restricted to some subspace that is of lower rank than our ensemble. This is a very realistic situation, and indicates that localisation (implemented further below) will be very beneficial.
 
@@ -296,7 +287,7 @@ def forward_model(nTime, *args, desc=""):
         # Avoid the risk (difficult to diagnose with multiprocessing) that
         # the parameter values of one member overwrite those of another.
         # Alternative: re-initialize the model.
-        model_n = deepcopy(model)
+        model_n = copy.deepcopy(model)
 
         # Unpack variables
         wsat0, perm, *rates = estimable
@@ -437,7 +428,7 @@ class ES_update:
         """Prepare the update."""
         Y, _        = center(obs_ens, rescale=True)
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
-        obs_pert    = randn(N, len(observations)) @ sqrt(obs_err_cov)
+        obs_pert    = rnd.randn(N, len(observations)) @ sqrt(obs_err_cov)
         innovations = observations - (obs_ens + obs_pert)
 
         # (pre-) Kalman gain * Innovations
@@ -591,7 +582,6 @@ ax2 = ax.twinx()  # axis for rmse
 ax2.set_ylabel('RMS error', color="r")
 ax2.plot(stats_IES.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
-plt.pause(.1)
 
 # ### Diagnostics
 # In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior. The "expectation" wording indicates that this is true on average, but not always. To be specific, it means that it is guaranteed to hold true if the RMSE is calculated for infinitely many experiments (each time simulating a new synthetic truth and observations from the prior). The reason for this is that the ES uses the Kalman update, which is the BLUE (best linear unbiased estimate), and "best" means that the variance must get reduced. However, note that this requires the ensemble to be infinitely big, which it most certainly is not in our case. Therefore, we do not need to be very unlucky to observe that the RMSE has actually increased. Despite this, as we will see later, the data match might yield a different conclusions concerning the utility of the update.
@@ -727,7 +717,7 @@ def EnOpt(obj, E, ctrls, C12, stepsize=1, nIter=10):
     print("Total oil (mean) for initial guess: %.3f" % J)
 
     for _itr in progbar(range(nIter), desc="EnOpt"):
-        Eu = ctrls + randn(N, len(ctrls)) @ C12.T
+        Eu = ctrls + rnd.randn(N, len(ctrls)) @ C12.T
         Eu = Eu.clip(1e-5)
 
         Ej = obj(E, Eu)
@@ -752,9 +742,9 @@ def EnOpt(obj, E, ctrls, C12, stepsize=1, nIter=10):
 
 # Run EnOpt
 
-np.random.seed(3)
+rnd.seed(3)
 # ctrls0  = model.producers[:, 2]
-ctrls0  = np.random.rand(nProd)
+ctrls0  = rnd.rand(nProd)
 ctrls0 /= sum(ctrls0)
 C12     = 0.03 * np.eye(nProd)
 E       = wsat.curnt.ES, perm.ES

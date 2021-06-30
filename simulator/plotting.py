@@ -237,15 +237,14 @@ def production1(ax, production, obs=None):
             ax.plot(tt, y, "*", c=hh[i].get_color())
 
     ax.legend(title="Well #.",
-              loc="upper left",
-              bbox_to_anchor=(1, 1),
+              loc="lower left",
               ncol=1+len(production.T)//10)
+
     ax.set_ylabel("Production (saturations)")
     ax.set_xlabel("Time index")
     # ax.set_ylim(-0.01, 1.01)
     ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)
     ax.axhline(1, c="xkcd:light grey", ls="--", zorder=1.8)
-    plt.pause(.1)
     return hh
 
 

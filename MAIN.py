@@ -175,7 +175,7 @@ cs = plots.field(ax, perm_transf(perm.Truth),
                  locator=LogLocator(), cmap="viridis", levels=10)
 plots.well_scatter(ax, model.producers, inj=False)
 plots.well_scatter(ax, model.injectors, inj=True)
-fig.colorbar(cs)
+fig.colorbar(cs);
 
 
 # #### Define obs operator

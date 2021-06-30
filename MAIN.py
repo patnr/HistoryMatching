@@ -253,7 +253,7 @@ for label, data in perm.items():
     ax.legend();
 plt.pause(.1)
 
-# The above histogram should be Gaussian histogram if perm_transf is purely exponential:
+# Since the x-scale is logarithmic, the prior's histogram should look Gaussian if `perm_transf` is purely exponential. By contrast, the historgram of the truth is from a single (spatially extensive) realisation, and therefore will contain significant sampling "error".
 
 # Below we can see some realizations (members) from the ensemble.
 
@@ -277,10 +277,10 @@ plt.pause(.1)
 # ## Assimilation
 
 # ### Propagation
-# Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the model. Note that this for-loop is "embarrasingly parallelizable", because each iterate is complete indepdendent (requires no communication) from the others.
+# Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the ("forward") model. Note that this is "embarrasingly parallelizable", because each iterate is complete independent (requires no communication) from the others. We take advantage of this through multiprocessing.
 
-# Set False/True, or to the (int) number of CPU cores to use
-multiprocess = True
+# Set (int) number of CPU cores to use. Set to False when debugging.
+multiprocess = False
 
 def forward_model(nTime, *args, desc=""):
     """Create the (composite) forward model, i.e. forecast. Supports ensemble input.
@@ -291,14 +291,14 @@ def forward_model(nTime, *args, desc=""):
     the necessary steps to set the parameter values
     """
 
-    def forecast1(estimable):
-        """Forward model for a single member/realisation."""
+    def run1(estimable):
+        """Forward model for a *single* member/realisation."""
         # Avoid the risk (difficult to diagnose with multiprocessing) that
         # the parameter values of one member overwrite those of another.
         # Alternative: re-initialize the model.
         model_n = deepcopy(model)
 
-        # Unpack/unbundle variables
+        # Unpack variables
         wsat0, perm, *rates = estimable
 
         # Set production rates, if provided.
@@ -318,19 +318,18 @@ def forward_model(nTime, *args, desc=""):
 
         return wsats, prods
 
-    # Compose ensemble. This packing/bundling is a technicality
-    # necessary for the syntax of `map`, which is used instead of
-    # a `for`-loop in order to support multiprocessing.
+    # Compose ensemble. This packing is a technicality necessary for
+    # the syntax of `map`, used instead of a `for`-loop for multiprocessing.
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
-    desc = plots.dash("Ens.simul.", desc)
+    desc = " ".join(["Ens.simul.", desc])
     if multiprocess:
-        import multiprocessing_on_dill as mpd
-        with mpd.Pool(max(multiprocess, True)) as pool:
-            Ef = list(progbar(pool.imap(forecast1, E), desc, N))
+        from p_tqdm import p_map
+        n = None if isinstance(multiprocess, bool) else multiprocess
+        Ef = list(p_map(run1, list(E), num_cpus=n, desc=desc))
     else:
-        Ef = list(progbar(map(forecast1, E), desc, N))
+        Ef = list(progbar(map(run1, E), desc, N))
 
     # Transpose (to unpack)
     # Here we output everything, but really we need only emit

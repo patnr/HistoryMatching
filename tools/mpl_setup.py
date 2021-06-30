@@ -43,7 +43,7 @@ def init():
 
     if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")
-        mpl.rcParams.update({"legend.fontsize": "large"})
+        mpl.rcParams.update({"legend.fontsize": "x-large"})
         try:
             # Colab
             import google.colab  # noqa
@@ -51,7 +51,7 @@ def init():
         except ImportError:
             # Local Jupyter
             mpl.use("nbAgg")
-            mpl.rcParams["figure.figsize"] = [6, 4]
+            mpl.rcParams["figure.figsize"] = [5, 3.5]
 
     else:
         # Script run

@@ -173,7 +173,7 @@ model.config_wells(
 # #### Plot true field
 # Let's take a moment to visualize the model permeability field, and the well locations.
 
-fig, ax = freshfig("True perm. field", figsize=(1.2, .7), rel=1)
+fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # cs = plots.field(ax, perm.Truth)
 cs = plots.field(ax, perm_transf(perm.Truth),
                  locator=ticker.LogLocator(), cmap="viridis",
@@ -222,7 +222,7 @@ for iT in range(nTime):
 
 # Plot of observations (and their noise):
 
-fig, ax = freshfig("Observations")
+fig, ax = freshfig("Observations", figsize=(1.8, 1), rel=1)
 hh_y = plots.production1(ax, prod.past.Truth, obs=prod.past.Noisy)
 plt.pause(.1)
 
@@ -237,7 +237,7 @@ print("Prior var.:", np.var(perm.Prior))
 
 # Let us inspect the parameter values in the form of their histogram.
 
-fig, ax = freshfig("Perm. -- marginal distribution", figsize=(1.3, .5), rel=1)
+fig, ax = freshfig("Perm. -- marginal distribution", figsize=(1.8, 1), rel=1)
 for label, data in perm.items():
 
     ax.hist(
@@ -263,7 +263,7 @@ plots.fields(plots.field, perm.Prior, "Prior");
 
 U, svals, VT = sla.svd(perm.Prior)
 ii = 1 + np.arange(len(svals))
-fig, ax = freshfig("Spectrum of prior cov.", figsize=(1.3, .5), rel=1)
+fig, ax = freshfig("Spectrum of prior cov.", figsize=(1.6, .7), rel=1)
 ax.loglog(ii, svals)
 # ax.semilogx(ii, svals)
 ax.grid(True, "minor", axis="x")

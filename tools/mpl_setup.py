@@ -36,14 +36,15 @@ from matplotlib import pyplot as plt
 
 
 def init():
-    mpl.rcParams.update({'font.size': 10})
-
     # Ignore warnings due to contour/nan
-    warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib.contour")
+    warnings.filterwarnings(
+        "ignore", category=UserWarning, module="matplotlib.contour")
 
     if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")
-        mpl.rcParams.update({"legend.fontsize": "x-large"})
+        mpl.rcParams.update({
+            "legend.fontsize": "large",
+            "font.size": 12})
         try:
             # Colab
             import google.colab  # noqa
@@ -55,6 +56,7 @@ def init():
 
     else:
         # Script run
+        mpl.rcParams.update({'font.size': 10})
         try:
             mpl.use("Qt5Agg")
             mpl.rcParams["figure.figsize"] = [5, 3.5]

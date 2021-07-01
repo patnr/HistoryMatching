@@ -7,7 +7,7 @@
 # However, on MacOS I need a different mpl version (see below),
 # so that dependency must go in here.
 
--r requirements-Colab.txt
+-r requirements-colab.txt
 
 # Already in Colab
 jupyter~=1.0.0

@@ -34,7 +34,7 @@ main () {
     if [[ ! -d REPO ]]; then git clone --depth=1 $URL REPO; fi
 
     # Install requirements
-    pip install -r REPO/requirements-Colab.txt
+    pip install -r REPO/requirements-colab.txt
 
     # Put repo contents in PWD
     shopt -s dotglob

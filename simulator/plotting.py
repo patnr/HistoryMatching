@@ -136,7 +136,7 @@ def fields(plotter, ZZ,
     if len(ZZ) > len(axs):
         suptitle = dash(suptitle, f"First {len(axs)} instances")
     if suptitle:
-        fig.suptitle(title)
+        fig.suptitle(suptitle)
 
     return fig, axs, hh
 

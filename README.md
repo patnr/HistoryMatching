@@ -44,6 +44,22 @@ Ensure the output at the end gives version 3.7 or more.
   This will open up a page in your web browser that is a file navigator.  
 - Click on `MAIN.ipynb`.
 
+## Dev. guide
+
+Personally I prefer to develop mostly in the format of standard python script.
+Then, thanks to the **jupytext** extension, I can convert this (`.py`) to a
+notebook (`.ipynb`) simply by opening the file in Jupyter,
+and ensuring that the `file > Jupytext` menu has check marks on both
+"Pair with ipynb" and "Pair with light script".
+
+The *Colab branch* has (at least!) one major difference from the master branch:
+it contains the cell that downloads & runs the `colab_bootstrap.sh` script.
+In the presence of such persistent differences, I find git merging back and
+forth to be troublesome (it removes and adds that cell when it shouldn't).
+Therefore I suggest only working on the *master branch*, and merging into
+the Colab branch. Don't manually resolve conflicts in the `.ipynb` file;
+use instead `jupytext` to sync it from the (resolved) python script.
+
 ## Contributors
 
 This work has been developed by *Patrick N. Raanes*, researcher at *NORCE*.

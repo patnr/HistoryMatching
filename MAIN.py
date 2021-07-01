@@ -177,6 +177,7 @@ cs = plots.field(ax, perm_transf(perm.Truth),
 plots.well_scatter(ax, model.producers, inj=False)
 plots.well_scatter(ax, model.injectors, inj=True)
 fig.colorbar(cs);
+fig.tight_layout()
 
 
 # #### Define obs operator
@@ -257,6 +258,7 @@ fig, ax = freshfig("Spectrum of prior cov.", figsize=(1.6, .7), rel=1)
 ax.loglog(svals)  # also try semilogx
 ax.grid(True, "both", axis="both")
 ax.set(xlabel="eigenvalue index", ylabel="variance");
+fig.tight_layout()
 
 # With our limited ensemble size, we see no clear cutoff index. In other words, we are not so fortunate that the prior is implicitly restricted to some subspace that is of lower rank than our ensemble. This is a very realistic situation, and indicates that localisation (implemented further below) will be very beneficial.
 

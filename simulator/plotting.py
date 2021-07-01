@@ -130,13 +130,19 @@ def fields(plotter, ZZ,
 
     # suptitle
     suptitle = ""
+    print("A", suptitle)
     if len(ZZ) > len(axs):
         suptitle += f"First {len(axs)} instances"
+        print("B", suptitle)
     pre_existing = fig._suptitle
+    print("C", pre_existing)
     if pre_existing:
+        print("D", pre_existing)
         suptitle = dash(pre_existing.get_text(), suptitle)
+        print("E", pre_existing)
     if suptitle:
         fig.suptitle(suptitle)
+        print("F", pre_existing)
 
     if colorbar:
         fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)
@@ -507,6 +513,7 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
 
     # Production
     hh = production1(ax11, prod)
+    ax11.set_xlabel(ax11.get_xlabel(), labelpad=-5)
 
     ax12.yaxis.set_tick_params(labelleft=False)
     ax22.yaxis.set_tick_params(labelleft=False)

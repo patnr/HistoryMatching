@@ -103,6 +103,10 @@ def fields(plotter, ZZ,
     # Setup figure
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
     fig.clear()
+
+    pre_existing = fig._suptitle
+    print("B", pre_existing)
+
     from mpl_toolkits.axes_grid1 import AxesGrid
     axs = AxesGrid(fig, 111,
                    nrows_ncols=nRowCol(min(12, len(ZZ))).values(),
@@ -127,6 +131,9 @@ def fields(plotter, ZZ,
 
         # Call plotter
         hh.append(plotter(ax, ZZ[label], **kwargs))
+
+    pre_existing = fig._suptitle
+    print("C", pre_existing)
 
     # suptitle
     suptitle = ""

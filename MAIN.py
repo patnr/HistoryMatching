@@ -200,7 +200,6 @@ nTime = round(T/dt)
 # %%capture
 animation = plots.dashboard(perm.Truth, wsat.past.Truth, prod.past.Truth);
 
-
 # Note: can take up to a minute to appear
 animation
 

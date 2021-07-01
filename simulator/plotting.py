@@ -23,6 +23,15 @@ def dash(*txts):
     return " -- ".join([t for t in txts if t != ""])
 
 
+def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
+             c="k", fontsize="large", bbox=None):
+    if bbox is None:
+        bbox = dict(edgecolor="w", facecolor="k", alpha=.15,
+                    boxstyle="round,pad=0")
+    return ax.text(x, y, txt, c=c, fontsize=fontsize,
+                   ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
+
+
 def field(ax, zz, **kwargs):
     """Contour-plot the field contained in `zz`."""
     levels     = kwargs.pop("levels"    , field.levels)
@@ -126,12 +135,7 @@ def fields(plotter, ZZ,
 
     hh = []
     for ax, label in zip(axs, ZZ):
-
-        # Label axes
-        ax.text(0, 1, label, c=txt_color, fontsize="large",
-                ha="left", va="top", transform=ax.transAxes)
-
-        # Call plotter
+        label_ax(ax, label)
         hh.append(plotter(ax, ZZ[label], **kwargs))
 
     # Suptitle
@@ -226,8 +230,8 @@ def well_scatter(ax, ww, inj=True, text=None, color=None):
         if not inj:
             ww.T[1] -= 0.01
         for i, w in enumerate(ww):
-            ax.text(*w[:2], i if text is None else text, color=d, fontsize="large",
-                    ha="center", va="center")
+            ax.text(*w[:2], i if text is None else text,
+                    color=d, fontsize="large", ha="center", va="center")
 
     return sh
 
@@ -360,8 +364,7 @@ def productions2(dct, title="", figsize=(2, 1), nProd=None, legend=True):
     # For each well
     for i in range(nProd):
         ax = axs.ravel()[i]
-        ax.text(1, 1, f"Well {i}", c="k", fontsize="large",
-                ha="right", va="top", transform=ax.transAxes)
+        label_ax(ax, f"Well {i}", x=.99, ha="right")
 
         for label, series in dct.items():
 
@@ -497,10 +500,8 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
     ax21.cc = oilfield(ax21, wsats[+0], **kwargs)
     # Saturations
     ax22.cc = oilfield(ax22, wsats[-1], **kwargs)
-    ax21.text(.01, .99, "Initial", c="w", fontsize="x-large",
-              ha="left", va="top", transform=ax21.transAxes,
-              bbox=dict(edgecolor="w", facecolor="k", alpha=.15,
-                        boxstyle="round,pad=0"))
+    label_ax(ax21, "Initial", c="w", fontsize="x-large")
+    ax21.text(.01, .99, "Initial", c="w", fontsize="x-large")
     # Add wells
     well_scatter(ax22, model.injectors)
     well_scatter(ax22, model.producers, False,

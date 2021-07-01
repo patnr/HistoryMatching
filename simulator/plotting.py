@@ -229,6 +229,7 @@ def well_scatter(ax, ww, inj=True, text=None, color=None):
 
 
 def production1(ax, production, obs=None):
+    """Production time series. Multiple wells in 1 axes => not ensemble compat."""
     hh = []
     tt = 1+np.arange(len(production))
     for i, p in enumerate(1-production.T):
@@ -250,8 +251,8 @@ def production1(ax, production, obs=None):
     return hh
 
 
-def style(label, N=100):
-    """Line styling."""
+def ens_style(label, N=100):
+    """Line styling for ensemble production plots."""
     style = DotDict(
         label=label,
         c="k", alpha=1.0, lw=0.5,
@@ -359,7 +360,7 @@ def productions2(dct, title="", figsize=(2, 1), nProd=None, legend=True):
 
             # Get style props
             some_ensemble = list(dct.values())[-1]
-            props = style(label, N=len(some_ensemble))
+            props = ens_style(label, N=len(some_ensemble))
 
             # Plot
             ll = ax.plot(1 - series.T[i], **props)
@@ -411,7 +412,7 @@ def toggler(plotter):
         # https://github.com/jupyter-widgets/ipywidgets/issues/710#issuecomment-409448282
         import matplotlib as mpl
         for cm, lbl in zip(checkmarks, arg0):
-            c = style(lbl, N=1)['c']
+            c = ens_style(lbl, N=1)['c']
             c = mpl.colors.to_hex(c, keep_alpha=False)
             cm.layout.border = "solid 5px" + c
         return widget
@@ -447,7 +448,7 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
 
                 # Get style props
                 some_ensemble = list(dct.values())[-1]
-                props = style(label, N=len(some_ensemble))
+                props = ens_style(label, N=len(some_ensemble))
 
                 # Plot
                 ll = ax.plot(1 - series.T[iWell], **props)

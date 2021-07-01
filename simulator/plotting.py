@@ -82,6 +82,7 @@ model = None
 field.coord_type = "relative"
 field.cmap = "jet"
 field.levels = 10
+field.ticks = None
 # Use a list of levels for more control, including vmin/vmax.
 # Note that providing vmin/vmax (and not a levels list) to mpl
 # yields prettier colobar ticks, but destorys the consistency
@@ -137,8 +138,8 @@ def fields(plotter, ZZ,
     if suptitle:
         fig.suptitle(suptitle)
 
-    # fig_colorbar(fig, hh[0], ticks=ticks)
-    fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)
+    if colorbar:
+        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)
 
     return fig, axs, hh
 

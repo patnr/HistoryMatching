@@ -11,7 +11,7 @@ import matplotlib as mpl
 import numpy as np
 from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
-from mpl_tools import place
+from mpl_tools import place, place_ax
 from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict, get0
 
@@ -239,8 +239,11 @@ def production1(ax, production, obs=None):
         for i, y in enumerate(1-obs.T):
             ax.plot(tt, y, "*", c=hh[i].get_color())
 
+    # Add legend
+    place_ax.adjust_position(ax, w=-0.05)
     ax.legend(title="Well #.",
-              loc="lower left",
+              bbox_to_anchor=(1, 1),
+              loc="upper left",
               ncol=1+len(production.T)//10)
 
     ax.set_ylabel("Production (saturations)")

@@ -21,7 +21,7 @@
 p_tqdm~=1.3.3
 
 # By Patrick
-mpl-tools==0.2.43
+mpl-tools==0.2.45
 patlib==0.3.5
 struct-tools==0.2.5
 

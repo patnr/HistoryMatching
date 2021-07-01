@@ -510,7 +510,7 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
 
     # Production
     hh = production1(ax11, prod)
-    ax11.set_xlabel(ax11.get_xlabel(), labelpad=-5)
+    ax11.set_xlabel(ax11.get_xlabel(), labelpad=-10)
 
     ax12.yaxis.set_tick_params(labelleft=False)
     ax22.yaxis.set_tick_params(labelleft=False)

@@ -3,6 +3,9 @@
 Note: before using any function, you must set the module vairable `model`.
 """
 
+# TODO: unify (nRowCol, turn off, ax.text, etc) for
+#       fields() and productions() ?
+
 import IPython.display as ip_disp
 import matplotlib as mpl
 import numpy as np
@@ -12,11 +15,7 @@ from mpl_tools import place
 from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict, get0
 
-# TODO: unify (nRowCol, turn off, ax.text, etc) for
-#       fields() and productions() ?
 _is_inline = "inline" in mpl.get_backend()
-
-model = None
 
 
 def dash(*txts):
@@ -73,6 +72,10 @@ def field(ax, zz, **kwargs):
         ax.set_ylabel(f"y ({field.coord_type})")
 
     return collections
+
+
+# "Self"
+model = None
 
 
 # Defaults

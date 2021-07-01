@@ -102,12 +102,10 @@ def fields(plotter, ZZ,
 
     # Create figure using freshfig
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
-    # Store suptitle coz gets cleared by fig.clear() on Colab.
+    # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
         suptitle = fig._suptitle.get_text()
-        print("A", suptitle)
     except AttributeError:
-        print("B")
         suptitle = ""
     # Create axes using AxesGrid
     fig.clear()
@@ -136,9 +134,10 @@ def fields(plotter, ZZ,
         # Call plotter
         hh.append(plotter(ax, ZZ[label], **kwargs))
 
-    # Set suptitle
+    # Suptitle
     if len(ZZ) > len(axs):
         suptitle = dash(suptitle, f"First {len(axs)} instances")
+    # Re-set suptitle (since it got cleared above)
     if suptitle:
         fig.suptitle(suptitle)
 

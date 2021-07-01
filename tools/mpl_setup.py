@@ -42,6 +42,10 @@ def init():
 
     if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")
+        # mpl.rcParams["figure.figsize"] = [5, 3.5]
+        # NB: Non-default figsize often causes axis labels that do not
+        # fit within the figure (unless remedied by tight_layout, which
+        # is not compatible with all kinds of axes).
         mpl.rcParams.update({
             "legend.fontsize": "large",
             "font.size": 12})
@@ -49,17 +53,17 @@ def init():
             # Colab
             import google.colab  # noqa
 
+            # [colab-specific adjustments]
+
         except ImportError:
             # Local Jupyter
             mpl.use("nbAgg")
-            mpl.rcParams["figure.figsize"] = [5, 3.5]
 
     else:
         # Script run
         mpl.rcParams.update({'font.size': 10})
         try:
             mpl.use("Qt5Agg")
-            mpl.rcParams["figure.figsize"] = [5, 3.5]
         except ImportError:
             pass  # fall back to e.g. MacOS backend
         plt.ion()

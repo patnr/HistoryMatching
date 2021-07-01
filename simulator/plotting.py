@@ -100,13 +100,17 @@ def fields(plotter, ZZ,
     title = dash("Fields", getattr(plotter, "title", ""), title)
     ticks = getattr(plotter, "ticks", None)
 
-    # Setup figure
+    # Create figure using freshfig
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
+    # Store suptitle coz gets cleared by fig.clear() on Colab.
+    try:
+        suptitle = fig._suptitle.get_text()
+        print("A", suptitle)
+    except AttributeError:
+        print("B")
+        suptitle = ""
+    # Create axes using AxesGrid
     fig.clear()
-
-    pre_existing = fig._suptitle
-    print("B", pre_existing)
-
     from mpl_toolkits.axes_grid1 import AxesGrid
     axs = AxesGrid(fig, 111,
                    nrows_ncols=nRowCol(min(12, len(ZZ))).values(),
@@ -132,24 +136,11 @@ def fields(plotter, ZZ,
         # Call plotter
         hh.append(plotter(ax, ZZ[label], **kwargs))
 
-    pre_existing = fig._suptitle
-    print("C", pre_existing)
-
-    # suptitle
-    suptitle = ""
-    print("A", suptitle)
+    # Set suptitle
     if len(ZZ) > len(axs):
-        suptitle += f"First {len(axs)} instances"
-        print("B", suptitle)
-    pre_existing = fig._suptitle
-    print("C", pre_existing)
-    if pre_existing:
-        print("D", pre_existing)
-        suptitle = dash(pre_existing.get_text(), suptitle)
-        print("E", pre_existing)
+        suptitle = dash(suptitle, f"First {len(axs)} instances")
     if suptitle:
         fig.suptitle(suptitle)
-        print("F", pre_existing)
 
     if colorbar:
         fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)

@@ -463,8 +463,9 @@ def dashboard(perm, saturation, production,
 
     # Create figure and axes
     title = dash("Dashboard", title)
-    fig = plt.figure(constrained_layout=True,
-                     num=title,
+    # NB: constrained_layout seems to put too much space between axes.
+    # Could be remedied by configuring h_pad, w_pad?
+    fig = plt.figure(num=title,
                      figsize=place.relative_figsize(figsize))
     fig.clear()
     fig.suptitle(title)  # coz animation never (any backend) displays title

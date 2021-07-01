@@ -102,9 +102,59 @@ def fields(plotter, ZZ,
 
     # Setup figure
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
+    fig.clear()
 
     pre_existing = fig._suptitle
     print("B", pre_existing)
+
+    from mpl_toolkits.axes_grid1 import AxesGrid
+    axs = AxesGrid(fig, 111,
+                   nrows_ncols=nRowCol(min(12, len(ZZ))).values(),
+                   cbar_mode='single', cbar_location='right',
+                   share_all=True,
+                   axes_pad=0.1,
+                   cbar_pad=0.1)
+    # Turn off redundant axes
+    for ax in axs[len(ZZ):]:
+        ax.set_visible(False)
+
+    # Convert (potential) list-like ZZ into dict
+    if not isinstance(ZZ, dict):
+        ZZ = {i: Z for (i, Z) in enumerate(ZZ)}
+
+    hh = []
+    for ax, label in zip(axs, ZZ):
+
+        # Label axes
+        ax.text(0, 1, label, c=txt_color, fontsize="large",
+                ha="left", va="top", transform=ax.transAxes)
+
+        # Call plotter
+        hh.append(plotter(ax, ZZ[label], **kwargs))
+
+    pre_existing = fig._suptitle
+    print("C", pre_existing)
+
+    # suptitle
+    suptitle = ""
+    print("A", suptitle)
+    if len(ZZ) > len(axs):
+        suptitle += f"First {len(axs)} instances"
+        print("B", suptitle)
+    pre_existing = fig._suptitle
+    print("C", pre_existing)
+    if pre_existing:
+        print("D", pre_existing)
+        suptitle = dash(pre_existing.get_text(), suptitle)
+        print("E", pre_existing)
+    if suptitle:
+        fig.suptitle(suptitle)
+        print("F", pre_existing)
+
+    if colorbar:
+        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)
+
+    return fig, axs, hh
 
 
 # Colormap for saturation

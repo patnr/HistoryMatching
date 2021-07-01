@@ -230,19 +230,17 @@ print("Prior var.:", np.var(perm.Prior))
 
 # Let us inspect the parameter values in the form of their histogram.
 
-fig, ax = freshfig("Perm. -- marginal distribution", figsize=(1.8, 1), rel=1)
-for label, data in perm.items():
-
-    ax.hist(
-        perm_transf(data.ravel()),
-        perm_transf(np.linspace(-3, 3, 32)),
-        # "Downscale" ens counts by N. Necessary because `density` kw
-        # doesn't work "correctly" with log-scale.
-        weights = (np.ones(model.M*N)/N if label != "Truth" else None),
-        label=label, alpha=0.3)
-
-    ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
-    ax.legend();
+fig, ax = freshfig("Perm. -- marginal distribution", figsize=(1.5, .7), rel=1)
+bins = np.linspace(*plots.field.levels[[0, -1]], 32)
+for label, perm_field in perm.items():
+    ax.hist(perm_transf(perm_field.ravel()),
+            perm_transf(bins),
+            # "Downscale" counts by N, coz `density=1` "fails" with log-scale.
+            weights=(np.ones(model.M*N)/N if label != "Truth" else None),
+            label=label, alpha=0.3)
+ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
+ax.legend()
+fig.tight_layout()
 
 # Since the x-scale is logarithmic, the prior's histogram should look Gaussian if `perm_transf` is purely exponential. By contrast, the historgram of the truth is from a single (spatially extensive) realisation, and therefore will contain significant sampling "error".
 

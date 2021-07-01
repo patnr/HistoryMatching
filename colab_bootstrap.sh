@@ -42,7 +42,7 @@ main () {
 }
 
 # Only run if we're on colab
-if python -c "import colab"; then
+if python -c "import colab" 2>/dev/null; then
 
     # Use `bash -s -- --debug` to get verbose output
     if echo $@ | grep -E -- '(--debug|-v)' > /dev/null ; then
@@ -53,4 +53,6 @@ if python -c "import colab"; then
     fi
 
     echo "Initialization for Colab done."
+else
+    echo "Not running on Colab => Didn't do anything."
 fi

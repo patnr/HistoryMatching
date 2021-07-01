@@ -43,15 +43,14 @@ def init():
     if mpl_tools.is_notebook_or_qt:
         mpl.rc('animation', html="jshtml")
         # mpl.rcParams["figure.figsize"] = [5, 3.5]
-        # mpl.rcParams["font.size"] = 12
-        # NB: Non-default figsize/fontsize often causes axis labels/titles
-        # that do not fit within the figure, or trespass into the axes.
+        # NB: Non-default figsize/fontsize may cause axis labels/titles
+        # that do not fit within the figure, or trespass into the axes
         # (unless fixed by tight_layout, but that is sometimes not possible)
         # Moreover, in general, for presentations, you will use the web-browser
         # zoom functionality, which also zooms in figure and font sizes,
-        # so there is not much reason to change them. One exception to this
-        # that I find necessary, though, is the legend font size:
+        # reducing the need to change defaults.
         mpl.rcParams.update({"legend.fontsize": "large"})
+        mpl.rcParams["font.size"] = 12
         try:
             # Colab
             import google.colab  # noqa

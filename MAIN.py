@@ -200,7 +200,7 @@ nTime = round(T/dt)
 # Run the code cells below to get an animation of the oil saturation evolution. Injection/production wells are marked with triangles pointing down/up.
 
 # %%capture
-animation = plots.dashboard(perm.Truth, wsat.past.Truth, prod.past.Truth);
+animation = plots.dashboard("Truth", perm, wsat.past, prod.past);
 
 # Note: can take up to a minute to appear
 animation

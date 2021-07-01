@@ -455,65 +455,77 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
     return update
 
 
-def dashboard(perm, saturation, production,
-              title="", figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
-    # Note: See note in mpl_setup.py about properly displaying the animation.
+# Note: See note in mpl_setup.py about properly displaying the animation.
+def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
+    perm, wsats, prod = [d[key] for d in dcts]  # unpack
 
     # Create figure and axes
-    title = dash("Dashboard", title)
+    title = dash("Dashboard", key)
     # NB: constrained_layout seems to put too much space between axes.
     # Could be remedied by configuring h_pad, w_pad?
     fig = plt.figure(num=title,
                      figsize=place.relative_figsize(figsize))
     fig.clear()
     fig.suptitle(title)  # coz animation never (any backend) displays title
-    gs = fig.add_gridspec(10, 22)
-    ax0 = fig.add_subplot(gs[:5, 1:11])
-    ax1 = fig.add_subplot(gs[:5, 11:21], sharex=ax0, sharey=ax0)
-    ax1.yaxis.set_tick_params(labelleft=False)
+    gs = fig.add_gridspec(100, 100)
+    w, h, p, c = 45, 45, 3, 3
+    ax11 = fig.add_subplot(gs[:+h, :w])
+    ax12 = fig.add_subplot(gs[:+h, -w-p-c:-p-c])
+    ax21 = fig.add_subplot(gs[-h:, :w]         , sharex=ax12, sharey=ax12)
+    ax22 = fig.add_subplot(gs[-h:, -w-p-c:-p-c], sharex=ax12, sharey=ax12)
     # Colorbars
-    ax0c = fig.add_subplot(gs[:5, 0])
-    ax1c = fig.add_subplot(gs[:5, 21])
-    # Production plot
-    ax2 = fig.add_subplot(gs[6:, :])
+    ax12c = fig.add_subplot(gs[:+h, -c:])
+    ax22c = fig.add_subplot(gs[-h:, -c:])
 
-    # ax0.set_title("Initial")
-    # ax0.cc = oilfield(ax0, saturation[0], **kwargs)
-    ax0.cc = field(ax0, perm, **kwargs)
-    fig.colorbar(ax0.cc, ax0c)
-    ax0c.yaxis.set_label_position('left')
-    ax0c.set_ylabel("Permeability")
+    # Perm
+    ax12.cc = field(ax12, perm, **kwargs)
+    fig.colorbar(ax12.cc, ax12c, ticks=field.ticks)
+    ax12c.set_ylabel("Permeability")
 
-    ax1.cc = oilfield(ax1, saturation[-1], **kwargs)
+    # Saturation0
+    ax21.cc = oilfield(ax21, wsats[+0], **kwargs)
+    # Saturations
+    ax22.cc = oilfield(ax22, wsats[-1], **kwargs)
+    ax21.text(.01, .99, "Initial", c="w", fontsize="x-large",
+              ha="left", va="top", transform=ax21.transAxes,
+              bbox=dict(edgecolor="w", facecolor="k", alpha=.15,
+                        boxstyle="round,pad=0"))
     # Add wells
-    well_scatter(ax1, model.injectors)
-    well_scatter(ax1, model.producers, False,
+    well_scatter(ax22, model.injectors)
+    well_scatter(ax22, model.producers, False,
                  color=[f"C{i}" for i in range(len(model.producers))])
-    fig.colorbar(ax1.cc, ax1c, ticks=np.linspace(0, 1, 6))
-    ax1c.set_ylabel("Saturation")
+    fig.colorbar(ax22.cc, ax22c, ticks=oilfield.ticks)
+    ax22c.set_ylabel(oilfield.title)
 
-    ax0c.yaxis.set_ticks_position("left")
-    ax0.yaxis.set_ticks_position("right")
-    ax0.set_ylabel(None)
+    # Production
+    hh = production1(ax11, prod)
 
-    prod_handles = production1(ax2, production)
+    ax12.yaxis.set_tick_params(labelleft=False)
+    ax22.yaxis.set_tick_params(labelleft=False)
+    ax12.xaxis.set_tick_params(labelbottom=False)
+    ax12.set_ylabel(None)
+    ax22.set_ylabel(None)
+    ax12.set_xlabel(None)
+    # ax12c.yaxis.set_label_position('left')
+    # ax11.yaxis.set_ticks_position("right")
 
     if animate:
         from matplotlib import animation
-        tt = np.arange(len(saturation))
+        tt = np.arange(len(wsats))
 
         def update_fig(iT):
             # Update field
-            for c in ax1.cc.collections:
+            for c in ax22.cc.collections:
                 try:
-                    ax1.collections.remove(c)
+                    ax22.collections.remove(c)
                 except ValueError:
                     pass  # occurs when re-running script
-            ax1.cc = oilfield(ax1, saturation[iT], **kwargs)
+            ax22.cc = oilfield(ax22, wsats[iT], **kwargs)
+            ax22.set_ylabel(None)
 
             # Update production lines
             if iT >= 1:
-                for h, p in zip(prod_handles, 1-production.T):
+                for h, p in zip(hh, 1-prod.T):
                     h.set_data(tt[:iT-1], p[:iT-1])
 
         ani = animation.FuncAnimation(

@@ -79,7 +79,7 @@ def field(ax, zz, **kwargs):
 field.coord_type = "relative"
 field.cmap = "jet"
 field.levels = 10
-# Use a list for more control, including vmin/vmax.
+# Use a list of levels for more control, including vmin/vmax.
 # Note that providing vmin/vmax (and not a levels list) to mpl
 # yields prettier colobar ticks, but destorys the consistency
 # of the colorbars from one figure to another.

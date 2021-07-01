@@ -100,6 +100,7 @@ model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 plots.model = model
 plots.field.coord_type = "absolute"
 plots.field.levels = np.linspace(-3.8, 3.8, 21)
+plots.field.ticks = np.arange(-3, 4)
 plots.field.cmap = "jet"
 
 # The following declares some data containers to help us keep organised.

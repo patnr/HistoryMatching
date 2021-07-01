@@ -44,10 +44,12 @@ Ensure the output at the end gives version 3.7 or more.
   This will open up a page in your web browser that is a file navigator.  
 - Click on `MAIN.ipynb`.
 
-## Dev. guide
+## Developer guide
+
+For development, you probably want to install `requirements-dev.txt`.
 
 Personally I prefer to develop mostly in the format of standard python script.
-Then, thanks to the **jupytext** extension, I can convert this (`.py`) to a
+Then, thanks to the *jupytext* extension, I can convert this (`.py`) to a
 notebook (`.ipynb`) simply by opening the file in Jupyter,
 and ensuring that the `file > Jupytext` menu has check marks on both
 "Pair with ipynb" and "Pair with light script".

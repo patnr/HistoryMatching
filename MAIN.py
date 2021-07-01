@@ -220,8 +220,8 @@ fig, ax = freshfig("Observations")
 plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 
 # ## Prior
-
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the same mean and covariance.  Thus, the members are "statistically indistinguishable" to the truth. This assumption underlies ensemble methods.
+
 N = 200
 perm.Prior = sample_prior_perm(N)
 

@@ -114,7 +114,7 @@ def fields(plotter, ZZ,
                    nrows_ncols=nRowCol(min(12, len(ZZ))).values(),
                    cbar_mode='single', cbar_location='right',
                    share_all=True,
-                   axes_pad=0.1,
+                   axes_pad=0.2,
                    cbar_pad=0.1)
     # Turn off redundant axes
     for ax in axs[len(ZZ):]:

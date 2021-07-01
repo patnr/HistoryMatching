@@ -9,7 +9,7 @@ import numpy as np
 from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
 from mpl_tools import place
-from mpl_tools.misc import axprops, fig_colorbar, nRowCol
+from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict, get0
 
 # TODO: unify (nRowCol, turn off, ax.text, etc) for
@@ -87,7 +87,7 @@ field.levels = 10
 
 def fields(plotter, ZZ,
            title="",
-           figsize=(2, 1),
+           figsize=(1.7, 1),
            txt_color="k",
            colorbar=True,
            **kwargs):
@@ -97,37 +97,32 @@ def fields(plotter, ZZ,
     ticks = getattr(plotter, "ticks", None)
 
     # Setup figure
-    fig, axs = place.freshfig(
-        title, figsize=figsize, rel=True,
-        **nRowCol(min(12, len(ZZ))),
-        sharex=True, sharey=True)
-    axs = axs.ravel()
-
+    fig, axs = place.freshfig(title, figsize=figsize, rel=True)
+    fig.clear()
+    from mpl_toolkits.axes_grid1 import AxesGrid
+    axs = AxesGrid(fig, 111,
+                   nrows_ncols=nRowCol(min(12, len(ZZ))).values(),
+                   cbar_mode='single', cbar_location='right',
+                   share_all=True,
+                   axes_pad=0.1,
+                   cbar_pad=0.1)
     # Turn off redundant axes
     for ax in axs[len(ZZ):]:
         ax.set_visible(False)
 
-    # Convert list-like ZZ into dict
+    # Convert (potential) list-like ZZ into dict
     if not isinstance(ZZ, dict):
         ZZ = {i: Z for (i, Z) in enumerate(ZZ)}
 
     hh = []
     for ax, label in zip(axs, ZZ):
 
+        # Label axes
         ax.text(0, 1, label, c=txt_color, fontsize="large",
                 ha="left", va="top", transform=ax.transAxes)
 
         # Call plotter
         hh.append(plotter(ax, ZZ[label], **kwargs))
-
-        # Rm any x/y-label
-        if not ax.is_last_row():
-            ax.set_xlabel(None)
-        if not ax.is_first_col():
-            ax.set_ylabel(None)
-
-    if colorbar:
-        fig_colorbar(fig, hh[0], ticks=ticks)
 
     # suptitle
     suptitle = ""
@@ -138,6 +133,9 @@ def fields(plotter, ZZ,
         suptitle = dash(pre_existing.get_text(), suptitle)
     if suptitle:
         fig.suptitle(suptitle)
+
+    # fig_colorbar(fig, hh[0], ticks=ticks)
+    fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)
 
     return fig, axs, hh
 

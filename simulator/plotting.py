@@ -167,14 +167,14 @@ def oilfield(ax, wsat, **kwargs):
     lvls = np.linspace(0 - 1e-7, 1 + 1e-7, 20)
     return field(ax, 1-wsat, levels=lvls, cmap=cm_ow, **kwargs)
 oilfield.title = "Oil saturation"  # noqa
-oilfield.ticks = np.linspace(0, 1, 11)
+oilfield.ticks = np.linspace(0, 1, 6)
 
 
 def corr_field(ax, corr, **kwargs):
     lvls = np.linspace(-1, 1, 20)
     return field(ax, corr, levels=lvls, cmap="bwr", **kwargs)
 corr_field.title = "Correlations"  # noqa
-corr_field.ticks = np.linspace(-1, 1, 11)
+corr_field.ticks = np.linspace(-1, 1, 6)
 
 
 def scale_well_geometry(ww):

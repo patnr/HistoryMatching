@@ -26,7 +26,7 @@ def dash(*txts):
 def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
              c="k", fontsize="large", bbox=None):
     if bbox is None:
-        bbox = dict(edgecolor="w", facecolor="k", alpha=.15,
+        bbox = dict(edgecolor="w", facecolor="w", alpha=.4,
                     boxstyle="round,pad=0")
     return ax.text(x, y, txt, c=c, fontsize=fontsize,
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
@@ -500,8 +500,7 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
     ax21.cc = oilfield(ax21, wsats[+0], **kwargs)
     # Saturations
     ax22.cc = oilfield(ax22, wsats[-1], **kwargs)
-    label_ax(ax21, "Initial", c="w", fontsize="x-large")
-    ax21.text(.01, .99, "Initial", c="w", fontsize="x-large")
+    label_ax(ax21, "Initial", c="k", fontsize="x-large")
     # Add wells
     well_scatter(ax22, model.injectors)
     well_scatter(ax22, model.producers, False,

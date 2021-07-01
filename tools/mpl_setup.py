@@ -46,9 +46,7 @@ def init():
         # NB: Non-default figsize often causes axis labels that do not
         # fit within the figure (unless remedied by tight_layout, which
         # is not compatible with all kinds of axes).
-        mpl.rcParams.update({
-            "legend.fontsize": "large",
-            "font.size": 12})
+        mpl.rcParams.update({"legend.fontsize": "large"})
         try:
             # Colab
             import google.colab  # noqa
@@ -58,6 +56,7 @@ def init():
         except ImportError:
             # Local Jupyter
             mpl.use("nbAgg")
+            mpl.rcParams["font.size"] = 12
 
     else:
         # Script run

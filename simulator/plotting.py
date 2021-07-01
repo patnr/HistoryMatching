@@ -129,12 +129,13 @@ def fields(plotter, ZZ,
     if colorbar:
         fig_colorbar(fig, hh[0], ticks=ticks)
 
-    # fig.suptitle
+    # suptitle
     suptitle = ""
-    if _is_inline:
-        suptitle += title
     if len(ZZ) > len(axs):
-        suptitle = dash(suptitle, f"First {len(axs)} instances")
+        suptitle += f"First {len(axs)} instances"
+    pre_existing = fig._suptitle
+    if pre_existing:
+        suptitle = dash(pre_existing.get_text(), suptitle)
     if suptitle:
         fig.suptitle(suptitle)
 
@@ -340,8 +341,6 @@ def productions2(dct, title="", figsize=(2, 1), nProd=None, legend=True):
     fig, axs = place.freshfig(
         title, figsize=figsize, rel=True,
         **nRowCol(nProd), sharex=True, sharey=True)
-    if _is_inline:
-        fig.suptitle(title)
 
     # Turn off redundant axes
     for ax in axs.ravel()[nProd:]:
@@ -428,8 +427,6 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
     fig, axs = place.freshfig(
         title, figsize=figsize, rel=True,
         **nRowCol(nProd), sharex=True, sharey=True)
-    if _is_inline:
-        fig.suptitle(title)
 
     # Turn off redundant axes
     for ax in axs.ravel()[nProd:]:
@@ -470,8 +467,7 @@ def dashboard(perm, saturation, production,
                      num=title,
                      figsize=place.relative_figsize(figsize))
     fig.clear()
-    if _is_inline:
-        fig.suptitle(title)
+    fig.suptitle(title)  # coz animation never (any backend) displays title
     gs = fig.add_gridspec(10, 22)
     ax0 = fig.add_subplot(gs[:5, 1:11])
     ax1 = fig.add_subplot(gs[:5, 11:21], sharex=ax0, sharey=ax0)

@@ -6,16 +6,16 @@ Note: before using any function, you must set the module vairable `model`.
 # TODO: unify (nRowCol, turn off, ax.text, etc) for
 #       fields() and productions() ?
 
+import warnings
+
 import IPython.display as ip_disp
 import matplotlib as mpl
 import numpy as np
-from ipywidgets import HBox, VBox, interactive
+from ipywidgets import HBox, IntSlider, VBox, interactive
 from matplotlib import pyplot as plt
-from mpl_tools import place, place_ax
+from mpl_tools import is_inline, place, place_ax
 from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict, get0
-
-_is_inline = "inline" in mpl.get_backend()
 
 
 def dash(*txts):
@@ -405,7 +405,7 @@ def toggler(plotter):
         # Place checkmarks to the right -- only works with mpl inline?
         widget = HBox([figure, VBox(checkmarks)])
         try:
-            import google.colab  # noqa
+            import google.colab  # noqa  TODO: should simply check for inline?
             ip_disp.display(widget)
         except ImportError:
             pass
@@ -544,3 +544,61 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
             fig, update_fig, len(tt), blit=False, interval=pause)
 
         return ani
+
+
+def sliding_corr_fields(comp_field, times=-1, title="", wells=True, argmax=True):
+    """Correlation fields. Interactive slider for time.
+
+    Handles especially the complication that inline backends
+    need to re-create figure, while not interactive backends.
+    """
+    # NB: when debugging, cells get re-run. Sometimes the interactive widget
+    # doesn't show up. It migh be because the title needs to change
+    # (due to freshfig).
+
+    # Animate or not?
+    if isinstance(times, int):
+        add_slider = False
+        title += f" (time {times})"
+    else:
+        a, b = times
+        add_slider = True
+
+    # Init figure ((sup)title, axes)
+    if not is_inline():
+        dummy = comp_field(-1)
+        fig, axs, _ = fields(corr_field, dummy, title)
+
+    def update(time_index):
+        nonlocal axs
+
+        # Ignore warnings due to computing and plotting contour/nan
+        with warnings.catch_warnings(), np.errstate(divide="ignore", invalid="ignore"):
+            warnings.filterwarnings(
+                "ignore", category=UserWarning, module="matplotlib.contour")
+
+            corrs = comp_field(time_index)
+
+            if is_inline():
+                fig, axs, _ = fields(corr_field, corrs, title)
+
+            for i, (ax, corr, well) in enumerate(zip(axs, corrs, model.producers)):
+
+                if not is_inline():
+                    ax.clear()
+                    corr_field(ax, corr)
+
+                if wells:
+                    well_scatter(ax, well[None, :], inj=False, text=str(i))
+
+                if argmax:
+                    ax.plot(*model.ind2xy(corr.argmax()), "g*", ms=12, label="max")
+
+    # Call plotter (with/without Widget)
+    if add_slider:
+        slider = IntSlider(description='Time index',
+                           value=b//2, min=a, max=b)
+        plotter = interactive(update, time_index=slider)
+        return plotter
+    else:
+        update(times)

@@ -69,7 +69,6 @@ import copy
 import numpy.random as rnd
 import scipy.linalg as sla
 from IPython.display import display
-from ipywidgets import interact
 from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
 from numpy import sqrt
@@ -356,34 +355,24 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
 # ##### Auto-correlation for `wsat`
 # First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times, centering on the green star, to verify that it lies on top of the well of that panel.
+# The green stars mark the location of the maximum of the correlation field.
 
-iT = -1
-xx = wsat.past.Prior[:, iT]
-yy = prod.past.Prior[:, iT].T
-corrs = [misc.corr(xx, y) for y in yy]
-fig, axs, _ = plots.fields(plots.corr_field, corrs, f"Saturation vs. obs (time {iT})");
-# Add wells and maxima
-for i, (ax, well) in enumerate(zip(axs, model.producers)):
-    plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
-    ax.plot(*model.ind2xy(corrs[i].argmax()), "g*", ms=12, label="max")
+def compute_corrs(time_index):
+    xx = wsat.past.Prior[:, time_index]
+    yy = prod.past.Prior[:, time_index].T
+    return [misc.corr(xx, y) for y in yy]
 
+plots.sliding_corr_fields(compute_corrs, -1, "Saturation vs. obs")
 
 # ##### Correlation vs unknowns (pre-permeability)
 # The following plots the correlation fields for the unknown field (pre-permeability) vs the productions at a given time.
 
-fig, axs, _ = plots.fields(plots.corr_field, corrs, "Pre-perm vs. obs.");  # Init fig
-#
-@interact(time_index=(0, nTime-1))
-def _plot(time_index=nTime//2):
+def compute_corrs(time_index):
     xx = perm.Prior
     yy = prod.past.Prior[:, time_index].T
-    with np.errstate(divide="ignore", invalid="ignore"):
-        corrs = [misc.corr(xx, y) for y in yy]
-        for i, (ax, corr, well) in enumerate(zip(axs, corrs, model.producers)):
-            ax.clear()
-            plots.corr_field(ax, corr)
-            plots.well_scatter(ax, well[None, :], inj=False, text=str(i))
-            ax.plot(*model.ind2xy(corr.argmax()), "g*", ms=12, label="max")
+    return [misc.corr(xx, y) for y in yy]
+
+plots.sliding_corr_fields(compute_corrs, (0, nTime-1), "Pre-perm vs. obs.")
 
 # Use the interative slider below the plot to walk through time. Note that
 #

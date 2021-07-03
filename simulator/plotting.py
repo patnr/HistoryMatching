@@ -5,6 +5,10 @@ Note: before using any function, you must set the module vairable `model`.
 
 # TODO: unify (nRowCol, turn off, ax.text, etc) for
 #       fields() and productions() ?
+# TODO: Should simply check for inline, not colab?
+# TODO: replace oildfied and corr_field by "kind" to field()
+# TODO: make a "kind" for pre-perm (instead of using field default).
+
 
 import warnings
 
@@ -470,7 +474,6 @@ def toggler(plotter):
         # Place checkmarks to the right -- only works with mpl inline?
         widget = HBox([figure, VBox(checkmarks)])
         try:
-            # TODO: Should simply check for inline?
             import google.colab  # type: ignore # noqa
             ip_disp.display(widget)
         except ImportError:

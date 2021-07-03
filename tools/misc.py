@@ -156,6 +156,6 @@ def cov(a, b):
 def corr(a, b):
     """Compute correlation between multivariate ensembles. See `cov`."""
     C = cov(a, b)
-    sa = np.std(a, axis=0, ddof=1)
-    sb = np.std(b, axis=0, ddof=1)[..., None]
+    sa = np.std(a.T, axis=-1, ddof=1)
+    sb = np.std(b  , axis=+0, ddof=1, keepdims=True)
     return C / sa / sb

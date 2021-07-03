@@ -76,7 +76,11 @@ class Grid2D:
         return ix, iy
 
     def xy2sub(self, x, y):
-        """Convert physical coordinate tuple to tuple `(ix, iy)`."""
+        """Convert physical coordinate tuple to tuple `(ix, iy)`.
+
+        Note: rounds to nearest integers (i.e. is not injective).
+        The alternative would be to return some kind of interpolation weights.
+        """
         # ix = int(round(x/self.Lx*(self.Nx-1)))
         # iy = int(round(y/self.Ly*(self.Ny-1)))
         ix = (np.array(x) / self.Lx*(self.Nx-1)).round().astype(int)
@@ -84,20 +88,17 @@ class Grid2D:
         return ix, iy
 
     def sub2xy(self, ix, iy):
-        """Approximate inverse of `self.xy2sub`.
-
-        Approx. because `self.xy2sub` aint injective, so we map to cell centres.
-        """
+        """Approx. inverse of `self.xy2sub`. NB: see caution in `xy2sub`."""
         x = self.Lx * (ix + .5)/self.Nx
         y = self.Ly * (iy + .5)/self.Ny
         return x, y
 
     def xy2ind(self, x, y):
-        """Convert physical coordinates to flattened array index."""
+        """Convert physical coord to flat indx. NB: see caution in `xy2sub`."""
         return self.sub2ind(*self.xy2sub(x, y))
 
     def ind2xy(self, ind):
-        """Inv. of `self.xy2ind`."""
+        """Inv. of `self.xy2ind`. NB: see caution in `xy2sub`."""
         i, j = self.ind2sub(ind)
         x    = i/(self.Nx-1)*self.Lx
         y    = j/(self.Ny-1)*self.Ly

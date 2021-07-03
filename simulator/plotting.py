@@ -11,7 +11,7 @@ import warnings
 import IPython.display as ip_disp
 import matplotlib as mpl
 import numpy as np
-from ipywidgets import HBox, IntSlider, VBox, interactive
+from ipywidgets import HBox, VBox, interactive
 from matplotlib import pyplot as plt
 from mpl_tools import is_inline, place, place_ax
 from mpl_tools.misc import axprops, nRowCol
@@ -32,7 +32,7 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
-def field(ax, zz, **kwargs):
+def field(ax, zz, wells=False, argmax=False, **kwargs):
     """Contour-plot the field contained in `zz`."""
     levels     = kwargs.pop("levels"    , field.levels)
     cmap       = kwargs.pop("cmap"      , field.cmap)
@@ -70,6 +70,18 @@ def field(ax, zz, **kwargs):
         # plots (e.g. well_scatter), and that correspondence is more important.
         origin=None, extent=(0, Lx, 0, Ly))
 
+    if wells:
+        if wells == "color":
+            c = [f"C{i}" for i in range(len(model.producers))]
+        else:
+            c = None
+        well_scatter(ax, model.injectors)
+        well_scatter(ax, model.producers, False, color=c)
+
+    if argmax:
+        idx = Z.T.argmax()  # reverse above transpose
+        ax.plot(*model.ind2xy(idx), "g*", ms=12, label="Max")
+
     ax.set_xlim((0, Lx))
     ax.set_ylim((0, Ly))
     ax.set_aspect("equal")
@@ -101,7 +113,7 @@ field.ticks = None
 def fields(plotter, ZZ,
            title="",
            figsize=(1.7, 1),
-           txt_color="k",
+           label_color="k",
            colorbar=True,
            **kwargs):
 
@@ -135,7 +147,7 @@ def fields(plotter, ZZ,
 
     hh = []
     for ax, label in zip(axs, ZZ):
-        label_ax(ax, label)
+        label_ax(ax, label, c=label_color)
         hh.append(plotter(ax, ZZ[label], **kwargs))
 
     # Suptitle
@@ -174,6 +186,68 @@ def corr_field(ax, corr, **kwargs):
     return field(ax, corr, levels=lvls, cmap="bwr", **kwargs)
 corr_field.title = "Correlations"  # noqa
 corr_field.ticks = np.linspace(-1, 1, 6)
+
+
+def field_interact(compute, plotter, title="", **kwargs):
+    """Field computed on-the-fly controlled by interactive sliders."""
+    # Get plotter defaults
+    title = dash(getattr(plotter, "title", ""), title)
+    ticks = getattr(plotter, "ticks", None)
+
+    # Init figure (provides full-(sup)title, axes layout)
+    # NB: This should only be run once for interactive mpl backends.
+    # Moreover, putting it inside of the widget-wrapped function (update)
+    # (including checks to make sure it only runs once) causes the issue that
+    # the figure goes blank after moving the slider a few times.
+    # Another issue is that if the cell containing the figure is closed, or
+    # even sometimes if re-running the cell, the figure won't display again.
+    # I think this is also related because it's inside an ipython widget.
+    # It seems that changing the figure label/title/number is sufficient to fix it.
+    def fig_ax():
+        fig, ax = place.freshfig(title, figsize=(1.5, 1), rel=True)
+        did_init = True
+        return fig, ax, did_init
+
+    if not is_inline():
+        fig, ax, did_init = fig_ax()
+
+    def update(**controls):
+        """Update plot(s)."""
+        nonlocal fig, ax, did_init
+
+        # Ignore warnings due to computing and plotting contour/nan
+        with warnings.catch_warnings(), \
+                np.errstate(divide="ignore", invalid="ignore"):
+            warnings.filterwarnings(
+                "ignore", category=UserWarning, module="matplotlib.contour")
+
+            Z = compute(**controls)
+
+            # (Re-)init
+            if is_inline():
+                fig, ax, did_init = fig_ax()
+            else:
+                ax.clear()
+
+            # Update
+            cc = plotter(ax, Z, **kwargs)
+
+            # Add colorbar
+            if did_init:
+                fig.colorbar(cc, ax=ax, ticks=ticks)
+                did_init = False
+
+            # Add crosshairs
+            try:
+                # A stretched version [like field()] of model.sub2xy
+                x = model.Lx * controls["iX"]/(model.Nx-1)
+                y = model.Ly * controls["iY"]/(model.Ny-1)
+                ax.plot(x, y, "k+", ms=15, markeredgewidth=2)
+            except KeyError:
+                pass
+
+    # Make widget/interactive plot
+    return interactive(update, **compute.controls)
 
 
 def scale_well_geometry(ww):
@@ -396,7 +470,8 @@ def toggler(plotter):
         # Place checkmarks to the right -- only works with mpl inline?
         widget = HBox([figure, VBox(checkmarks)])
         try:
-            import google.colab  # noqa  TODO: should simply check for inline?
+            # TODO: Should simply check for inline?
+            import google.colab  # type: ignore # noqa
             ip_disp.display(widget)
         except ImportError:
             pass
@@ -490,12 +565,9 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
     # Saturation0
     ax21.cc = oilfield(ax21, wsats[+0], **kwargs)
     # Saturations
-    ax22.cc = oilfield(ax22, wsats[-1], **kwargs)
+    ax22.cc = oilfield(ax22, wsats[-1], wells="color", **kwargs)
     label_ax(ax21, "Initial", c="k", fontsize="x-large")
     # Add wells
-    well_scatter(ax22, model.injectors)
-    well_scatter(ax22, model.producers, False,
-                 color=[f"C{i}" for i in range(len(model.producers))])
     fig.colorbar(ax22.cc, ax22c, ticks=oilfield.ticks)
     ax22c.set_ylabel(oilfield.title)
 
@@ -535,61 +607,3 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
             fig, update_fig, len(tt), blit=False, interval=pause)
 
         return ani
-
-
-def sliding_corr_fields(comp_field, times=-1, title="", wells=True, argmax=True):
-    """Correlation fields. Interactive slider for time.
-
-    Handles especially the complication that inline backends
-    need to re-create figure, while not interactive backends.
-    """
-    # NB: when debugging, cells get re-run. Sometimes the interactive widget
-    # doesn't show up. It migh be because the title needs to change
-    # (due to freshfig).
-
-    # Animate or not?
-    if isinstance(times, int):
-        add_slider = False
-        title += f" (time {times})"
-    else:
-        a, b = times
-        add_slider = True
-
-    # Init figure ((sup)title, axes)
-    if not is_inline():
-        dummy = comp_field(-1)
-        fig, axs, _ = fields(corr_field, dummy, title)
-
-    def update(time_index):
-        nonlocal axs
-
-        # Ignore warnings due to computing and plotting contour/nan
-        with warnings.catch_warnings(), np.errstate(divide="ignore", invalid="ignore"):
-            warnings.filterwarnings(
-                "ignore", category=UserWarning, module="matplotlib.contour")
-
-            corrs = comp_field(time_index)
-
-            if is_inline():
-                fig, axs, _ = fields(corr_field, corrs, title)
-
-            for i, (ax, corr, well) in enumerate(zip(axs, corrs, model.producers)):
-
-                if not is_inline():
-                    ax.clear()
-                    corr_field(ax, corr)
-
-                if wells:
-                    well_scatter(ax, well[None, :], inj=False, text=str(i))
-
-                if argmax:
-                    ax.plot(*model.ind2xy(corr.argmax()), "g*", ms=12, label="max")
-
-    # Call plotter (with/without Widget)
-    if add_slider:
-        slider = IntSlider(description='Time index',
-                           value=b//2, min=a, max=b)
-        plotter = interactive(update, time_index=slider)
-        return plotter
-    else:
-        update(times)

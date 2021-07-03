@@ -171,10 +171,8 @@ model.config_wells(
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # cs = plots.field(ax, perm.Truth)
-cs = plots.field(ax, perm_transf(perm.Truth),
+cs = plots.field(ax, perm_transf(perm.Truth), wells=True,
                  locator=LogLocator(), cmap="viridis", levels=10)
-plots.well_scatter(ax, model.producers, inj=False)
-plots.well_scatter(ax, model.injectors, inj=True)
 fig.colorbar(cs);
 fig.tight_layout()
 
@@ -231,13 +229,14 @@ print("Prior var.:", np.var(perm.Prior))
 
 # Let us inspect the parameter values in the form of their histogram.
 
-fig, ax = freshfig("Perm. -- marginal distribution", figsize=(1.5, .7), rel=1)
+fig, ax = freshfig("Perm.", figsize=(1.5, .7), rel=1)
 bins = np.linspace(*plots.field.levels[[0, -1]], 32)
 for label, perm_field in perm.items():
-    ax.hist(perm_transf(perm_field.ravel()),
+    x = perm_field.ravel()
+    ax.hist(perm_transf(x),
             perm_transf(bins),
-            # "Downscale" counts by N, coz `density=1` "fails" with log-scale.
-            weights=(np.ones(model.M*N)/N if label != "Truth" else None),
+            # Divide counts by N to emulate `density=1` for log-scale.
+            weights=(np.ones_like(x)/N if label != "Truth" else None),
             label=label, alpha=0.3)
 ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
 ax.legend()
@@ -357,22 +356,33 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times, centering on the green star, to verify that it lies on top of the well of that panel.
 # The green stars mark the location of the maximum of the correlation field.
 
-def compute_corrs(time_index):
-    xx = wsat.past.Prior[:, time_index]
-    yy = prod.past.Prior[:, time_index].T
-    return [misc.corr(xx, y) for y in yy]
+xx = wsat.past.Prior[:, -1]
+yy = prod.past.Prior[:, -1].T
+corrs = [misc.corr(xx, y) for y in yy]
 
-plots.sliding_corr_fields(compute_corrs, -1, "Saturation vs. obs")
+fig, axs, _ = plots.fields(plots.corr_field, corrs, "Saturation vs. obs",
+                           argmax=True, wells=True)
 
 # ##### Correlation vs unknowns (pre-permeability)
-# The following plots the correlation fields for the unknown field (pre-permeability) vs the productions at a given time.
+# The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage.
 
-def compute_corrs(time_index):
-    xx = perm.Prior
-    yy = prod.past.Prior[:, time_index].T
-    return [misc.corr(xx, y) for y in yy]
+def compute(iT, iX, iY, VAR):
+    """Compute a variety of correlation fields."""
+    xx = wsat.past.Prior[:, iT, model.sub2ind(iX, iY)]
+    if   VAR == "Saturation (iT)" : yy = wsat.past.Prior[:, iT] # noqa
+    elif VAR == "Saturation (end)": yy = wsat.past.Prior[:, -1] # noqa
+    elif VAR == "Pre-perm"        : yy = perm.Prior             # noqa
+    return misc.corr(xx, yy)
 
-plots.sliding_corr_fields(compute_corrs, (0, nTime-1), "Pre-perm vs. obs.")
+
+compute.controls = dict(
+    VAR = ["Saturation (iT)", "Saturation (end)", "Pre-perm"],
+    iT = (0, nTime),
+    iX = (0, model.Nx-1),
+    iY = (0, model.Ny-1),
+)
+
+plots.field_interact(compute, plots.corr_field, "Saturation (iT) vs. VAR (iX, iY)", argmax=True)
 
 # Use the interative slider below the plot to walk through time. Note that
 #

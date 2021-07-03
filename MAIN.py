@@ -353,7 +353,7 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # In summary, it is useful to investigate the correlation relations of the ensemble, especially for the prior.
 
 # ##### Auto-correlation for `wsat`
-# First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times, centering on the green star, to verify that it lies on top of the well of that panel.
+# First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times (not available on Colab), centering on the green star, to verify that it lies on top of the well of that panel.
 # The green stars mark the location of the maximum of the correlation field.
 
 xx = wsat.past.Prior[:, -1]
@@ -382,14 +382,21 @@ compute.controls = dict(
     iY = (0, model.Ny-1),
 )
 
-plots.field_interact(compute, plots.corr_field, "Saturation (iT) vs. VAR (iX, iY)", argmax=True)
+plots.field_interact(compute, plots.corr_field,
+                     "Saturation field (iT) vs. VAR (iX, iY)",
+                     argmax=True)
 
-# Use the interative slider below the plot to walk through time. Note that
+# Use the interative control widgets to investigate the correlation structure.
 #
-# - The variances in the initial productions (when the slider is all the way to the left) are zero, yielding nan's and blank plots.
-# - The maximum is not quite superimposed with the well in question.
-# - The correlation fields grow stronger in time. This is because it takes time for the permeability field to impact the flow at the well. TODO: improve reasoning.
-# - The opposite corner of a given well is anti-correlated with it. This makes sense, since larger permeability in the opposite corner to a well will subtract from its production.
+# - When correlating the saturation field (at time `iT`) with itself
+#   (at location `iX` and `iY`), the maximum (marked by the green star)
+#   and the location (marked by the black cross) lie on top of one another.
+#   Why? Select `VAR="Saturation (end)"`; is this co-location still true?
+# - Move the time slider all the way to 0. Why is there no correlation?
+# - Set `iT` to something small but non-zero.
+#   Describe and explain the qualitative difference in the correlation
+#   field when `VAR="Saturation (iT)"` and when `VAR="Pre-perm"`.
+# - TODO: Add more remarks/questions
 
 # ### Ensemble smoother
 

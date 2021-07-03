@@ -61,6 +61,8 @@ forth to be troublesome (it removes and adds that cell when it shouldn't).
 Therefore I suggest only working on the *master branch*, and merging into
 the Colab branch. Don't manually resolve conflicts in the `.ipynb` file;
 use instead `jupytext` to sync it from the (resolved) python script.
+If it complains (while opening the script) that the timestamps are
+incompatible, simply re-save the `.py` version and reload the page.
 
 ## Contributors
 

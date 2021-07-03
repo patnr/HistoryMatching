@@ -153,22 +153,13 @@ def fields(plotter, ZZ,
 
 # Colormap for saturation
 lin_cm = mpl.colors.LinearSegmentedColormap.from_list
-# def ccnvrt(c): return np.array(mpl.colors.colorConverter.to_rgb(c))
-
-
-# Plain:
-# cOil   = "red"
-# cWater = "blue"
-# Pastel/neon:
-# cWater = "#01a9b4"
-# cOil   = "#d8345f"
-# Pastel:
-# cWater = "#086972"
-# cOil   = "#e58a8a"
-# middle = .3*ccnvrt(cWater) + .7*ccnvrt(cOil)
-# cm_ow = lin_cm("", [cWater,middle,cOil])
-# Pastel:
 cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
+# cOil, cWater  = "red", "blue"  # Plain
+# cOil, cWater = "#d8345f", "#01a9b4"  # Pastel/neon
+# cOil, cWater = "#e58a8a", "#086972"  # Pastel
+# ccnvrt = lambda c: np.array(mpl.colors.colorConverter.to_rgb(c))
+# cMiddle = .3*ccnvrt(cWater) + .7*ccnvrt(cOil)
+# cm_ow = lin_cm("", [cWater, cMiddle, cOil])
 
 
 def oilfield(ax, wsat, **kwargs):

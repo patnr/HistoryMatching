@@ -22,18 +22,7 @@ from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict, get0
 
 
-def dash(*txts):
-    """Join non-empty txts by a dash."""
-    return " -- ".join([t for t in txts if t != ""])
 
-
-def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
-             c="k", fontsize="large", bbox=None):
-    if bbox is None:
-        bbox = dict(edgecolor="w", facecolor="w", alpha=.4,
-                    boxstyle="round,pad=0")
-    return ax.text(x, y, txt, c=c, fontsize=fontsize,
-                   ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
 def field(ax, zz, wells=False, argmax=False, **kwargs):
@@ -610,3 +599,17 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
             fig, update_fig, len(tt), blit=False, interval=pause)
 
         return ani
+
+
+def dash(*txts):
+    """Join non-empty txts by a dash."""
+    return " -- ".join([t for t in txts if t != ""])
+
+
+def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
+             c="k", fontsize="large", bbox=None):
+    if bbox is None:
+        bbox = dict(edgecolor="w", facecolor="w", alpha=.4,
+                    boxstyle="round,pad=0")
+    return ax.text(x, y, txt, c=c, fontsize=fontsize,
+                   ha=ha, va=va, transform=ax.transAxes, bbox=bbox)

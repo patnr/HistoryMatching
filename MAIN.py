@@ -97,10 +97,9 @@ model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
 # Plot configuration
 plots.model = model
-plots.field.coord_type = "absolute"
-plots.field.levels = np.linspace(-3.8, 3.8, 21)
-plots.field.ticks = np.arange(-3, 4)
-plots.field.cmap = "jet"
+plots.coord_type = "absolute"
+plots.styles["pperm"]["levels"] = np.linspace(-3.8, 3.8, 21)
+plots.styles["pperm"]["ticks"] = np.arange(-3, 4)
 
 # The following declares some data containers to help us keep organised.
 # The names have all been shortened to 4 characters, but this is just
@@ -170,9 +169,8 @@ model.config_wells(
 # Let's take a moment to visualize the model permeability field, and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
-# cs = plots.field(ax, perm.Truth)
-cs = plots.field(ax, perm_transf(perm.Truth), wells=True,
-                 locator=LogLocator(), cmap="viridis", levels=10)
+# cs = plots.field(ax, perm.Truth, "pperm")
+cs = plots.field(ax, perm_transf(perm.Truth), locator=LogLocator(), wells=True)
 fig.colorbar(cs);
 fig.tight_layout()
 
@@ -230,7 +228,7 @@ print("Prior var.:", np.var(perm.Prior))
 # Let us inspect the parameter values in the form of their histogram.
 
 fig, ax = freshfig("Perm.", figsize=(1.5, .7), rel=1)
-bins = np.linspace(*plots.field.levels[[0, -1]], 32)
+bins = np.linspace(*plots.styles["pperm"]["levels"][[0, -1]], 32)
 for label, perm_field in perm.items():
     x = perm_field.ravel()
     ax.hist(perm_transf(x),
@@ -246,7 +244,7 @@ fig.tight_layout()
 
 # Below we can see some realizations (members) from the ensemble.
 
-plots.fields(plots.field, perm.Prior, "Prior");
+plots.fields(perm.Prior, "pperm", "Prior");
 
 # #### Eigenvalue spectrum
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
@@ -360,7 +358,7 @@ xx = wsat.past.Prior[:, -1]
 yy = prod.past.Prior[:, -1].T
 corrs = [misc.corr(xx, y) for y in yy]
 
-fig, axs, _ = plots.fields(plots.corr_field, corrs, "Saturation vs. obs",
+fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs",
                            argmax=True, wells=True)
 
 # ##### Correlation vs unknowns (pre-permeability)
@@ -382,7 +380,7 @@ compute.controls = dict(
     iY = (0, model.Ny-1),
 )
 
-plots.field_interact(compute, plots.corr_field,
+plots.field_interact(compute, "corr",
                      "Saturation field (iT) vs. VAR (iX, iY)",
                      argmax=True)
 
@@ -468,7 +466,7 @@ perm.ES = ES(perm.Prior)
 # #### Plot ES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(plots.field, perm.ES, "ES (posterior)");
+plots.fields(perm.ES, "pperm", "ES (posterior)");
 
 # We will see some more diagnostics later.
 
@@ -569,7 +567,7 @@ perm.IES, stats_IES = IES(
 # #### Plot IES
 # Let's plot the updated, initial ensemble.
 
-plots.fields(plots.field, perm.IES, "IES (posterior)");
+plots.fields(perm.IES, "pperm", "IES (posterior)");
 
 # The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
 
@@ -601,7 +599,7 @@ misc.RMS_all(perm, vs="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plots.fields(plots.field, perm_means, "Means");
+plots.fields(perm_means, "pperm", "Means");
 
 # ### Past production (data mismatch)
 # In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
@@ -646,7 +644,7 @@ misc.RMS_all(prod.past, vs="Noisy")
 
 wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
-plots.fields(plots.oilfield, wsat_means, "Means");
+plots.fields(wsat_means, "oil", "Means");
 
 # Now we predict.
 

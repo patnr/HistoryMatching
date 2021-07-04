@@ -6,8 +6,6 @@ Note: before using any function, you must set the module vairable `model`.
 # TODO: unify (nRowCol, turn off, ax.text, etc) for
 #       fields() and productions() ?
 # TODO: Should simply check for inline, not colab?
-# TODO: replace oildfied and corr_field by "kind" to field()
-# TODO: make a "kind" for pre-perm (instead of using field default).
 
 
 import warnings
@@ -21,16 +19,64 @@ from mpl_tools import is_inline, place, place_ax
 from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict, get0
 
+# Module "self"
+model = None
+
+coord_type = "relative"
+
+# Colormap for saturation
+lin_cm = mpl.colors.LinearSegmentedColormap.from_list
+cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
+# cOil, cWater  = "red", "blue"  # Plain
+# cOil, cWater = "#d8345f", "#01a9b4"  # Pastel/neon
+# cOil, cWater = "#e58a8a", "#086972"  # Pastel
+# ccnvrt = lambda c: np.array(mpl.colors.colorConverter.to_rgb(c))
+# cMiddle = .3*ccnvrt(cWater) + .7*ccnvrt(cOil)
+# cm_ow = lin_cm("", [cWater, cMiddle, cOil])
+
+# Defaults
+styles = dict(
+    default = dict(
+        title  = "",
+        transf = lambda x: x,
+        cmap   = "viridis",
+        levels = 10,
+        ticks  = None,
+        # Note that providing vmin/vmax (and not a levels list) to mpl
+        # yields prettier colobar ticks, but destorys the consistency
+        # of the colorbars from one figure to another.
+    ),
+    pperm = dict(
+        title  = "Pre-Perm.",
+        cmap   = "jet",
+    ),
+    oil = dict(
+        title  = "Oil saturation",
+        transf = lambda x: 1 - x,
+        cmap   = cm_ow,
+        levels = np.linspace(0 - 1e-7, 1 + 1e-7, 20),
+        ticks  = np.linspace(0, 1, 6),
+    ),
+    corr = dict(
+        title  = "Correlations",
+        cmap   = "bwr",
+        levels = np.linspace(-1, 1, 20),
+        ticks  = np.linspace(0, 1, 6),
+    ),
+)
 
 
+def pop_style_with_fallback(key, style, kwargs):
+    """`kwargs.pop(key)`, defaulting to `styles[style or "default"]`."""
+    x = styles["default"][key]
+    x = styles[style or "default"].get(key, x)
+    x = kwargs.pop(key, x)
+    return x
 
 
-def field(ax, zz, wells=False, argmax=False, **kwargs):
-    """Contour-plot the field contained in `zz`."""
-    levels     = kwargs.pop("levels"    , field.levels)
-    cmap       = kwargs.pop("cmap"      , field.cmap)
-    coord_type = kwargs.pop("coord_type", field.coord_type)
-
+def field(ax, Z, style=None, wells=False, argmax=False, **kwargs):
+    """Contour-plot of the (flat) field `Z`."""
+    kw = lambda k: pop_style_with_fallback(k, style, kwargs)
     ax.set(**axprops(kwargs))
 
     # Plotting with extent=(0, Lx, 0, Ly), rather than merely changing ticks
@@ -48,11 +94,12 @@ def field(ax, zz, wells=False, argmax=False, **kwargs):
 
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
-    Z = zz.reshape(model.shape).T
+    Z = kw("transf")(Z)
+    Z = Z.reshape(model.shape).T
 
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
-        Z, levels, cmap=cmap, **kwargs,
+        Z, kw("levels"), cmap=kw("cmap"), **kwargs,
         # Using origin="lower" puts the points in the gridcell centers.
         # This is great (agrees with finite-volume point definition)
         # but means that the plot wont extend all the way to the edges,
@@ -82,39 +129,19 @@ def field(ax, zz, wells=False, argmax=False, **kwargs):
         ax.set_xlabel("x")
         ax.set_ylabel("y")
     else:
-        ax.set_xlabel(f"x ({field.coord_type})")
-        ax.set_ylabel(f"y ({field.coord_type})")
+        ax.set_xlabel(f"x ({coord_type})")
+        ax.set_ylabel(f"y ({coord_type})")
 
     return collections
 
 
-# "Self"
-model = None
-
-
-# Defaults
-field.coord_type = "relative"
-field.cmap = "jet"
-field.levels = 10
-field.ticks = None
-# Use a list of levels for more control, including vmin/vmax.
-# Note that providing vmin/vmax (and not a levels list) to mpl
-# yields prettier colobar ticks, but destorys the consistency
-# of the colorbars from one figure to another.
-
-
-def fields(plotter, ZZ,
-           title="",
-           figsize=(1.7, 1),
-           label_color="k",
-           colorbar=True,
-           **kwargs):
-
-    # Get plotter defaults
-    title = dash("Fields", getattr(plotter, "title", ""), title)
-    ticks = getattr(plotter, "ticks", None)
+def fields(ZZ, style=None, title="", figsize=(1.7, 1),
+           label_color="k", colorbar=True, **kwargs):
+    """Use `field` to plot for each `Z` in `ZZ`."""
+    kw = lambda k: pop_style_with_fallback(k, style, kwargs)
 
     # Create figure using freshfig
+    title = dash("Fields", kw("title"), title)
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
     # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
@@ -141,7 +168,7 @@ def fields(plotter, ZZ,
     hh = []
     for ax, label in zip(axs, ZZ):
         label_ax(ax, label, c=label_color)
-        hh.append(plotter(ax, ZZ[label], **kwargs))
+        hh.append(field(ax, ZZ[label], style, **kwargs))
 
     # Suptitle
     if len(ZZ) > len(axs):
@@ -151,41 +178,14 @@ def fields(plotter, ZZ,
         fig.suptitle(suptitle)
 
     if colorbar:
-        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=ticks)
+        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=kw("ticks"))
 
     return fig, axs, hh
 
 
-# Colormap for saturation
-lin_cm = mpl.colors.LinearSegmentedColormap.from_list
-cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
-# cOil, cWater  = "red", "blue"  # Plain
-# cOil, cWater = "#d8345f", "#01a9b4"  # Pastel/neon
-# cOil, cWater = "#e58a8a", "#086972"  # Pastel
-# ccnvrt = lambda c: np.array(mpl.colors.colorConverter.to_rgb(c))
-# cMiddle = .3*ccnvrt(cWater) + .7*ccnvrt(cOil)
-# cm_ow = lin_cm("", [cWater, cMiddle, cOil])
-
-
-def oilfield(ax, wsat, **kwargs):
-    lvls = np.linspace(0 - 1e-7, 1 + 1e-7, 20)
-    return field(ax, 1-wsat, levels=lvls, cmap=cm_ow, **kwargs)
-oilfield.title = "Oil saturation"  # noqa
-oilfield.ticks = np.linspace(0, 1, 6)
-
-
-def corr_field(ax, corr, **kwargs):
-    lvls = np.linspace(-1, 1, 20)
-    return field(ax, corr, levels=lvls, cmap="bwr", **kwargs)
-corr_field.title = "Correlations"  # noqa
-corr_field.ticks = np.linspace(-1, 1, 6)
-
-
-def field_interact(compute, plotter, title="", **kwargs):
+def field_interact(compute, style=None, title="", **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
-    # Get plotter defaults
-    title = dash(getattr(plotter, "title", ""), title)
-    ticks = getattr(plotter, "ticks", None)
+    kw = lambda k: pop_style_with_fallback(k, style, kwargs)
 
     # Init figure (provides full-(sup)title, axes layout)
     # NB: This should only be run once for interactive mpl backends.
@@ -197,7 +197,8 @@ def field_interact(compute, plotter, title="", **kwargs):
     # I think this is also related because it's inside an ipython widget.
     # It seems that changing the figure label/title/number is sufficient to fix it.
     def fig_ax():
-        fig, ax = place.freshfig(title, figsize=(1.5, 1), rel=True)
+        fig, ax = place.freshfig(dash(kw("title"), title),
+                                 figsize=(1.5, 1), rel=True)
         did_init = True
         return fig, ax, did_init
 
@@ -223,11 +224,11 @@ def field_interact(compute, plotter, title="", **kwargs):
                 ax.clear()
 
             # Update
-            cc = plotter(ax, Z, **kwargs)
+            cc = field(ax, Z, style, **kwargs)
 
             # Add colorbar
             if did_init:
-                fig.colorbar(cc, ax=ax, ticks=ticks)
+                fig.colorbar(cc, ax=ax, ticks=kw("ticks"))
                 did_init = False
 
             # Add crosshairs
@@ -244,16 +245,16 @@ def field_interact(compute, plotter, title="", **kwargs):
 
 
 def scale_well_geometry(ww):
-    """Wells use absolute scaling. Scale to `field.coord_type` instead."""
+    """Wells use absolute scaling. Scale to `coord_type` instead."""
     ww = ww.copy()  # dont overwrite
-    if "rel" in field.coord_type:
+    if "rel" in coord_type:
         s = 1/model.Lx, 1/model.Ly
-    elif "abs" in field.coord_type:
+    elif "abs" in coord_type:
         s = 1, 1
-    elif "ind" in field.coord_type:
+    elif "ind" in coord_type:
         s = model.Nx/model.Lx, model.Ny/model.Ly
     else:
-        raise ValueError("Unsupported coordinate type: %s" % field.coord_type)
+        raise ValueError("Unsupported coordinate type: %s" % coord_type)
     ww[:, :2] = ww[:, :2] * s
     return ww
 
@@ -550,18 +551,18 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
     ax22c = fig.add_subplot(gs[-h:, -c:])
 
     # Perm
-    ax12.cc = field(ax12, perm, **kwargs)
-    fig.colorbar(ax12.cc, ax12c, ticks=field.ticks)
+    ax12.cc = field(ax12, perm, "pperm", **kwargs)
+    fig.colorbar(ax12.cc, ax12c, ticks=styles["default"]["ticks"])
     ax12c.set_ylabel("Permeability")
 
     # Saturation0
-    ax21.cc = oilfield(ax21, wsats[+0], **kwargs)
+    ax21.cc = field(ax21, wsats[+0], "oil", **kwargs)
     # Saturations
-    ax22.cc = oilfield(ax22, wsats[-1], wells="color", **kwargs)
+    ax22.cc = field(ax22, wsats[-1], "oil", wells="color", **kwargs)
     label_ax(ax21, "Initial", c="k", fontsize="x-large")
     # Add wells
-    fig.colorbar(ax22.cc, ax22c, ticks=oilfield.ticks)
-    ax22c.set_ylabel(oilfield.title)
+    fig.colorbar(ax22.cc, ax22c, ticks=styles["oil"]["ticks"])
+    ax22c.set_ylabel(styles["oil"]["title"])
 
     # Production
     hh = production1(ax11, prod)
@@ -587,7 +588,7 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
                     ax22.collections.remove(c)
                 except ValueError:
                     pass  # occurs when re-running script
-            ax22.cc = oilfield(ax22, wsats[iT], **kwargs)
+            ax22.cc = field(ax22, wsats[iT], "oil", **kwargs)
             ax22.set_ylabel(None)
 
             # Update production lines

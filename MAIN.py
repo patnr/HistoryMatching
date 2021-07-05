@@ -258,11 +258,7 @@ plots.fields(perm.Prior, "pperm", "Prior");
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
-fig, ax = freshfig("Spectrum of prior cov.", figsize=(1.6, .7), rel=1)
-ax.loglog(svals)  # also try semilogx
-ax.grid(True, "both", axis="both")
-ax.set(xlabel="eigenvalue index", ylabel="variance");
-fig.tight_layout()
+plots.spectrum(svals, "Prior cov.");
 
 # With our limited ensemble size, we see no clear cutoff index. In other words, we are not so fortunate that the prior is implicitly restricted to some subspace that is of lower rank than our ensemble. This is a very realistic situation, and indicates that localisation (implemented further below) will be very beneficial.
 

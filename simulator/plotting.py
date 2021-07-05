@@ -626,6 +626,20 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
         return ani
 
 
+def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):
+    """Plotter specialized for spectra."""
+    title = dash("Spectrum", title)
+    fig, ax = place.freshfig(title, figsize=figsize, rel=True)
+    if semilogy:
+        h = ax.semilogy(ydata)
+    else:
+        h = ax.loglog(ydata)
+    ax.grid(True, "both", axis="both")
+    ax.set(xlabel="eigenvalue index", ylabel="variance")
+    fig.tight_layout()
+    return h
+
+
 def dash(*txts):
     """Join non-empty txts by a dash."""
     return " -- ".join([t for t in txts if t != ""])

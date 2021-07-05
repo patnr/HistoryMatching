@@ -47,7 +47,7 @@ styles = dict(
         # of the colorbars from one figure to another.
     ),
     pperm = dict(
-        title  = "Pre-Perm.",
+        title  = "Pre-Perm",
         cmap   = "jet",
     ),
     oil = dict(

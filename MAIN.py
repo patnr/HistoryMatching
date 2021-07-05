@@ -93,13 +93,13 @@ from tools.misc import center
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using two-point flux approximation (TPFA) discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
+# +
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
-# Plot configuration
+# Also init plots module
 plots.model = model
 plots.coord_type = "absolute"
-plots.styles["pperm"]["levels"] = np.linspace(-3.8, 3.8, 21)
-plots.styles["pperm"]["ticks"] = np.arange(-3, 4)
+# -
 
 # The following declares some data containers to help us keep organised.
 # The names have all been shortened to 4 characters, but this is just
@@ -129,9 +129,17 @@ wsat = Dict(
 # We will estimate the log permeability field.
 # We parameterize the permeability parameters via some transform, which becomes part of the forward model. We term the parameterized permeability fields "pre-permeability". *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also a difficulty for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  In any case, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
 
+# +
 def sample_prior_perm(N=1):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
     return lperms
+
+# Also configure plot parameters suitable for pre-perm
+plots.styles["pperm"]["levels"] = np.linspace(-3.8, 3.8, 21)
+plots.styles["pperm"]["ticks"] = np.arange(-3, 4)
+
+
+# -
 
 def perm_transf(x):
     return .1 + np.exp(5*x)

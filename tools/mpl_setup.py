@@ -47,7 +47,7 @@ def init():
         mpl.rcParams["font.size"] = 12
         try:
             # Colab
-            import google.colab  # noqa
+            import google.colab  # type: ignore # noqa
 
             # [colab-specific adjustments]
 
@@ -59,7 +59,7 @@ def init():
         # Script run
         mpl.rcParams.update({'font.size': 10})
         try:
-            mpl.use("Qt5Agg")
+            mpl.use("Qt5Agg")  # enable figure placement
         except ImportError:
             pass  # fall back to e.g. MacOS backend
         plt.ion()

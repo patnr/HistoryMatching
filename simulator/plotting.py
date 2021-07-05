@@ -74,7 +74,7 @@ def pop_style_with_fallback(key, style, kwargs):
     return x
 
 
-def field(ax, Z, style=None, wells=False, argmax=False, **kwargs):
+def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs):
     """Contour-plot of the (flat) field `Z`."""
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
     ax.set(**axprops(kwargs))
@@ -131,13 +131,20 @@ def field(ax, Z, style=None, wells=False, argmax=False, **kwargs):
     else:
         ax.set_xlabel(f"x ({coord_type})")
         ax.set_ylabel(f"y ({coord_type})")
+    # Add colorbar
+    if colorbar:
+        if isinstance(colorbar, type(ax)):
+            cax = dict(cax=colorbar)
+        else:
+            cax = dict(ax=ax)
+        ax.figure.colorbar(collections, **cax, ticks=kw("ticks"))
 
     return collections
 
 
 def fields(ZZ, style=None, title="", figsize=(1.7, 1),
            label_color="k", colorbar=True, **kwargs):
-    """Use `field` to plot for each `Z` in `ZZ`."""
+    """Do `field(Z)` for each `Z` in `ZZ`."""
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
 
     # Create figure using freshfig
@@ -224,11 +231,9 @@ def field_interact(compute, style=None, title="", **kwargs):
                 ax.clear()
 
             # Update
-            cc = field(ax, Z, style, **kwargs)
+            field(ax, Z, style, colorbar=did_init, **kwargs)
 
-            # Add colorbar
             if did_init:
-                fig.colorbar(cc, ax=ax, ticks=kw("ticks"))
                 did_init = False
 
             # Add crosshairs
@@ -551,17 +556,15 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
     ax22c = fig.add_subplot(gs[-h:, -c:])
 
     # Perm
-    ax12.cc = field(ax12, perm, "pperm", **kwargs)
-    fig.colorbar(ax12.cc, ax12c, ticks=styles["default"]["ticks"])
+    ax12.cc = field(ax12, perm, "pperm", colorbar=ax12c, **kwargs)
     ax12c.set_ylabel("Permeability")
 
     # Saturation0
     ax21.cc = field(ax21, wsats[+0], "oil", **kwargs)
     # Saturations
-    ax22.cc = field(ax22, wsats[-1], "oil", wells="color", **kwargs)
+    ax22.cc = field(ax22, wsats[-1], "oil", wells="color", colorbar=ax22c, **kwargs)
     label_ax(ax21, "Initial", c="k", fontsize="x-large")
     # Add wells
-    fig.colorbar(ax22.cc, ax22c, ticks=styles["oil"]["ticks"])
     ax22c.set_ylabel(styles["oil"]["title"])
 
     # Production

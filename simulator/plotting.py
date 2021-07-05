@@ -61,7 +61,7 @@ styles = dict(
         title  = "Correlations",
         cmap   = "bwr",
         levels = np.linspace(-1, 1, 20),
-        ticks  = np.linspace(0, 1, 6),
+        ticks  = np.linspace(-1, 1, 6),
     ),
 )
 

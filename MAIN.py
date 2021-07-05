@@ -200,7 +200,9 @@ nTime = round(T/dt)
  prod.past.Truth) = misc.repeat(model.step, nTime, wsat.init.Truth, dt, obs_model)
 
 # ##### Animation
-# Run the code cells below to get an animation of the oil saturation evolution. Injection/production wells are marked with triangles pointing down/up.
+# Run the code cells below to get an animation of the oil saturation evolution.
+# Injection/production wells are marked with triangles pointing down/up.
+# The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
 animation = plots.dashboard("Truth", perm, wsat.past, prod.past);
@@ -250,7 +252,7 @@ fig.tight_layout()
 
 # Since the x-scale is logarithmic, the prior's histogram should look Gaussian if `perm_transf` is purely exponential. By contrast, the historgram of the truth is from a single (spatially extensive) realisation, and therefore will contain significant sampling "error".
 
-# Below we can see some realizations (members) from the ensemble.
+# Below we can see some (pre-perm) realizations (members) from the ensemble.
 
 plots.fields(perm.Prior, "pperm", "Prior");
 

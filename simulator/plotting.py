@@ -13,7 +13,7 @@ import warnings
 import IPython.display as ip_disp
 import matplotlib as mpl
 import numpy as np
-from ipywidgets import HBox, VBox, interactive
+from ipywidgets import HBox, IntSlider, VBox, interactive
 from matplotlib import pyplot as plt
 from mpl_tools import is_inline, place, place_ax
 from mpl_tools.misc import axprops, nRowCol
@@ -252,7 +252,22 @@ def field_interact(compute, style=None, title="", **kwargs):
                 pass
 
     # Make widget/interactive plot
-    return interactive(update, **compute.controls)
+    if "iY" in compute.controls:
+
+        dct = compute.controls.copy()
+        iY = dct["iY"]
+        iY = IntSlider(0, 0, iY[1], orientation="vertical")
+        dct["iY"] = iY
+
+        w = interactive(update, **dct)
+        w.update()
+
+        *ww, iX, iY, output = w.children
+        w = HBox([output, VBox(ww), iY, iX])
+        # ip_disp.display(w)
+        return w
+    else:
+        return interactive(update, **compute.controls)
 
 
 def scale_well_geometry(ww):

@@ -245,7 +245,9 @@ def field_interact(compute, style=None, title="", **kwargs):
                 # A stretched version [like field()] of model.sub2xy
                 x = model.Lx * controls["iX"]/(model.Nx-1)
                 y = model.Ly * controls["iY"]/(model.Ny-1)
-                ax.plot(x, y, "k+", ms=15, markeredgewidth=2)
+                # ax.plot(x, y, "k+", ms=15, markeredgewidth=2)
+                ax.axhline(y, c="k", ls="--", lw=1)
+                ax.axvline(x, c="k", ls="--", lw=1)
             except KeyError:
                 pass
 

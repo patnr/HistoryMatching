@@ -84,7 +84,7 @@ seed = rnd.seed(4)  # very easy
 # seed = rnd.seed(6)  # very easy
 # seed = rnd.seed(7)  # easy
 
-# Our reservoir simulator takes up about 100 lines of python code. This may seem borderline too simple, but serves the purpose of *illustrating* the main features of the history matching process. Indeed, we do not detail the simulator code here, but simply import it from the accompanying python modules. Other project tools we simply import include the associated plot functionality, the (geostatistical) random field generator, and some linear algebra. This means that the rest of the notebook can focus on code and aspects more directly related to the history matching and optimisation process.
+# Our reservoir simulator takes up about 100 lines of python code. This may seem borderline too simple, but serves the purpose of *illustrating* the main features of the history matching process. Indeed, we do not detail the simulator code here, but simply import it from the accompanying python modules, together with the associated plot functionality, the (geostatistical) random field generator, and some linear algebra. Hence our focus and code will be of aspects directly related to the history matching and optimisation process.
 
 import simulator
 import simulator.plotting as plots

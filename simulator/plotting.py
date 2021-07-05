@@ -110,18 +110,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         # plots (e.g. well_scatter), and that correspondence is more important.
         origin=None, extent=(0, Lx, 0, Ly))
 
-    if wells:
-        if wells == "color":
-            c = [f"C{i}" for i in range(len(model.producers))]
-        else:
-            c = None
-        well_scatter(ax, model.injectors)
-        well_scatter(ax, model.producers, False, color=c)
-
-    if argmax:
-        idx = Z.T.argmax()  # reverse above transpose
-        ax.plot(*model.ind2xy(idx), "g*", ms=12, label="Max")
-
+    # Axis lims & labels
     ax.set_xlim((0, Lx))
     ax.set_ylim((0, Ly))
     ax.set_aspect("equal")
@@ -131,6 +120,21 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
     else:
         ax.set_xlabel(f"x ({coord_type})")
         ax.set_ylabel(f"y ({coord_type})")
+
+    # Add well markers
+    if wells:
+        if wells == "color":
+            c = [f"C{i}" for i in range(len(model.producers))]
+        else:
+            c = None
+        well_scatter(ax, model.injectors)
+        well_scatter(ax, model.producers, False, color=c)
+
+    # Add argmax marker
+    if argmax:
+        idx = Z.T.argmax()  # reverse above transpose
+        ax.plot(*model.ind2xy(idx), "g*", ms=12, label="Max")
+
     # Add colorbar
     if colorbar:
         if isinstance(colorbar, type(ax)):

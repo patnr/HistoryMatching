@@ -177,9 +177,9 @@ model.config_wells(
 # Let's take a moment to visualize the model permeability field, and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
-# cs = plots.field(ax, perm.Truth, "pperm")
-cs = plots.field(ax, perm_transf(perm.Truth), locator=LogLocator(), wells=True)
-fig.colorbar(cs);
+# plots.field(ax, perm.Truth, "pperm")
+plots.field(ax, perm_transf(perm.Truth),
+            locator=LogLocator(), wells=True, colorbar=True)
 fig.tight_layout()
 
 

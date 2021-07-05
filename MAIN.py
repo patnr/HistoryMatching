@@ -370,38 +370,38 @@ fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs",
                            argmax=True, wells=True)
 
 # ##### Correlation vs unknowns (pre-permeability)
-# The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage.
+# The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage. The following solution, though, which computes the correlation fields "on the fly", should be viable for relatively large scales.
 
 def compute(iT, iX, iY, VAR):
     """Compute a variety of correlation fields."""
-    xx = wsat.past.Prior[:, iT, model.sub2ind(iX, iY)]
+    xx = perm.Prior
     if   VAR == "Saturation (iT)" : yy = wsat.past.Prior[:, iT] # noqa
-    elif VAR == "Saturation (end)": yy = wsat.past.Prior[:, -1] # noqa
-    elif VAR == "Pre-perm"        : yy = perm.Prior             # noqa
+    elif VAR == "Pre-perm"        : yy = xx                     # noqa
+    yy = yy[:, model.sub2ind(iX, iY)]
     return misc.corr(xx, yy)
 
 
 compute.controls = dict(
-    VAR = ["Saturation (iT)", "Saturation (end)", "Pre-perm"],
+    VAR = ["Saturation (iT)", "Pre-perm"],
     iT = (0, nTime),
     iX = (0, model.Nx-1),
     iY = (0, model.Ny-1),
 )
 
 plots.field_interact(compute, "corr",
-                     "Saturation field (iT) vs. VAR (iX, iY)",
+                     "Pre-perm (field) vs. VAR (iT, iX, iY)",
                      argmax=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 #
-# - When correlating the saturation field (at time `iT`) with itself
-#   (at location `iX` and `iY`), the maximum (marked by the green star)
-#   and the location (marked by the black cross) lie on top of one another.
-#   Why? Select `VAR="Saturation (end)"`; is this co-location still true?
-# - Move the time slider all the way to 0. Why is there no correlation?
-# - Set `iT` to something small but non-zero.
-#   Describe and explain the qualitative difference in the correlation
-#   field when `VAR="Saturation (iT)"` and when `VAR="Pre-perm"`.
+# - When correlating the pre-perm field with itself (setting `VAR=Pre-perm`):
+#       - The maximum (marked by the green star) and
+#         the location of the `VAR` (marked by the crosshairs)
+#         lie on top of one another. Why?
+#       - Why is the field so regular (almost perfectly circular or elliptic),
+#         compared to the case for `VAR=Saturation`.
+# - Set `VAR=Saturation` and move the time slider all the way to 0.
+#   Why is there no correlation?
 # - TODO: Add more remarks/questions
 
 # ### Ensemble smoother

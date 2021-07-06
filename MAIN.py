@@ -364,8 +364,7 @@ A  = wsat.past.Prior[:, -1]
 bb = prod.past.Prior[:, -1].T
 corrs = [misc.corr(A, b) for b in bb]
 
-fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs",
-                           argmax=True, wells=True)
+fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True)
 
 # ##### Correlation vs unknowns (pre-permeability)
 # The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage. The following solution, though, which computes the correlation fields "on the fly", should be viable for relatively large scales.

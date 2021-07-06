@@ -360,9 +360,9 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times (not available on Colab), centering on the green star, to verify that it lies on top of the well of that panel.
 # The green stars mark the location of the maximum of the correlation field.
 
-xx = wsat.past.Prior[:, -1]
-yy = prod.past.Prior[:, -1].T
-corrs = [misc.corr(xx, y) for y in yy]
+A  = wsat.past.Prior[:, -1]
+bb = prod.past.Prior[:, -1].T
+corrs = [misc.corr(A, b) for b in bb]
 
 fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs",
                            argmax=True, wells=True)

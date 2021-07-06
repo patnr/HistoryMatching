@@ -370,25 +370,31 @@ fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs",
 # ##### Correlation vs unknowns (pre-permeability)
 # The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage. The following solution, though, which computes the correlation fields "on the fly", should be viable for relatively large scales.
 
-def compute(iT, iX, iY, VAR):
-    """Compute a variety of correlation fields."""
-    xx = perm.Prior
-    if   VAR == "Saturation (iT)" : yy = wsat.past.Prior[:, iT] # noqa
-    elif VAR == "Pre-perm"        : yy = xx                     # noqa
-    yy = yy[:, model.sub2ind(iX, iY)]
-    return misc.corr(xx, yy)
+# +
+def corr_comp(Field, 𝜏, Point, t, x, y):
+    A = prior_fields[Field]
+    b = prior_fields[Point]
+    if A.ndim > 2: A = A[:, 𝜏]  # noqa
+    if b.ndim > 2: b = b[:, t]  # noqa
+    b = b[:, model.sub2ind(x, y)]
+    return misc.corr(A, b)
 
+prior_fields = {
+    "Saturation": wsat.past.Prior,
+    "Pre-perm": perm.Prior,
+}
 
-compute.controls = dict(
-    VAR = ["Saturation (iT)", "Pre-perm"],
-    iT = (0, nTime),
-    iX = (0, model.Nx-1),
-    iY = (0, model.Ny-1),
+corr_comp.controls = dict(
+    Field = list(prior_fields),
+    𝜏 = (0, nTime),
+    Point = list(prior_fields),
+    t = (0, nTime),
+    x = (0, model.Nx-1),
+    y = (0, model.Ny-1),
 )
+# -
 
-plots.field_interact(compute, "corr",
-                     "Pre-perm (field) vs. VAR (iT, iX, iY)",
-                     argmax=True)
+plots.field_interact(corr_comp, "corr", "Field(τ) vs. Point(t, x, y)", argmax=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 #

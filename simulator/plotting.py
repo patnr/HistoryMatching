@@ -10,14 +10,15 @@ Note: before using any function, you must set the module vairable `model`.
 
 import warnings
 
-import IPython.display as ip_disp
+import ipywidgets as wg
 import matplotlib as mpl
 import numpy as np
-from ipywidgets import HBox, IntSlider, VBox, interactive
+import struct_tools
+from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from mpl_tools import is_inline, place, place_ax
 from mpl_tools.misc import axprops, nRowCol
-from struct_tools import DotDict, get0
+from struct_tools import DotDict as Dict
 
 # Module "self"
 model = None
@@ -194,51 +195,154 @@ def fields(ZZ, style=None, title="", figsize=(1.7, 1),
     return fig, axs, hh
 
 
-def field_interact(compute, style=None, title="", **kwargs):
+def captured_fig(output, num, **kwargs):
+    """Create decorator that provides `fig, ax` for use in IPywidget layouts.
+
+    Including the output of mpl figures in the widget **layout** is quite difficult.
+    Especially cross-compatibility local/Colab (which this approach provides!).
+
+    ## Brief intro
+
+    - Use `w.interact` for basic functionality
+        - Use explicit controls like `w.IntSlider` if you wish to specify
+          - `orientation`
+          - `description`
+          - `continuous_update`
+            Also see: `{'manual': True}` and `w.interact_manual`
+    - Use `w.interactive` to delay display.
+        - Allows delay/reuse-ing resulting widgets,
+          and accessing the data bound to the UI controls.
+        - Display with `IPython.display.display`.
+        - Inspect the resulting widget's `.children` to find
+          the controls and (lastly) the `w.Output`, which contains
+          stdout, stderr, mpl figures (see note below),
+          and which allows CSS styling (like borders, etc).
+    - Use `w.interactive_output` to avoid generating the control widgets,
+      but still linking the controls to the function
+      (PS: I found that using `with w.Output` worked better).
+      Allows specifying layout (`VBox`, `HBox`, `AppLayout`, `GridspecLayout`)
+      properly, without hacks like modifying it after creation e.g.
+      https://stackoverflow.com/q/52980565 .
+    - Another way to link is to use the `.observe` attr of widgets.
+
+    ## Cautions
+
+    - In order to include an mpl figure in a ipywidget **layout**,
+      we must capture its output; it is essential that
+      the **figure creation** and `plt.show()` is done therein.
+      Treatment differs from inline to interactive backends.
+      For example, using `with w.Output` and creating the figure thereunder
+      seems to necessitate using `IPython.display.clear_output` when `inline`.
+    - `tight_layout` must render. Better to use `constrained_layout`?
+
+    ## Refs
+
+    None of these quite worked on Colab or my Mac, but were useful:
+
+    - Use of `fig.canvas.flush_events()` and `fig.canvas.draw()`:
+      From https://stackoverflow.com/a/58561439
+    - Similar to the docs, but better:
+      https://coderzcolumn.com/tutorials/python/interactive-widgets-in-jupyter-notebook-using-ipywidgets
+    - Fancy widget layout:
+      https://medium.com/kapernikov/ipywidgets-with-matplotlib-93646718eb84
+        - Uses ipympl (doesn't display on my mac)
+        - When testing on Colab (`inline` backend) the layout works,
+          except that the figure is placed below, not on the side.
+    - Side-by-side figures with interactivity
+      https://github.com/matplotlib/ipympl/issues/203#issuecomment-600500051
+
+    Example for use in a notebook:
+    >>> output = wg.Output()
+    ... @captured_fig(output, "Title", figsize=(1.2, 1), rel=True)
+    ... def plot(fig, ax, _newfig, x, y):
+    ...     A = np.arange(10)
+    ...     X, Y = np.meshgrid(A, A)
+    ...     X = x*X
+    ...     Y = y*Y
+    ...     h = ax.imshow(X + Y)
+    ...
+    ... xy0 = 1, 1
+    ... sx = wg.IntSlider(xy0[0], 0, 10)
+    ... sy = wg.IntSlider(xy0[1], 0, 10,
+    ...                  orientation='vertical', continuous_update=False)
+    ... widget = wg.interactive(plot, x=sx, y=sy)
+    ... widgets = wg.VBox([wg.HBox([output, sy]), sx])
+    ... display(widgets)
+    ... plot(*xy0)
+    """
+
+    def fig_ax(num):
+        """Create fig, ax. Deserving of particular attention, so factored out."""
+        # Figure creation
+        # Of course, for *interactive* mpl backends, this should only be run once.
+        # But running it from inside f (with appropriate checks for single execution)
+        # causes blank figure => Run outside of f().
+        # However, using `ipywidgets.Output` to capture output requires that it runs
+        # inside f. In this case it actually seems to work though (no blank figures).
+        if is_inline():
+            # Rm previous (static) image.
+            # Necssary when using `ipywidgets.Output`
+            clear_output()
+        else:
+            # Check for existance, otherwise the first time it is run
+            # (no error is thrown but) duplicate figures are created
+            # (no longer seems to be an issue, but the check doesn't hurt)
+            if plt.fignum_exists(num):
+                # Fix issue: figure doesn't display **when cell is re-run**.
+                # I think it's related to being in an ipython widget, but can also
+                # be fixed by changing num (so that freshfig creates a new one).
+                plt.close(num)
+        fig, ax = place.freshfig(num, **kwargs)
+        return fig, ax
+
+    def decorator(f):
+        """The actual decorator."""
+        fig, ax = None, None
+
+        def new(*args, **kwargs):
+            # Persistent figure (re-used after slider updates)
+            nonlocal fig, ax
+
+            with output:
+                if is_inline() or fig is None:
+                    fig, ax = fig_ax(num)
+                    newfig = True
+                else:
+                    ax.clear()
+                    newfig = False
+
+                # Main
+                f(fig, ax, newfig, *args, **kwargs)
+
+                if not is_inline():
+                    # From https://stackoverflow.com/a/58561439
+                    fig.canvas.flush_events()
+                    fig.canvas.draw()
+                plt.show()
+
+        return new
+    return decorator
+
+
+def field_interact(compute, style=None, title="", figsize=(1.3, 1), **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
+    title    = dash(kw("title"), title)
+    ctrls    = compute.controls.copy()  # gets modified
+    output   = wg.Output()
 
-    # Init figure (provides full-(sup)title, axes layout)
-    # NB: This should only be run once for interactive mpl backends.
-    # Moreover, putting it inside of the widget-wrapped function (update)
-    # (including checks to make sure it only runs once) causes the issue that
-    # the figure goes blank after moving the slider a few times.
-    # Another issue is that if the cell containing the figure is closed, or
-    # even sometimes if re-running the cell, the figure won't display again.
-    # I think this is also related because it's inside an ipython widget.
-    # It seems that changing the figure label/title/number is sufficient to fix it.
-    def fig_ax():
-        fig, ax = place.freshfig(dash(kw("title"), title),
-                                 figsize=(1.5, 1), rel=True)
-        did_init = True
-        return fig, ax, did_init
-
-    if not is_inline():
-        fig, ax, did_init = fig_ax()
-
-    def update(**controls):
-        """Update plot(s)."""
-        nonlocal fig, ax, did_init
-
+    @captured_fig(output, title, figsize=figsize, rel=True)
+    def plot(fig, ax, newfig, **kw):
         # Ignore warnings due to computing and plotting contour/nan
         with warnings.catch_warnings(), \
                 np.errstate(divide="ignore", invalid="ignore"):
             warnings.filterwarnings(
                 "ignore", category=UserWarning, module="matplotlib.contour")
 
-            Z = compute(**controls)
-
-            # (Re-)init
-            if is_inline():
-                fig, ax, did_init = fig_ax()
-            else:
-                ax.clear()
-
-            # Update
-            field(ax, Z, style, colorbar=did_init, **kwargs)
-
-            if did_init:
-                did_init = False
+            Z = compute(**kw)
+            field(ax, Z, style, colorbar=newfig, **kwargs)
+            if newfig:
+                fig.tight_layout()
 
         # Add crosshairs
         if "x" in kw and "y" in kw:
@@ -248,22 +352,26 @@ def field_interact(compute, style=None, title="", **kwargs):
             ax.axvline(x, **d)
 
     # Make widget/interactive plot
-    if "iY" in compute.controls:
+    linked = wg.interactive(plot, **ctrls)
+    # return wg.HBox([output, linked])
 
-        dct = compute.controls.copy()
-        iY = dct["iY"]
-        iY = IntSlider(0, 0, iY[1], orientation="vertical")
-        dct["iY"] = iY
+    # Adjust layout -- use border="solid" to debug
+    *ww, _ = linked.children
+    for w in ww:
+        if "Slider" in str(type(w)):
+            w.layout.width = "16em"
+            w.continuous_update = False  # => faster
+            w.style.description_width = "2em"
+            if w.description == "y":
+                w.orientation = "vertical"
+        elif "Dropdown" in str(type(w)):
+            w.layout.width = 'max-content'
 
-        w = interactive(update, **dct)
-        w.update()
-
-        *ww, iX, iY, output = w.children
-        w = HBox([output, VBox(ww), iY, iX])
-        # ip_disp.display(w)
-        return w
-    else:
-        return interactive(update, **compute.controls)
+    cpanel = wg.Layout(align_items='center')
+    cpanel = wg.VBox(ww, layout=cpanel)
+    layout = wg.HBox([output, cpanel])
+    display(layout)
+    plot(**{w.description: w.value for w in ww})
 
 
 def scale_well_geometry(ww):
@@ -345,7 +453,7 @@ def production1(ax, production, obs=None):
 
 def ens_style(label, N=100):
     """Line styling for ensemble production plots."""
-    style = DotDict(
+    style = Dict(
         label=label,
         c="k", alpha=1.0, lw=0.5,
         ls="-", marker="", ms=4,
@@ -396,14 +504,14 @@ def toggle_series(plotter):
             if not handles:
                 handles.extend(hh)
 
-        widget = interactive(plot_these, **{label: True for label in dct})
+        widget = wg.interactive(plot_these, **{label: True for label in dct})
         widget.update()
         # Could end function here. The rest is adjustments.
 
         # Place checkmarks to the right
         *checkmarks, figure = widget.children
-        widget = HBox([figure, VBox(checkmarks)])
-        ip_disp.display(widget)
+        widget = wg.HBox([figure, wg.VBox(checkmarks)])
+        display(widget)
 
         # Narrower checkmark boxes
         widget.children[1].layout.width = "15ex"
@@ -429,7 +537,7 @@ def toggle_series(plotter):
 def productions2(dct, title="", figsize=(2, 1), nProd=None, legend=True):
 
     if nProd is None:
-        nProd = get0(dct).shape[1]
+        nProd = struct_tools.get0(dct).shape[1]
         nProd = min(23, nProd)
     title = dash("Production profiles", title)
     fig, axs = place.freshfig(
@@ -477,17 +585,17 @@ def toggler(plotter):
     def new(*args, **kwargs):
         update = plotter(*args, **kwargs)
         arg0 = args[0]
-        widget = interactive(update, **{label: True for label in arg0})
+        widget = wg.interactive(update, **{label: True for label in arg0})
         widget.update()
 
         # Could end function now. The following styles the checkboxes.
         *checkmarks, figure = widget.children
 
         # Place checkmarks to the right -- only works with mpl inline?
-        widget = HBox([figure, VBox(checkmarks)])
+        widget = wg.HBox([figure, wg.VBox(checkmarks)])
         try:
             import google.colab  # type: ignore # noqa
-            ip_disp.display(widget)
+            display(widget)
         except ImportError:
             pass
 
@@ -514,7 +622,7 @@ def toggler(plotter):
 def productions(dct, title="", figsize=(2, 1), nProd=None):
 
     if nProd is None:
-        nProd = get0(dct).shape[1]
+        nProd = struct_tools.get0(dct).shape[1]
         nProd = min(23, nProd)
     title = dash("Production profiles", title)
     fig, axs = place.freshfig(

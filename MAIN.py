@@ -135,8 +135,8 @@ def sample_prior_perm(N=1):
     return lperms
 
 # Also configure plot parameters suitable for pre-perm
-plots.styles["pperm"]["levels"] = np.linspace(-3.8, 3.8, 21)
-plots.styles["pperm"]["ticks"] = np.arange(-3, 4)
+plots.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
+plots.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
 
 
 # -

@@ -240,16 +240,12 @@ def field_interact(compute, style=None, title="", **kwargs):
             if did_init:
                 did_init = False
 
-            # Add crosshairs
-            try:
-                # A stretched version [like field()] of model.sub2xy
-                x = model.Lx * controls["iX"]/(model.Nx-1)
-                y = model.Ly * controls["iY"]/(model.Ny-1)
-                # ax.plot(x, y, "k+", ms=15, markeredgewidth=2)
-                ax.axhline(y, c="k", ls="--", lw=1)
-                ax.axvline(x, c="k", ls="--", lw=1)
-            except KeyError:
-                pass
+        # Add crosshairs
+        if "x" in kw and "y" in kw:
+            x, y = model.sub2xy_stretched(kw["x"], kw["y"])
+            d = dict(c="k", ls="--", lw=1)
+            ax.axhline(y, **d)
+            ax.axvline(x, **d)
 
     # Make widget/interactive plot
     if "iY" in compute.controls:

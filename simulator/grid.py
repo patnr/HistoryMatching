@@ -93,6 +93,15 @@ class Grid2D:
         y = self.Ly * (iy + .5)/self.Ny
         return x, y
 
+    def sub2xy_stretched(self, ix, iy):
+        """Like `self.xy2sub`, but inflating put node `i=0` at `0`, and `i=N-1` at `L`.
+
+        This is wrong. Only use with `plotting.field()`, which also stretches the field.
+        """
+        x = self.Lx * ix/(self.Nx-1)
+        y = self.Ly * iy/(self.Ny-1)
+        return x, y
+
     def xy2ind(self, x, y):
         """Convert physical coord to flat indx. NB: see caution in `xy2sub`."""
         return self.sub2ind(*self.xy2sub(x, y))
@@ -100,6 +109,8 @@ class Grid2D:
     def ind2xy(self, ind):
         """Inv. of `self.xy2ind`. NB: see caution in `xy2sub`."""
         i, j = self.ind2sub(ind)
+        # TODO: should be able to use sub2xy here,
+        # but that seems different.
         x    = i/(self.Nx-1)*self.Lx
         y    = j/(self.Ny-1)*self.Ly
         return x, y

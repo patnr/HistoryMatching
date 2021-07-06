@@ -448,7 +448,7 @@ A  = wsat.past.Prior[:, -1]
 bb = prod.past.Prior[:, -1].T
 corrs = [misc.corr(A, b) for b in bb]
 
-fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True)
+plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 
 # ##### Interactive correlation plot
 # The following plots a variety of different correlation fields.  It should be

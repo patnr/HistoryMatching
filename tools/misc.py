@@ -48,10 +48,13 @@ def norm(xx):
     return np.sqrt(np.mean(xx * xx))
 
 
-class RMS:
-    """Compute RMS error & dev of ensemble."""
+class RMSM:
+    """Compute RMS error & dev **of the ensemble mean**."""
 
     def __init__(self, truth, ensemble):
+        # Avoid confusion, eg. RMSM(x, x) != 0 with x = np.arange(3)
+        assert ensemble.ndim == 2, "Ensemble must be 2d."
+
         mean = ensemble.mean(axis=0)
         err = truth - mean
         dev = ensemble - mean
@@ -69,7 +72,7 @@ def RMS_all(series, vs):
     print(header)
     for k in series:
         # if k != vs:
-        v = RMS(series[vs], series[k])
+        v = RMSM(series[vs], series[k])
         print(f"{k:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
 
 

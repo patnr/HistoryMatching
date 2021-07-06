@@ -393,11 +393,11 @@ plots.field_interact(compute, "corr",
 # Use the interative control widgets to investigate the correlation structure.
 #
 # - When correlating the pre-perm field with itself (setting `VAR=Pre-perm`):
-#       - The maximum (marked by the green star) and
-#         the location of the `VAR` (marked by the crosshairs)
-#         lie on top of one another. Why?
-#       - Why is the field so regular (almost perfectly circular or elliptic),
-#         compared to the case for `VAR=Saturation`.
+#     - The maximum (marked by the green star) and
+#       the location of the `VAR` (marked by the crosshairs)
+#       lie on top of one another. Why?
+#     - Why is the field so regular (almost perfectly circular or elliptic),
+#       compared to the case for `VAR=Saturation`.
 # - Set `VAR=Saturation` and move the time slider all the way to 0.
 #   Why is there no correlation?
 # - TODO: Add more remarks/questions

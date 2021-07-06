@@ -370,11 +370,11 @@ fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wel
 # The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage. The following solution, though, which computes the correlation fields "on the fly", should be viable for relatively large scales.
 
 # +
-def corr_comp(Field, 𝜏, Point, t, x, y):
+def corr_comp(Field, t, Point, 𝜏, x, y):
     A = prior_fields[Field]
     b = prior_fields[Point]
-    if A.ndim > 2: A = A[:, 𝜏]  # noqa
-    if b.ndim > 2: b = b[:, t]  # noqa
+    if A.ndim > 2: A = A[:, t]  # noqa
+    if b.ndim > 2: b = b[:, 𝜏]  # noqa
     b = b[:, model.sub2ind(x, y)]
     return misc.corr(A, b)
 
@@ -385,15 +385,15 @@ prior_fields = {
 
 corr_comp.controls = dict(
     Field = list(prior_fields),
-    𝜏 = (0, nTime),
-    Point = list(prior_fields),
     t = (0, nTime),
+    Point = list(prior_fields),
+    𝜏 = (0, nTime),
     x = (0, model.Nx-1),
     y = (0, model.Ny-1),
 )
 # -
 
-plots.field_interact(corr_comp, "corr", "Field(τ) vs. Point(t, x, y)", argmax=True)
+plots.field_interact(corr_comp, "corr", "Field(t) vs. Point(𝜏, x, y)", argmax=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 #

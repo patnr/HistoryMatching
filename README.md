@@ -53,6 +53,9 @@ Then, thanks to the *jupytext* extension, I can convert this (`.py`) to a
 notebook (`.ipynb`) simply by opening the file in Jupyter,
 and ensuring that the `file > Jupytext` menu has check marks on both
 "Pair with ipynb" and "Pair with light script".
+If you use vim I suggest folding (rather than wrapping) the comment blocks
+(corresponding to markdown cells) using
+`:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^#' fdl=0`.
 
 The *Colab branch* has (at least!) one major difference from the master branch:
 it contains the cell that downloads & runs the `colab_bootstrap.sh` script.

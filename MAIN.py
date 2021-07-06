@@ -84,14 +84,22 @@ seed = rnd.seed(4)  # very easy
 # seed = rnd.seed(6)  # very easy
 # seed = rnd.seed(7)  # easy
 
-# Our reservoir simulator takes up about 100 lines of python code. This may seem borderline too simple, but serves the purpose of *illustrating* the main features of the history matching process. Indeed, we do not detail the simulator code here, but simply import it from the accompanying python modules, together with the associated plot functionality, the (geostatistical) random field generator, and some linear algebra. Hence our focus and code will be of aspects directly related to the history matching and optimisation process.
+# Our reservoir simulator takes up about 100 lines of python code. This may seem
+# borderline too simple, but serves the purpose of *illustrating* the main features of
+# the history matching process. Indeed, we do not detail the simulator code here, but
+# simply import it from the accompanying python modules, together with the associated
+# plot functionality, the (geostatistical) random field generator, and some linear
+# algebra. Hence our focus and code will be of aspects directly related to the history
+# matching and optimisation process.
 
 import simulator
 import simulator.plotting as plots
 from tools import geostat, misc
 from tools.misc import center
 
-# In short, the model is a 2D, two-phase, immiscible, incompressible simulator using two-point flux approximation (TPFA) discretisation. It was translated from the Matlab code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
+# In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
+# two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
+# code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
 # +
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
@@ -123,11 +131,27 @@ wsat = Dict(
 )
 # -
 
-# Technical note: This data hierarchy is convienient in *this* notebook/script, especially for plotting purposes. For example, we can with ease refer to `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where `N` is the size of the ensemble. However, in other implementations, different choices of data structure may be more convenient, e.g. where the different components of the unknowns are merely concatenated along the last axis, rather than being kept in separate dicts.
+# Technical note: This data hierarchy is convienient in *this* notebook/script,
+# especially for plotting purposes. For example, we can with ease refer to
+# `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape
+# `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where
+# `N` is the size of the ensemble. However, in other implementations, different choices
+# of data structure may be more convenient, e.g. where the different components of the
+# unknowns are merely concatenated along the last axis, rather than being kept in
+# separate dicts.
 
 # #### Permeability sampling
-# We will estimate the log permeability field.
-# We parameterize the permeability parameters via some transform, which becomes part of the forward model. We term the parameterized permeability fields "pre-permeability". *If* we use the exponential, then we will we working with log-permeabilities. At any rate, the transform should be chosen so that the parameterized permeabilities are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this consideration must be weighted against the fact that that nonlinearity (which is also a difficulty for ensemble methods) in the transform might add to the nonlinearity of the total/composite forward model.  In any case, since this is a synthetic case, we can freely choose *both* the distribution of the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a "perturbed" exponential function (to render the problem a little more complex).
+# We will estimate the log permeability field.  We parameterize the permeability
+# parameters via some transform, which becomes part of the forward model. We term the
+# parameterized permeability fields "pre-permeability". *If* we use the exponential,
+# then we will we working with log-permeabilities. At any rate, the transform should be
+# chosen so that the parameterized permeabilities are suited for ensemble methods, i.e.
+# are distributed as a Gaussian.  But this consideration must be weighted against the
+# fact that that nonlinearity (which is also a difficulty for ensemble methods) in the
+# transform might add to the nonlinearity of the total/composite forward model.  In any
+# case, since this is a synthetic case, we can freely choose *both* the distribution of
+# the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields,
+# and a "perturbed" exponential function (to render the problem a little more complex).
 
 # +
 def sample_prior_perm(N=1):
@@ -145,7 +169,12 @@ def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
 
-# For any type of parameter, one typically has to write a "setter" function that takes the vector of parameter parameter values, and applies it to the specific model implementation. We could merge this functionality with `perm_transf` (and indeed the "setter" function is also part of the composite forward model) but it is convenient to separate these implementation specifics from the mathematics going on in `perm_transf`.
+# For any type of parameter, one typically has to write a "setter" function that takes
+# the vector of parameter parameter values, and applies it to the specific model
+# implementation. We could merge this functionality with `perm_transf` (and indeed the
+# "setter" function is also part of the composite forward model) but it is convenient to
+# separate these implementation specifics from the mathematics going on in
+# `perm_transf`.
 
 def set_perm(model, log_perm_array):
     """Set perm. in model code. Duplicates the perm. values in x- and y- dir."""
@@ -159,9 +188,15 @@ perm.Truth = sample_prior_perm()
 set_perm(model, perm.Truth)
 
 # #### Well specification
-# In this model, wells are represented simply by point **sources** and **sinks**. This is of course incredibly basic and not realistic, but works for our purposes. So all we need to specify is their placement and flux (which we will not vary in time). The code below puts wells on a grid. Try `print(grid2)` to see how to easily specify another well configuration.
+# In this model, wells are represented simply by point **sources** and **sinks**. This
+# is of course incredibly basic and not realistic, but works for our purposes. So all we
+# need to specify is their placement and flux (which we will not vary in time). The code
+# below puts wells on a grid. Try `print(grid2)` to see how to easily specify another
+# well configuration.
 #
-# Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid is incompressible, the total of the source terms must equal that of the sinks. This is ensured by the `config_wells` function used below.
+# Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
+# is incompressible, the total of the source terms must equal that of the sinks. This is
+# ensured by the `config_wells` function used below.
 
 grid1 = [.1, .9]
 grid2 = np.dstack(np.meshgrid(grid1, grid1)).reshape((-1, 2))
@@ -184,7 +219,12 @@ fig.tight_layout()
 
 
 # #### Define obs operator
-# The data will consist in the water saturation of at the well locations, i.e. of the production. I.e. there is no well model. It should be pointed out, however, that ensemble methods technically support observation models of any complexity, though your accuracy mileage may vary (again, depending on the incurred nonlinearity and non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the observation model.
+# The data will consist in the water saturation of at the well locations, i.e. of the
+# production. I.e. there is no well model. It should be pointed out, however, that
+# ensemble methods technically support observation models of any complexity, though your
+# accuracy mileage may vary (again, depending on the incurred nonlinearity and
+# non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the
+# observation model.
 
 obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 def obs_model(water_sat):
@@ -211,7 +251,8 @@ animation = plots.dashboard("Truth", perm, wsat.past, prod.past);
 animation
 
 # #### Noisy obs
-# In reality, observations are never perfect. To emulate this, we corrupt the observations by adding a bit of noise.
+# In reality, observations are never perfect. To emulate this, we corrupt the
+# observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
 nProd           = len(model.producers)  # num. of obs (each time)
@@ -226,7 +267,9 @@ fig, ax = freshfig("Observations")
 plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 
 # ## Prior
-# The prior ensemble is generated in the same manner as the (synthetic) truth, using the same mean and covariance.  Thus, the members are "statistically indistinguishable" to the truth. This assumption underlies ensemble methods.
+# The prior ensemble is generated in the same manner as the (synthetic) truth, using the
+# same mean and covariance.  Thus, the members are "statistically indistinguishable" to
+# the truth. This assumption underlies ensemble methods.
 
 N = 200
 perm.Prior = sample_prior_perm(N)
@@ -250,24 +293,35 @@ ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
 ax.legend()
 fig.tight_layout()
 
-# Since the x-scale is logarithmic, the prior's histogram should look Gaussian if `perm_transf` is purely exponential. By contrast, the historgram of the truth is from a single (spatially extensive) realisation, and therefore will contain significant sampling "error".
+# Since the x-scale is logarithmic, the prior's histogram should look Gaussian if
+# `perm_transf` is purely exponential. By contrast, the historgram of the truth is from
+# a single (spatially extensive) realisation, and therefore will contain significant
+# sampling "error".
 
 # Below we can see some (pre-perm) realizations (members) from the ensemble.
 
 plots.fields(perm.Prior, "pperm", "Prior");
 
 # #### Eigenvalue spectrum
-# In practice, of course, we would not be using an explicit `Cov` matrix when generating the prior ensemble, because it would be too large.  However, since this synthetic case in being made that way, let's inspect its spectrum.
+# In practice, of course, we would not be using an explicit `Cov` matrix when generating
+# the prior ensemble, because it would be too large.  However, since this synthetic case
+# in being made that way, let's inspect its spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
 plots.spectrum(svals, "Prior cov.");
 
-# With our limited ensemble size, we see no clear cutoff index. In other words, we are not so fortunate that the prior is implicitly restricted to some subspace that is of lower rank than our ensemble. This is a very realistic situation, and indicates that localisation (implemented further below) will be very beneficial.
+# With our limited ensemble size, we see no clear cutoff index. In other words, we are
+# not so fortunate that the prior is implicitly restricted to some subspace that is of
+# lower rank than our ensemble. This is a very realistic situation, and indicates that
+# localisation (implemented further below) will be very beneficial.
 
 # ## Assimilation
 
 # ### Propagation
-# Ensemble methods obtain observation-parameter sensitivities from the covariances of the ensemble run through the ("forward") model. Note that this is "embarrasingly parallelizable", because each iterate is complete independent (requires no communication) from the others. We take advantage of this through multiprocessing.
+# Ensemble methods obtain observation-parameter sensitivities from the covariances of
+# the ensemble run through the ("forward") model. Note that this is "embarrasingly
+# parallelizable", because each iterate is complete independent (requires no
+# communication) from the others. We take advantage of this through multiprocessing.
 
 # Set (int) number of CPU cores to use. Set to False when debugging.
 multiprocess = False
@@ -331,34 +385,64 @@ def forward_model(nTime, *args, desc=""):
 
     return np.array(saturation), np.array(production)
 
-# Note that the forward model not only takes an ensemble of permeability fields, but also an ensemble of initial water saturations. This is not because the initial saturations are uncertain (unknown); indeed, this here case study assumes that it is perfectly known, and equal to the true initial water saturation (a constant field of 0). Therefore, the initial water saturation is set to the true value for each member (giving it uncertainty 0).
+# Note that the forward model not only takes an ensemble of permeability fields, but
+# also an ensemble of initial water saturations. This is not because the initial
+# saturations are uncertain (unknown); indeed, this here case study assumes that it is
+# perfectly known, and equal to the true initial water saturation (a constant field of
+# 0). Therefore, the initial water saturation is set to the true value for each member
+# (giving it uncertainty 0).
 
 wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
-# So why does `forward_model` have saturation as an input and output? Because the posterior of this state (i.e. time-dependent, prognostic) variable *does* depend on the method used for the conditioning, and will later be used to restart the simulations so as to generate future predictions.
-
+# So why does `forward_model` have saturation as an input and output? Because the
+# posterior of this state (i.e. time-dependent, prognostic) variable *does* depend on
+# the method used for the conditioning, and will later be used to restart the
+# simulations so as to generate future predictions.
+#
 # Now, let's run the forward model on the prior.
 
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
 # ### Localisation
-# Localisation invervenes to fix-up the estimated correlations before they are used. It is a method of injecting prior information (distant points are likely not strongly codependent) that is not *encoded* in the ensemble (usually due to their finite size). Defining an effective localisation mask or tapering function can be a difficult task.
+# Localisation invervenes to fix-up the estimated correlations before they are used. It
+# is a method of injecting prior information (distant points are likely not strongly
+# codependent) that is not *encoded* in the ensemble (usually due to their finite size).
+# Defining an effective localisation mask or tapering function can be a difficult task.
 
 # #### Correlation plots
-# The conditioning "update" of ensemble methods is often formulated in terms of a "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties (see e.g. [[Jaz70]](#Jaz70)): in the linear-Gaussian case, to compute the correct posterior moments; in the linear (non-Gaussian) case, to compute the BLUE, or achieve orthogonality of the posterior error and innovation; in the non-linear, non-Gaussian case, the ensemble version can be derived as linear regression (with some tweaks) from the perturbed observations to the unknowns.
+# The conditioning "update" of ensemble methods is often formulated in terms of a
+# "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties
+# (see e.g. [[Jaz70]](#Jaz70)): in the linear-Gaussian case, to compute the correct
+# posterior moments; in the linear (non-Gaussian) case, to compute the BLUE, or achieve
+# orthogonality of the posterior error and innovation; in the non-linear, non-Gaussian
+# case, the ensemble version can be derived as linear regression (with some tweaks) from
+# the perturbed observations to the unknowns.
 #
-# Another way to look at it is to ask "what does it do?". Heuristically, this may be answered in 3 points:
+# Another way to look at it is to ask "what does it do?". Heuristically, this may be
+# answered in 3 points:
 #
-# - It uses *estimated correlation* coefficients to establish relationships between observations and unknowns. For example, if there is no correlation, there will be no update (even for iterative methods).
-# - It takes into account the variables' scales *and* relative uncertainties, via their variances. Hence why it works with covariances, and not just correlations. One of the main advantages of ensemble methods is that the estimation inherently provides reduced-rank representations of covariance matrices.
-# - It takes into account the "intermingling" of correlations. For example, two measurements/observations that are highly correlated (when including both prior and observation errors) will barely contribute more than either one.
+# - It uses *estimated correlation* coefficients to establish relationships between
+#   observations and unknowns. For example, if there is no correlation, there will
+#   be no update (even for iterative methods).
+# - It takes into account the variables' scales *and* relative uncertainties, via their
+#   variances. Hence why it works with covariances, and not just correlations. One of
+#   the main advantages of ensemble methods is that the estimation inherently provides
+#   reduced-rank representations of covariance matrices.
+# - It takes into account the "intermingling" of correlations. For example, two
+#   measurements/observations that are highly correlated (when including both prior and
+#   observation errors) will barely contribute more than either one.
 #
-# In summary, it is useful to investigate the correlation relations of the ensemble, especially for the prior.
+# In summary, it is useful to investigate the correlation relations of the ensemble,
+# especially for the prior.
 
 # ##### Auto-correlation for `wsat`
-# First, as a sanity check, it is useful to plot the correlation of the saturation field at some given time vs. the production at the same time. The correlation should be maximal (1.00) at the location of the well in question. Let us verify this: zoom-in several times (not available on Colab), centering on the green star, to verify that it lies on top of the well of that panel.
-# The green stars mark the location of the maximum of the correlation field.
+# First, as a sanity check, it is useful to plot the correlation of the saturation field
+# at some given time vs. the production at the same time. The correlation should be
+# maximal (1.00) at the location of the well in question. Let us verify this: zoom-in
+# several times (not available on Colab), centering on the green star, to verify that it
+# lies on top of the well of that panel.  The green stars mark the location of the
+# maximum of the correlation field.
 
 A  = wsat.past.Prior[:, -1]
 bb = prod.past.Prior[:, -1].T
@@ -367,7 +451,11 @@ corrs = [misc.corr(A, b) for b in bb]
 fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True)
 
 # ##### Interactive correlation plot
-# The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage. The following solution, though, which computes the correlation fields "on the fly", should be viable for relatively large scales.
+# The following plots a variety of different correlation fields.  It should be
+# appreciated that one way to look at it is as a single column (or row) of a larger
+# ("cross")-covariance matrix, which would typically be too large for explicit
+# computation or storage. The following solution, though, which computes the correlation
+# fields "on the fly", should be viable for relatively large scales.
 
 # +
 def corr_comp(Field, t, Point, 𝜏, x, y):
@@ -410,14 +498,20 @@ plots.field_interact(corr_comp, "corr", "Field(t) vs. Point(𝜏, x, y)", argmax
 # ### Ensemble smoother
 
 # #### Why smoothing?
-# Why do we only use smoothers (and not filters) for history matching?
-# When ensemble methods were first being used for history matching, it was
-# though that filtering, rather than smoothing, should be used.
-# Filters sequentially assimilate the time-series data,
-# running the model simulator in between each observation time,
-# (re)starting each step from saturation fields that
-# have been conditioned on all of the data up until that point.
-# Typically, the filters would be augmented with parameter fields (time-independent unknowns) as well. Either way, re-starting the simulator with ensemble-updated fields tends to be problematic, because the updated members might not be physically realistic and realisable, causing the simulator's solver to slow down or fail to converge. This issue is generally aggravated by not having run the simulator from time 0, since the linear updates provided by the ensemble will yield saturation fields that differ from those obtained by re-running the simulator. Therefore, updating the unknowns only once, using all of the observations, is far more convenient.
+# Why do we only use smoothers (and not filters) for history matching?  When ensemble
+# methods were first being used for history matching, it was though that filtering,
+# rather than smoothing, should be used.  Filters sequentially assimilate the
+# time-series data, running the model simulator in between each observation time,
+# (re)starting each step from saturation fields that have been conditioned on all of the
+# data up until that point.  Typically, the filters would be augmented with parameter
+# fields (time-independent unknowns) as well. Either way, re-starting the simulator with
+# ensemble-updated fields tends to be problematic, because the updated members might not
+# be physically realistic and realisable, causing the simulator's solver to slow down or
+# fail to converge. This issue is generally aggravated by not having run the simulator
+# from time 0, since the linear updates provided by the ensemble will yield saturation
+# fields that differ from those obtained by re-running the simulator. Therefore,
+# updating the unknowns only once, using all of the observations, is far more
+# convenient.
 
 class ES_update:
     """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.
@@ -580,7 +674,11 @@ perm.IES, stats_IES = IES(
 
 plots.fields(perm.IES, "pperm", "IES (posterior)");
 
-# The following plots the cost function(s) together with the error compared to the true (pre-)perm field as a function of the iteration number. Note that the relationship between the (total, i.e. posterior) cost function  and the RMSE is not necessarily monotonic. Re-running the experiments with a different seed is instructive. It may be observed that the iterations are not always very successful.
+# The following plots the cost function(s) together with the error compared to the true
+# (pre-)perm field as a function of the iteration number. Note that the relationship
+# between the (total, i.e. posterior) cost function  and the RMSE is not necessarily
+# monotonic. Re-running the experiments with a different seed is instructive. It may be
+# observed that the iterations are not always very successful.
 
 fig, ax = freshfig("IES Objective function")
 ls = dict(postr="-", prior=":", lklhd="--")
@@ -596,7 +694,17 @@ ax2.plot(stats_IES.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
 
 # ### Diagnostics
-# In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior. The "expectation" wording indicates that this is true on average, but not always. To be specific, it means that it is guaranteed to hold true if the RMSE is calculated for infinitely many experiments (each time simulating a new synthetic truth and observations from the prior). The reason for this is that the ES uses the Kalman update, which is the BLUE (best linear unbiased estimate), and "best" means that the variance must get reduced. However, note that this requires the ensemble to be infinitely big, which it most certainly is not in our case. Therefore, we do not need to be very unlucky to observe that the RMSE has actually increased. Despite this, as we will see later, the data match might yield a different conclusions concerning the utility of the update.
+# In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior.
+# The "expectation" wording indicates that this is true on average, but not always. To
+# be specific, it means that it is guaranteed to hold true if the RMSE is calculated for
+# infinitely many experiments (each time simulating a new synthetic truth and
+# observations from the prior). The reason for this is that the ES uses the Kalman
+# update, which is the BLUE (best linear unbiased estimate), and "best" means that the
+# variance must get reduced. However, note that this requires the ensemble to be
+# infinitely big, which it most certainly is not in our case. Therefore, we do not need
+# to be very unlucky to observe that the RMSE has actually increased. Despite this, as
+# we will see later, the data match might yield a different conclusions concerning the
+# utility of the update.
 
 # #### RMS summary
 
@@ -606,14 +714,24 @@ misc.RMS_all(perm, vs="Truth")
 # #### Plot of means
 # Let's plot mean fields.
 #
-# NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon familiar from geostatistics (e.g. Kriging). As such, their importance must not be overstated (they're just one estimator out of many). Instead, whenever a decision is to be made, all of the members should be included in the decision-making process. This does not mean that you must eyeball each field, but that decision analyses should be based on expected values with respect to ensembles.
+# NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon
+# familiar from geostatistics (e.g. Kriging). As such, their importance must not be
+# overstated (they're just one estimator out of many). Instead, whenever a decision is
+# to be made, all of the members should be included in the decision-making process. This
+# does not mean that you must eyeball each field, but that decision analyses should be
+# based on expected values with respect to ensembles.
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
 plots.fields(perm_means, "pperm", "Means");
 
 # ### Past production (data mismatch)
-# In synthetic experiments such as this one, is is instructive to computing the "error": the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of course, in real life, the truth is not known.  Moreover, at the end of the day, we mainly care about production rates and saturations.  Therefore, let us now compute the "residual" (i.e. the mismatch between predicted and true *observations*), which we get from the predicted production "profiles".
+# In synthetic experiments such as this one, is is instructive to computing the "error":
+# the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of
+# course, in real life, the truth is not known.  Moreover, at the end of the day, we
+# mainly care about production rates and saturations.  Therefore, let us now compute the
+# "residual" (i.e. the mismatch between predicted and true *observations*), which we get
+# from the predicted production "profiles".
 
 (wsat.past.ES,
  prod.past.ES) = forward_model(nTime, wsat.init.Prior, perm.ES)
@@ -621,7 +739,12 @@ plots.fields(perm_means, "pperm", "Means");
 (wsat.past.IES,
  prod.past.IES) = forward_model(nTime, wsat.init.Prior, perm.IES)
 
-# It is Bayesian(ally) consistent to apply the pre-computed ES gain to any un-conditioned ensemble, e.g. that of the prior's production predictions. This can be seen (by those familiar with that trick) by state augmentation. This provides another posterior approximation of the production history -- one which doesn't require running the model again (in contrast to what we did for `prod.past.(I)ES` immediately above). Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
+# It is Bayesian(ally) consistent to apply the pre-computed ES gain to any
+# un-conditioned ensemble, e.g. that of the prior's production predictions. This can be
+# seen (by those familiar with that trick) by state augmentation. This provides another
+# posterior approximation of the production history -- one which doesn't require running
+# the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
+# Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
 prod.past.ES0 = ravel_time(ES(ravel_time(prod.past.Prior)), undo=True)
 
@@ -635,23 +758,40 @@ display(v)
 print("Stats vs. past production (i.e. NOISY observations)")
 misc.RMS_all(prod.past, vs="Noisy")
 
-# Note that the data mismatch is significantly reduced. This may be the case even if the updated permeability field did not have a reduced rmse (overall, relative to that of the prior prior). The "direct" forecast (essentially just linear regression) may achieve even lower rmse, but generally, less realistic production plots.
+# Note that the data mismatch is significantly reduced. This may be the case even if the
+# updated permeability field did not have a reduced rmse (overall, relative to that of
+# the prior prior). The "direct" forecast (essentially just linear regression) may
+# achieve even lower rmse, but generally, less realistic production plots.
 
 
 # ##### Comment on prior
-# Note that the prior "surrounds" the data. This the likely situation in our synthetic case, where the truth was generated by the same random draw process as the ensemble.
+# Note that the prior "surrounds" the data. This the likely situation in our synthetic
+# case, where the truth was generated by the same random draw process as the ensemble.
 #
-# In practice, this is often not the case. If so, you might want to go back to your geologists and tell them that something is amiss. You should then produce a revised prior with better properties.
+# In practice, this is often not the case. If so, you might want to go back to your
+# geologists and tell them that something is amiss. You should then produce a revised
+# prior with better properties.
 #
-# Note: the above instructions sound like statistical heresy. We are using the data twice over (on the prior, and later to update/condition the prior). However, this is justified to the extent that prior information is difficult to quantify and encode. Too much prior adaptation, however, and you risk overfitting! Indeed, it is a delicate matter.
+# Note: the above instructions sound like statistical heresy. We are using the data
+# twice over (on the prior, and later to update/condition the prior). However, this is
+# justified to the extent that prior information is difficult to quantify and encode.
+# Too much prior adaptation, however, and you risk overfitting! Indeed, it is a delicate
+# matter.
 
 # ##### Comment on posterior
-# If the assumptions (statistical indistinguishability, Gaussianity) are not too far off, then the ensemble posteriors (ES, EnKS, ES0) should also surround the data, but with a tighter fit.
+# If the assumptions (statistical indistinguishability, Gaussianity) are not too far
+# off, then the ensemble posteriors (ES, EnKS, ES0) should also surround the data, but
+# with a tighter fit.
 
 # ## Prediction
 # We now prediction the future by forecasting from the current (present-time) ensembles.
 #
-# Note that we must use the current saturation in the "restart" for the predictive simulations. Since the estimates of the current saturation depend on the assumed permeability field, these estimates are also "posterior", and depend on the conditioning method used. For convenience, we first extract the slice of the current saturation fields (which is really the only one we make use of among those of the past), and plot the mean fields.
+# Note that we must use the current saturation in the "restart" for the predictive
+# simulations. Since the estimates of the current saturation depend on the assumed
+# permeability field, these estimates are also "posterior", and depend on the
+# conditioning method used. For convenience, we first extract the slice of the current
+# saturation fields (which is really the only one we make use of among those of the
+# past), and plot the mean fields.
 
 wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
@@ -691,9 +831,12 @@ misc.RMS_all(prod.futr, vs="Truth")
 # ## Robust optimisation
 # NB: This section is very unfinished, and should not be seen as a reference.
 
-# This section uses EnOpt to optimise the controls: the relative rates of production of the wells (again, for simplicity, these will be constant in time).
+# This section uses EnOpt to optimise the controls: the relative rates of production of
+# the wells (again, for simplicity, these will be constant in time).
 
-# Ojective function definition: total oil from production wells. This objective function takes an ensemble (`*E`) of unknowns (`wsat, perm`) and controls (`rates`) and outputs the corresponding ensemble of total oil productions.
+# Ojective function definition: total oil from production wells. This objective function
+# takes an ensemble (`*E`) of unknowns (`wsat, perm`) and controls (`rates`) and outputs
+# the corresponding ensemble of total oil productions.
 
 def total_oil(E, rates):
     # bounded = np.all((0 < rates) & (rates < 1), axis=1)
@@ -765,11 +908,24 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 
 
 # ### Final comments
-# It is instructive to run this notebook/script again, but with a different random seed. This will yield a different truth, and noisy production data, and so a new case/problem, which may be more, or less, difficult.
+# It is instructive to run this notebook/script again, but with a different random seed.
+# This will yield a different truth, and noisy production data, and so a new
+# case/problem, which may be more, or less, difficult.
 #
-# Another alternative is to only re-run the notebook cells starting from where the prior was sampled. Thus, the truth and observations will not change, yet because the prior sample will change, the results will change. If this change is significant (which can only be asserted by re-running the experiments several times), then you can not have much confidence in your result. In order to fix this, you must increase the ensemble size (to reduce sampling error), or play with the tuning parameters such as the localisation radius (or more generally, improve your localisation implementation).
+# Another alternative is to only re-run the notebook cells starting from where the prior
+# was sampled. Thus, the truth and observations will not change, yet because the prior
+# sample will change, the results will change. If this change is significant (which can
+# only be asserted by re-running the experiments several times), then you can not have
+# much confidence in your result. In order to fix this, you must increase the ensemble
+# size (to reduce sampling error), or play with the tuning parameters such as the
+# localisation radius (or more generally, improve your localisation implementation).
 #
-# Such re-running of the synthetic experiments is similar in aim to statistical cross-validation. Note that it may (and should) also be applied in real applications! Of couse, then the truth is unknown. But even though the truth is unknown, a synthetic truth can be sampled from the prior uncertainty. And at the very least, the history matching and optimisation methods should yield improved performance (reduced errors and increased NPV) in the synthetic case.
+# Such re-running of the synthetic experiments is similar in aim to statistical
+# cross-validation. Note that it may (and should) also be applied in real applications!
+# Of couse, then the truth is unknown. But even though the truth is unknown, a synthetic
+# truth can be sampled from the prior uncertainty. And at the very least, the history
+# matching and optimisation methods should yield improved performance (reduced errors
+# and increased NPV) in the synthetic case.
 
 # ## References
 # <a id="Jaz70">[Jaz70]</a>: Jazwinski, A. H. 1970. *Stochastic Processes and Filtering Theory*. Vol. 63. Academic Press.

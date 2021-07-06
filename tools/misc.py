@@ -64,9 +64,13 @@ class RMS:
 
 def RMS_all(series, vs):
     """RMS for each item in series."""
+    header = "Series    rmse     std"
+    header = "\n".join([header, "-"*len(header)])
+    print(header)
     for k in series:
-        if k != vs:
-            print(f"{k:8}:", str(RMS(series[vs], series[k])))
+        # if k != vs:
+        v = RMS(series[vs], series[k])
+        print(f"{k:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
 
 
 def svd0(A):

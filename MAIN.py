@@ -366,7 +366,7 @@ corrs = [misc.corr(A, b) for b in bb]
 
 fig, axs, _ = plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True)
 
-# ##### Correlation vs unknowns (pre-permeability)
+# ##### Interactive correlation plot
 # The following plots a variety of different correlation fields.  It should be appreciated that one way to look at it is as a single column (or row) of a larger ("cross")-covariance matrix, which would typically be too large for explicit computation or storage. The following solution, though, which computes the correlation fields "on the fly", should be viable for relatively large scales.
 
 # +
@@ -397,14 +397,14 @@ plots.field_interact(corr_comp, "corr", "Field(t) vs. Point(𝜏, x, y)", argmax
 
 # Use the interative control widgets to investigate the correlation structure.
 #
-# - When correlating the pre-perm field with itself (setting `VAR=Pre-perm`):
-#     - The maximum (marked by the green star) and
-#       the location of the `VAR` (marked by the crosshairs)
-#       lie on top of one another. Why?
-#     - Why is the field so regular (almost perfectly circular or elliptic),
-#       compared to the case for `VAR=Saturation`.
-# - Set `VAR=Saturation` and move the time slider all the way to 0.
-#   Why is there no correlation?
+# - For each combination of `Field` and `Point`, try to answer these questions:
+#   - Set `t=0`. How does the correlation field look? Why?
+#   - Set `t=1`. How do the correlation fields look? Why?
+# - Set both `Field` and `Point` to `Saturation`. Why is the green marker
+#   (showing the location of the maximum) on top of the crosshairs?
+#   Does this hold when `Field != Point` (hint: try moving `x` and `y`)?
+# - Set both `Field` and `Point` to `Pre-perm`, and put the point somewhere near the center.
+#   Why is the correlation field so regular (almost perfectly circular or elliptic)?
 # - TODO: Add more remarks/questions
 
 # ### Ensemble smoother

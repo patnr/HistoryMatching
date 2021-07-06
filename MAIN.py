@@ -451,11 +451,11 @@ corrs = [misc.corr(A, b) for b in bb]
 plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 
 # ##### Interactive correlation plot
-# The following plots a variety of different correlation fields.  It should be
-# appreciated that one way to look at it is as a single column (or row) of a larger
-# ("cross")-covariance matrix, which would typically be too large for explicit
-# computation or storage. The following solution, though, which computes the correlation
-# fields "on the fly", should be viable for relatively large scales.
+# The following plots a variety of different correlation fields. Each field may
+# be seen as a single column (or row) of a larger ("cross")-covariance matrix,
+# which would typically be too large for explicit computation or storage. The
+# following solution, though, which computes the correlation fields "on the
+# fly", should be viable for relatively large scales.
 
 # +
 def corr_comp(Field, t, Point, 𝜏, x, y):

@@ -709,7 +709,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 # #### RMS summary
 
 print("Stats vs. true field")
-misc.RMS_all(perm, vs="Truth")
+misc.RMSMs(perm, vs="Truth")
 
 # #### Plot of means
 # Let's plot mean fields.
@@ -756,7 +756,7 @@ display(v)
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)")
-misc.RMS_all(prod.past, vs="Noisy")
+misc.RMSMs(prod.past, vs="Noisy")
 
 # Note that the data mismatch is significantly reduced. This may be the case even if the
 # updated permeability field did not have a reduced rmse (overall, relative to that of
@@ -825,7 +825,7 @@ display(v)
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production")
-misc.RMS_all(prod.futr, vs="Truth")
+misc.RMSMs(prod.futr, vs="Truth")
 
 
 # ## Robust optimisation

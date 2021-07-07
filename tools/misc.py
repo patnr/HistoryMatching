@@ -65,8 +65,8 @@ class RMSM:
         return "%6.4f (rmse),  %6.4f (std)" % (self.rmse, self.rmsd)
 
 
-def RMS_all(series, vs):
-    """RMS for each item in series."""
+def RMSMs(series, vs):
+    """Print `RMSM` for each item in series."""
     header = "Series    rmse     std"
     header = "\n".join([header, "-"*len(header)])
     print(header)

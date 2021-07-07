@@ -457,11 +457,11 @@ plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 # fly", should be viable for relatively large scales.
 
 # +
-def corr_comp(Field, t, Point, 𝜏, x, y):
+def corr_comp(Field, T, Point, t, x, y):
     A = prior_fields[Field]
     b = prior_fields[Point]
-    if A.ndim > 2: A = A[:, t]  # noqa
-    if b.ndim > 2: b = b[:, 𝜏]  # noqa
+    if A.ndim > 2: A = A[:, T]  # noqa
+    if b.ndim > 2: b = b[:, t]  # noqa
     b = b[:, model.sub2ind(x, y)]
     return misc.corr(A, b)
 
@@ -472,21 +472,22 @@ prior_fields = {
 
 corr_comp.controls = dict(
     Field = list(prior_fields),
-    t = (0, nTime),
+    T = (0, nTime),
     Point = list(prior_fields),
-    𝜏 = (0, nTime),
+    t = (0, nTime),
     x = (0, model.Nx-1),
     y = (0, model.Ny-1),
 )
 # -
 
-plots.field_interact(corr_comp, "corr", "Field(t) vs. Point(𝜏, x, y)", argmax=True)
+plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True)
 
 # Use the interative control widgets to investigate the correlation structure.
+# Answer and discuss the following questions:
 #
-# - For each combination of `Field` and `Point`, try to answer these questions:
-#   - Set `t=0`. How does the correlation field look? Why?
-#   - Set `t=1`. How do the correlation fields look? Why?
+# - For each combination of `Field` and `Point`:
+#   - Set `T` or `t` to 0. How do the correlation fields look? Why?
+#   - Set `T` or `t` to 1. How do the correlation fields look? Why?
 # - Set both `Field` and `Point` to `Saturation`. Why is the green marker
 #   (showing the location of the maximum) on top of the crosshairs?
 #   Does this hold when `Field != Point` (hint: try moving `x` and `y`)?

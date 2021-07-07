@@ -68,7 +68,6 @@ plt.legend();
 import copy
 import numpy.random as rnd
 import scipy.linalg as sla
-from IPython.display import display
 from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
 from numpy import sqrt
@@ -750,8 +749,7 @@ prod.past.ES0 = ravel_time(ES(ravel_time(prod.past.Prior)), undo=True)
 
 # #### Plot them all together:
 
-v = plots.productions(prod.past, "Past")
-display(v)
+plots.productions(prod.past, "Past");
 
 # #### RMS summary
 
@@ -819,8 +817,7 @@ prod.futr.ES0 = ravel_time(ES(ravel_time(prod.futr.Prior)), undo=True)
 
 # #### Plot future production
 
-v = plots.productions(prod.futr, "Future");
-display(v)
+plots.productions(prod.futr, "Future");
 
 # #### RMS summary
 

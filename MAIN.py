@@ -499,7 +499,7 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # - For each combination of `Field` and `Point`:
 #   - Set `T` or `t` to 0. How do the correlation fields look? Why?
 #   - Set `T` or `t` to 1. How do the correlation fields look? Why?
-# - Set both `Field` and `Point` to `Saturation`. Why is the green marker
+# - Set `T = t = 20` and `Field = Point = Saturation`. Why is the green marker
 #   (showing the location of the maximum) on top of the crosshairs?
 #   Does this hold when `Field != Point` (hint: try moving `x` and `y`)?
 # - Set both `Field` and `Point` to `Pre-perm`, and put the point somewhere near the center.

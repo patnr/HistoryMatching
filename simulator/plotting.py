@@ -282,7 +282,7 @@ def captured_fig(output, num, **kwargs):
         if is_inline():
             # Rm previous (static) image.
             # Necssary when using `ipywidgets.Output`
-            clear_output()
+            clear_output(wait=True)
         else:
             # Check for existance, otherwise the first time it is run
             # (no error is thrown but) duplicate figures are created

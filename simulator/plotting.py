@@ -345,8 +345,8 @@ def field_interact(compute, style=None, title="", figsize=(1.3, 1), **kwargs):
 
             Z = compute(**kw)
             field(ax, Z, style, colorbar=newfig, **kwargs)
-            if newfig:
-                fig.tight_layout()
+            # if newfig:
+            #     fig.tight_layout()
 
         # Add crosshairs
         if "x" in kw and "y" in kw:

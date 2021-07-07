@@ -612,7 +612,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     for itr in range(nIter):
         # Compute rmse (vs. Truth)
-        stat.rmse += [misc.RMSM(perm.Truth, E).rmse]
+        stat.rmse += [misc.RMSM(E, perm.Truth).rmse]
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")

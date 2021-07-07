@@ -51,7 +51,7 @@ def norm(xx):
 class RMSM:
     """Compute RMS error & dev **of the ensemble mean**."""
 
-    def __init__(self, truth, ensemble):
+    def __init__(self, ensemble, truth):
         # Avoid confusion, eg. RMSM(x, x) != 0 with x = np.arange(3)
         assert ensemble.ndim == 2, "Ensemble must be 2d."
 
@@ -72,7 +72,7 @@ def RMS_all(series, vs):
     print(header)
     for k in series:
         # if k != vs:
-        v = RMSM(series[vs], series[k])
+        v = RMSM(series[k], series[vs])
         print(f"{k:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
 
 

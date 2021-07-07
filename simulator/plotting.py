@@ -370,6 +370,7 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
                 w.layout.width = "2em"
         elif "Dropdown" in str(type(w)):
             w.layout.width = 'max-content'
+            w.style.description_width = "max-content"
 
     cpanel = wg.Layout(align_items='center')
     cpanel = wg.VBox(ww, layout=cpanel)

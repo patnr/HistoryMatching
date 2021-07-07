@@ -406,7 +406,9 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # the method used for the conditioning, and will later be used to restart the
 # simulations so as to generate future predictions.
 #
-# Now, let's run the forward model on the prior.
+# Now that we have the forward model, we can make prior estimates of the saturation
+# evolution and production.  This is interesting in and of itself and, as we'll see
+# later, is part of the assimilation process.  Let's run the forward model on the prior.
 
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)

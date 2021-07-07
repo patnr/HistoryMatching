@@ -372,9 +372,22 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
             w.layout.width = 'max-content'
             w.style.description_width = "max-content"
 
-    cpanel = wg.Layout(align_items='center')
-    cpanel = wg.VBox(ww, layout=cpanel)
-    layout = wg.HBox([output, cpanel])
+    # Make layout -- Use flexboxes to scale automatically
+    # (which I did not seem to get from AppLayout or TwoByTwoLayout)
+    V, H = wg.VBox, wg.HBox
+    try:
+        # Fancy layout
+        c12, c34, cX, cY = V(ww[:2]), V(ww[2:4]), ww[4], ww[5]
+    except IndexError:
+        # Fallback layout -- works for any number of controls
+        cpanel = V(ww, layout=dict(align_items='center'))
+        layout = H([output, cpanel])
+    else:
+        # Complete the fancy layout
+        cY = V([cY], layout={"justify_content": "flex-end"})
+        layout = V([H([output, cY]), H([c12, c34, cX])])
+
+    # Display
     display(layout)
     plot(**{w.description: w.value for w in ww})
 

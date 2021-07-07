@@ -52,8 +52,8 @@ class RMSM:
     """Compute RMS error & dev **of the ensemble mean**."""
 
     def __init__(self, ensemble, truth):
-        # Avoid confusion, eg. RMSM(x, x) != 0 with x = np.arange(3)
-        assert ensemble.ndim == 2, "Ensemble must be 2d."
+        # Try to avoid the confusion that, for 1d x, RMSM(x, x)!=0
+        assert ensemble.ndim >= 2
 
         mean = ensemble.mean(axis=0)
         err = truth - mean

@@ -357,7 +357,6 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
 
     # Make widget/interactive plot
     linked = wg.interactive(plot, **ctrls)
-    # return wg.HBox([output, linked])
 
     *ww, _ = linked.children
     # Adjust individual controls -- use border="solid" to debug

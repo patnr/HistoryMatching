@@ -104,7 +104,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         # Using origin="lower" puts the points in the gridcell centers.
         # This is great (agrees with finite-volume point definition)
         # but means that the plot wont extend all the way to the edges,
-        # which can only be circumvented by manuallly padding.
+        # which can only be circumvented by manuallly 20px.
         # Using `origin=None` stretches the field to the edges, which
         # might be slightly erroneous compared with finite-volume defs.
         # However, it is the definition that agrees with line and scatter
@@ -265,14 +265,14 @@ def captured_fig(output, num, **kwargs):
     ... sx = wg.IntSlider(xy0[0], 0, 10)
     ... sy = wg.IntSlider(xy0[1], 0, 10,
     ...                  orientation='vertical', continuous_update=False)
-    ... widget = wg.interactive(plot, x=sx, y=sy)
+    ... linked = wg.interactive(plot, x=sx, y=sy)
     ... widgets = wg.VBox([wg.HBox([output, sy]), sx])
     ... display(widgets)
     ... plot(*xy0)
     """
 
     def fig_ax(num):
-        """Create fig, ax. Deserving of particular attention, so factored out."""
+        """Create fig, axs. Deserving of particular attention, so factored out."""
         # Figure creation
         # Of course, for *interactive* mpl backends, this should only be run once.
         # But running it from inside f (with appropriate checks for single execution)
@@ -292,27 +292,31 @@ def captured_fig(output, num, **kwargs):
                 # I think it's related to being in an ipython widget, but can also
                 # be fixed by changing num (so that freshfig creates a new one).
                 plt.close(num)
-        fig, ax = place.freshfig(num, **kwargs)
-        return fig, ax
+        fig, axs = place.freshfig(num, **kwargs)
+        return fig, axs
 
     def decorator(f):
         """The actual decorator."""
-        fig, ax = None, None
+        fig, axs = None, None
 
         def new(*args, **kwargs):
             # Persistent figure (re-used after slider updates)
-            nonlocal fig, ax
+            nonlocal fig, axs
 
             with output:
                 if is_inline() or fig is None:
-                    fig, ax = fig_ax(num)
+                    fig, axs = fig_ax(num)
                     newfig = True
                 else:
-                    ax.clear()
                     newfig = False
+                    try:
+                        axs.clear()
+                    except AttributeError:
+                        for ax in axs.ravel():
+                            ax.clear()
 
                 # Main
-                f(fig, ax, newfig, *args, **kwargs)
+                f(fig, axs, newfig, *args, **kwargs)
 
                 if not is_inline():
                     # From https://stackoverflow.com/a/58561439

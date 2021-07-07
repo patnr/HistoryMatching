@@ -707,7 +707,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 
 # #### RMS summary
 
-print("Stats vs. true field")
+print("Stats vs. true field\n")
 misc.RMSMs(perm, vs="Truth")
 
 # #### Plot of means
@@ -753,7 +753,7 @@ plots.productions(prod.past, "Past");
 
 # #### RMS summary
 
-print("Stats vs. past production (i.e. NOISY observations)")
+print("Stats vs. past production (i.e. NOISY observations)\n")
 misc.RMSMs(prod.past, vs="Noisy")
 
 # Note that the data mismatch is significantly reduced. This may be the case even if the
@@ -821,7 +821,7 @@ plots.productions(prod.futr, "Future");
 
 # #### RMS summary
 
-print("Stats vs. (supposedly unknown) future production")
+print("Stats vs. (supposedly unknown) future production\n")
 misc.RMSMs(prod.futr, vs="Truth")
 
 

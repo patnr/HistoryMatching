@@ -359,8 +359,8 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     linked = wg.interactive(plot, **ctrls)
     # return wg.HBox([output, linked])
 
-    # Adjust layout -- use border="solid" to debug
     *ww, _ = linked.children
+    # Adjust individual controls -- use border="solid" to debug
     for w in ww:
         if "Slider" in str(type(w)):
             w.layout.width = "16em"
@@ -368,6 +368,7 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
             w.style.description_width = "2em"
             if w.description == "y":
                 w.orientation = "vertical"
+                w.layout.width = "2em"
         elif "Dropdown" in str(type(w)):
             w.layout.width = 'max-content'
 

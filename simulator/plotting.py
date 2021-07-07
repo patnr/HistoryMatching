@@ -466,20 +466,20 @@ def ens_style(label, N=100):
 
 # NOTE: This uses IPython/jupyter widgets. Another solution, using interactive
 # mpl backends (=> not available on Colab), can be found in mpl_tools.
-def toggle_items(plotter):
+def toggle_items(wrapped):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
     def new(*args, **kwargs):
-        p1, kw_subplots = plotter(*args, **kwargs)
+        plotter, kw_subplots = wrapped(*args, **kwargs)
         checkmarks = {label: True for label in args[0]}
 
-        # To disable, uncomment following line.
+        # To disable the interactivity, simply uncomment following line.
         # (if figure doesn't show, plt.close() it first, or change its title)
-        # p1(*place.freshfig(**kw_subplots), None, **checkmarks); return
+        # plotter(*place.freshfig(**kw_subplots), None, **checkmarks); return
 
         output = wg.Output()
-        p2 = captured_fig(output, **kw_subplots)(p1)
+        plot = captured_fig(output, **kw_subplots)(plotter)
 
-        linked = wg.interactive(p2, **checkmarks)
+        linked = wg.interactive(plot, **checkmarks)
 
         # Adjust layout
         *ww, _ = linked.children
@@ -505,7 +505,7 @@ def toggle_items(plotter):
         cpanel = wg.VBox(ww)
         layout = wg.HBox([output, cpanel])
         display(layout)
-        p2(**{w.description: w.value for w in ww})
+        plot(**{w.description: w.value for w in ww})
     return new
 
 

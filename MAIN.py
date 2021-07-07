@@ -411,7 +411,10 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
-# ## Localisation
+# ## Localisation (*optional*)
+# If you choose not to run this section, then you must use a fairly large ensemble size
+# in order to obtain results of any value.
+#
 # Localisation invervenes to fix-up the estimated correlations before they are used. It
 # is a method of injecting prior information (distant points are likely not strongly
 # codependent) that is not *encoded* in the ensemble (usually due to their finite size).

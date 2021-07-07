@@ -84,7 +84,7 @@ seed = rnd.seed(4)  # very easy
 # seed = rnd.seed(7)  # easy
 
 # Our reservoir simulator takes up about 100 lines of python code. This may seem
-# borderline too simple, but serves the purpose of *illustrating* the main features of
+# outrageously simple, but serves the purpose of *illustrating* the main features of
 # the history matching process. Indeed, we do not detail the simulator code here, but
 # simply import it from the accompanying python modules, together with the associated
 # plot functionality, the (geostatistical) random field generator, and some linear
@@ -186,7 +186,7 @@ def set_perm(model, log_perm_array):
 perm.Truth = sample_prior_perm()
 set_perm(model, perm.Truth)
 
-# #### Well specification
+# #### Wells
 # In this model, wells are represented simply by point **sources** and **sinks**. This
 # is of course incredibly basic and not realistic, but works for our purposes. So all we
 # need to specify is their placement and flux (which we will not vary in time). The code
@@ -207,8 +207,8 @@ model.config_wells(
     prod = np.hstack((grid2, rates)),
 );
 
-# #### Plot true field
-# Let's take a moment to visualize the model permeability field, and the well locations.
+# #### Plot
+# Let's take a moment to visualize the (true) model permeability field, and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # plots.field(ax, perm.Truth, "pperm")
@@ -217,7 +217,7 @@ plots.field(ax, perm_transf(perm.Truth),
 fig.tight_layout()
 
 
-# #### Define obs operator
+# #### Observation operator
 # The data will consist in the water saturation of at the well locations, i.e. of the
 # production. I.e. there is no well model. It should be pointed out, however, that
 # ensemble methods technically support observation models of any complexity, though your
@@ -229,16 +229,18 @@ obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
 def obs_model(water_sat):
     return water_sat[obs_inds]
 
-# #### Simulation to generate the synthetic truth evolution and data
+# #### Simulation
+# The following generates the synthetic truth evolution and data.
 
-wsat.init.Truth = np.zeros(model.M)
-T     = 1
-dt    = 0.025
+T = 1
+dt = 0.025
 nTime = round(T/dt)
+wsat.init.Truth = np.zeros(model.M)
+
 (wsat.past.Truth,
  prod.past.Truth) = misc.repeat(model.step, nTime, wsat.init.Truth, dt, obs_model)
 
-# ##### Animation
+# #### Animation
 # Run the code cells below to get an animation of the oil saturation evolution.
 # Injection/production wells are marked with triangles pointing down/up.
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
@@ -277,7 +279,10 @@ perm.Prior = sample_prior_perm(N)
 print("Prior mean:", np.mean(perm.Prior))
 print("Prior var.:", np.var(perm.Prior))
 
+# #### Histogram
 # Let us inspect the parameter values in the form of their histogram.
+# Note that the histogram of the truth is simply counting the values of a single field,
+# whereas the histogram of the ensemble counts the values of `N` fields.
 
 fig, ax = freshfig("Perm.", figsize=(1.5, .7), rel=1)
 bins = np.linspace(*plots.styles["pperm"]["levels"][[0, -1]], 32)
@@ -297,11 +302,12 @@ fig.tight_layout()
 # a single (spatially extensive) realisation, and therefore will contain significant
 # sampling "error".
 
+# #### Field plots
 # Below we can see some (pre-perm) realizations (members) from the ensemble.
 
 plots.fields(perm.Prior, "pperm", "Prior");
 
-# #### Eigenvalue spectrum
+# #### Variance/Spectrum
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating
 # the prior ensemble, because it would be too large.  However, since this synthetic case
 # in being made that way, let's inspect its spectrum.
@@ -314,25 +320,27 @@ plots.spectrum(svals, "Prior cov.");
 # lower rank than our ensemble. This is a very realistic situation, and indicates that
 # localisation (implemented further below) will be very beneficial.
 
-# ## Assimilation
+# ## Forward model (ensemble propagation)
+# Ensemble methods obtain observation-parameter sensitivities from the
+# covariances of the ensemble run through the ("forward") model.  This is a
+# composite function.  The main work consists of running the reservoir
+# simulator for each realisation in the ensemble.  However, the simulator only
+# inputs/outputs state variables, so we also have to take the necessary steps
+# to set the parameter values. Finally it all has to be stitched together;
+# this is not usually a pleasant task, giving rise to tools like
+# [ERT](https://github.com/equinor/ert).
 
-# ### Propagation
-# Ensemble methods obtain observation-parameter sensitivities from the covariances of
-# the ensemble run through the ("forward") model. Note that this is "embarrasingly
-# parallelizable", because each iterate is complete independent (requires no
-# communication) from the others. We take advantage of this through multiprocessing.
+# A huge technical advantage of ensembel methods is that they are
+# "embarrasingly parallelizable", because each iterate is complete independent
+# (requires no communication) from the others.
+# We take advantage of this through multiprocessing which, in Python,
+# requires very little code overhead.
 
 # Set (int) number of CPU cores to use. Set to False when debugging.
 multiprocess = False
 
 def forward_model(nTime, *args, desc=""):
-    """Create the (composite) forward model, i.e. forecast. Supports ensemble input.
-
-    This is a composite function.  The main work consists of running the
-    reservoir simulator for each realisation in the ensemble.  However, the
-    simulator only inputs/outputs state variables, so we also have to take
-    the necessary steps to set the parameter values
-    """
+    """Create the (composite) forward model, i.e. forecast. Supports ensemble input."""
 
     def run1(estimable):
         """Forward model for a *single* member/realisation."""
@@ -403,13 +411,13 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
-# ### Localisation
+# ## Localisation
 # Localisation invervenes to fix-up the estimated correlations before they are used. It
 # is a method of injecting prior information (distant points are likely not strongly
 # codependent) that is not *encoded* in the ensemble (usually due to their finite size).
 # Defining an effective localisation mask or tapering function can be a difficult task.
 
-# #### Correlation plots
+# ### Correlation plots
 # The conditioning "update" of ensemble methods is often formulated in terms of a
 # "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties
 # (see e.g. [[Jaz70]](#Jaz70)): in the linear-Gaussian case, to compute the correct
@@ -435,7 +443,7 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # In summary, it is useful to investigate the correlation relations of the ensemble,
 # especially for the prior.
 
-# ##### Auto-correlation for `wsat`
+# #### Auto-correlation for `wsat`
 # First, as a sanity check, it is useful to plot the correlation of the saturation field
 # at some given time vs. the production at the same time. The correlation should be
 # maximal (1.00) at the location of the well in question. Let us verify this: zoom-in
@@ -449,7 +457,7 @@ corrs = [misc.corr(A, b) for b in bb]
 
 plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 
-# ##### Interactive correlation plot
+# #### Interactive correlation plot
 # The following plots a variety of different correlation fields. Each field may
 # be seen as a single column (or row) of a larger ("cross")-covariance matrix,
 # which would typically be too large for explicit computation or storage. The
@@ -494,6 +502,14 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # - Set both `Field` and `Point` to `Pre-perm`, and put the point somewhere near the center.
 #   Why is the correlation field so regular (almost perfectly circular or elliptic)?
 # - TODO: Add more remarks/questions
+
+# ### Tapering
+
+# #### Plot of localized domains
+
+# #### Plot of localized correlations
+
+# ## Assimilation
 
 # ### Ensemble smoother
 
@@ -568,7 +584,7 @@ ES = ES_update(
 # Apply
 perm.ES = ES(perm.Prior)
 
-# #### Plot ES
+# #### Field plots
 # Let's plot the updated, initial ensemble.
 
 plots.fields(perm.ES, "pperm", "ES (posterior)");
@@ -684,8 +700,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     return E, stat
 
-
-# #### Apply the IES
+# #### Compute
 
 perm.IES, stats_IES = IES(
     ensemble     = perm.Prior,
@@ -694,8 +709,7 @@ perm.IES, stats_IES = IES(
     stepsize=1,
 )
 
-
-# #### Plot IES
+# #### Field plots
 # Let's plot the updated, initial ensemble.
 
 plots.fields(perm.IES, "pperm", "IES (posterior)");
@@ -719,7 +733,7 @@ ax2.set_ylabel('RMS error', color="r")
 ax2.plot(stats_IES.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
 
-# ### Diagnostics
+# ## Diagnostics
 # In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior.
 # The "expectation" wording indicates that this is true on average, but not always. To
 # be specific, it means that it is guaranteed to hold true if the RMSE is calculated for
@@ -732,12 +746,14 @@ ax2.tick_params(axis='y', labelcolor="r")
 # we will see later, the data match might yield a different conclusions concerning the
 # utility of the update.
 
+# ### Means vs. True field
+
 # #### RMS summary
 
 print("Stats vs. true field\n")
 misc.RMSMs(perm, vs="Truth")
 
-# #### Plot of means
+# #### Field plots
 # Let's plot mean fields.
 #
 # NB: Caution! Mean fields are liable to smoother than the truth. This is a phenomenon
@@ -751,13 +767,16 @@ perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
 plots.fields(perm_means, "pperm", "Means");
 
-# ### Past production (data mismatch)
+# ### Means vs. Data mismatch (past production)
 # In synthetic experiments such as this one, is is instructive to computing the "error":
 # the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of
 # course, in real life, the truth is not known.  Moreover, at the end of the day, we
-# mainly care about production rates and saturations.  Therefore, let us now compute the
-# "residual" (i.e. the mismatch between predicted and true *observations*), which we get
-# from the predicted production "profiles".
+# mainly care about production rates and saturations.
+
+# #### Re-run
+# Therefore, let us now compute the "residual" (i.e. the mismatch between
+# predicted and true *observations*), which we get from the predicted
+# production "profiles".
 
 (wsat.past.ES,
  prod.past.ES) = forward_model(nTime, wsat.init.Prior, perm.ES)
@@ -774,7 +793,7 @@ plots.fields(perm_means, "pperm", "Means");
 
 prod.past.ES0 = ravel_time(ES(ravel_time(prod.past.Prior)), undo=True)
 
-# #### Plot them all together:
+# #### Production plots
 
 plots.productions(prod.past, "Past");
 
@@ -822,6 +841,7 @@ wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
 plots.fields(wsat_means, "oil", "Means");
 
+# #### Run
 # Now we predict.
 
 print("Future/prediction")
@@ -840,9 +860,7 @@ print("Future/prediction")
 
 prod.futr.ES0 = ravel_time(ES(ravel_time(prod.futr.Prior)), undo=True)
 
-# ### Diagnostics
-
-# #### Plot future production
+# #### Production plots
 
 plots.productions(prod.futr, "Future");
 
@@ -931,7 +949,7 @@ E       = wsat.curnt.ES, perm.ES
 ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 
 
-# ### Final comments
+# ## Final comments
 # It is instructive to run this notebook/script again, but with a different random seed.
 # This will yield a different truth, and noisy production data, and so a new
 # case/problem, which may be more, or less, difficult.

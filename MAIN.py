@@ -578,7 +578,33 @@ plots.fields(perm.ES, "pperm", "ES (posterior)");
 # ### Iterative ensemble smoother
 
 # #### Why iterate?
-# Because of the non-linearity of the forward model.
+# Because of the non-linearity of the forward model, the likelihood does not
+# have a Gaussian shape, and the ensemble methods will not compute the true
+# posterior (even with infinite `N`).  However, after performing an update, it
+# may be expected that the estimate of the sensitivity (of the model to the
+# observations) has improved. Therefore it makes sense to retry the update
+# (starting from the prior again, so as not to over-condition/use the data),
+# but this time with the improved sensitivity estimate.
+# This cycle can then be repeated indefinitely.
+#
+# However, the meaning of "improvement" of the sensitivity estimate is not well defined.
+# It is known that ensemble sensitivities estimate the *average* sensitivities
+# ([[Raa19]](#Raa19)); however, it is not trivial to argue that the average
+# defined by the (iteratively approximated) posterior is better suited than
+# that of the prior, as neither one will yield the correct posterior.
+# Nevertheless, when accompanied by sufficient hand-waving, most people will
+# feel convinced by the above argument, or something similar.
+#
+# Another perspective is that the iterations *might* manage to find the
+# mode of the posterior, i.e. perform maximum-a-posteriori (MAP) estimation.
+# This perspective comes from weather forecasting and their "variational"
+# methods, as well as classical (extended, iterative) Kalman filtering.
+# However, this perspective is more of a first-order approximation
+# to the fully Bayesian uncertainty quantification approximated by ensemble methods.
+#
+# In any case, empricial evidence leave little room to doubt that iterations
+# yield improved estiamtion accuracy, albeit a the cost of (linearly) more
+# computational effort.
 
 def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
@@ -927,3 +953,5 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 
 # ## References
 # <a id="Jaz70">[Jaz70]</a>: Jazwinski, A. H. 1970. *Stochastic Processes and Filtering Theory*. Vol. 63. Academic Press.
+#
+# <a id="Raa19">[Raa19]</a>: Raanes, Patrick Nima, Andreas Størksen Stordal, and Geir Evensen. 2019. “Revising the Stochastic Iterative Ensemble Smoother.” *Nonlinear Processes in Geophysics* 26 (3): 325–38.  https://doi.org/10.5194/npg-26-325-2019.

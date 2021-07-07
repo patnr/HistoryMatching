@@ -429,32 +429,6 @@ def well_scatter(ax, ww, inj=True, text=None, color=None):
     return sh
 
 
-def production1(ax, production, obs=None):
-    """Production time series. Multiple wells in 1 axes => not ensemble compat."""
-    hh = []
-    tt = 1+np.arange(len(production))
-    for i, p in enumerate(1-production.T):
-        hh += ax.plot(tt, p, "-", label=i)
-
-    if obs is not None:
-        for i, y in enumerate(1-obs.T):
-            ax.plot(tt, y, "*", c=hh[i].get_color())
-
-    # Add legend
-    place_ax.adjust_position(ax, w=-0.05)
-    ax.legend(title="Well #.",
-              bbox_to_anchor=(1, 1),
-              loc="upper left",
-              ncol=1+len(production.T)//10)
-
-    ax.set_ylabel("Production (saturations)")
-    ax.set_xlabel("Time index")
-    # ax.set_ylim(-0.01, 1.01)
-    ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)
-    ax.axhline(1, c="xkcd:light grey", ls="--", zorder=1.8)
-    return hh
-
-
 def ens_style(label, N=100):
     """Line styling for ensemble production plots."""
     style = Dict(
@@ -537,6 +511,7 @@ def toggle_items(plotter):
 
 @toggle_items
 def productions(dct, title="", figsize=(1.5, 1), nProd=None):
+    """Production time series with data toggler. 1 axes/well. Ensemble compatible."""
     title = dash("Production profiles", title)
 
     if nProd is None:
@@ -573,6 +548,32 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
                 # plt.setp(ll[1:], label="_nolegend_")
 
     return plot, kw_subplots
+
+
+def production1(ax, production, obs=None):
+    """Production time series. Multiple wells in 1 axes => not ensemble compat."""
+    hh = []
+    tt = 1+np.arange(len(production))
+    for i, p in enumerate(1-production.T):
+        hh += ax.plot(tt, p, "-", label=i)
+
+    if obs is not None:
+        for i, y in enumerate(1-obs.T):
+            ax.plot(tt, y, "*", c=hh[i].get_color())
+
+    # Add legend
+    place_ax.adjust_position(ax, w=-0.05)
+    ax.legend(title="Well #.",
+              bbox_to_anchor=(1, 1),
+              loc="upper left",
+              ncol=1+len(production.T)//10)
+
+    ax.set_ylabel("Production (saturations)")
+    ax.set_xlabel("Time index")
+    # ax.set_ylim(-0.01, 1.01)
+    ax.axhline(0, c="xkcd:light grey", ls="--", zorder=1.8)
+    ax.axhline(1, c="xkcd:light grey", ls="--", zorder=1.8)
+    return hh
 
 
 # Note: See note in mpl_setup.py about properly displaying the animation.

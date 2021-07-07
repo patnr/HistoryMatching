@@ -622,6 +622,91 @@ def toggler(plotter):
     return new
 
 
+# NOTE: This uses IPython/jupyter widgets. Another solution, using interactive
+# mpl backends (=> not available on Colab), can be found in mpl_tools.
+def toggle_items(plotter):
+    """Include checkboxes/checkmarks to toggle plotted data series on/off."""
+    def new(*args, **kwargs):
+        p1, kw_subplots = plotter(*args, **kwargs)
+        checkmarks = {label: True for label in args[0]}
+
+        # To disable, uncomment following line.
+        # (if figure doesn't show, plt.close() it first, or change its title)
+        # p1(*place.freshfig(**kw_subplots), None, **checkmarks); return
+
+        output = wg.Output()
+        p2 = captured_fig(output, **kw_subplots)(p1)
+
+        linked = wg.interactive(p2, **checkmarks)
+
+        # Adjust layout
+        *ww, _ = linked.children
+        for w in ww:
+            # Narrower checkmark boxes (incl. text)
+            w.layout.width = "100%"  # or "auto"
+            w.indent = False
+            # Alternative method:
+            # w.style.description_width = "0", and use
+            # VBox(ww, layout=Layout(width="12ex"))
+
+            # Color borders (background/face is impossible, see refs) of checkmarks
+            # - https://stackoverflow.com/a/54896280/
+            # - https://github.com/jupyter-widgets/ipywidgets/issues/710
+            c = ens_style(w.description, N=1)['c']
+            c = mpl.colors.to_hex(c, keep_alpha=False)
+            w.layout.border = "solid 7px" + c
+
+            # Center vertically inside boxes
+            w.layout.align_items = "center"
+            w.layout.padding = ".9em 0 .7em 0"
+
+        cpanel = wg.VBox(ww)
+        layout = wg.HBox([output, cpanel])
+        display(layout)
+        p2(**{w.description: w.value for w in ww})
+    return new
+
+
+@toggle_items
+def prod5(dct, title="", figsize=(1.5, 1), nProd=None):
+    title = dash("Production profiles", title)
+
+    if nProd is None:
+        nProd = struct_tools.get0(dct).shape[1]
+        nProd = min(23, nProd)
+
+    kw_subplots = dict(num=title, figsize=figsize, rel=True,
+                       **nRowCol(nProd), sharex=True, sharey=True)
+
+    def plot(fig, axs, _newfig, **labels):
+        axs = axs.ravel()
+
+        # Turn off redundant axes
+        for ax in axs[nProd:]:
+            ax.set_visible(False)
+
+        # For each axis/well
+        for i in range(nProd):
+            ax = axs[i]
+            label_ax(ax, f"Well {i}", x=.99, ha="right")
+
+            for label, series in dct.items():
+                if not labels[label]:
+                    continue
+
+                # Get style props
+                some_ensemble = list(dct.values())[-1]
+                props = ens_style(label, N=len(some_ensemble))
+
+                # Plot
+                ll = ax.plot(1 - series.T[i], **props)  # noqa
+
+                # Rm duplicate labels
+                # plt.setp(ll[1:], label="_nolegend_")
+
+    return plot, kw_subplots
+
+
 @toggler
 def productions(dct, title="", figsize=(2, 1), nProd=None):
 
@@ -642,8 +727,7 @@ def productions(dct, title="", figsize=(2, 1), nProd=None):
         for iWell in range(nProd):
             ax = axs.ravel()[iWell]
             ax.clear()
-            ax.text(1, 1, f"Well {iWell}", c="k", fontsize="large",
-                    ha="right", va="top", transform=ax.transAxes)
+            label_ax(ax, f"Well {iWell}", x=.99, ha="right")
 
             for label, series in dct.items():
                 if not labels[label]:

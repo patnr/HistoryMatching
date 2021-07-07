@@ -280,8 +280,8 @@ def captured_fig(output, num, **kwargs):
         # However, using `ipywidgets.Output` to capture output requires that it runs
         # inside f. In this case it actually seems to work though (no blank figures).
         if is_inline():
-            # Rm previous (static) image.
-            # Necssary when using `ipywidgets.Output`
+            # Rm previous (static) image. Necssary when using `ipywidgets.Output`
+            # Use `wait=True` because to avoid flickering, ref ipywidgets/issues/1582
             clear_output(wait=True)
         else:
             # Check for existance, otherwise the first time it is run

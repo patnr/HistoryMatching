@@ -576,7 +576,7 @@ class ES_update:
 # #### Compute
 
 # +
-def ravel_time(x, undo=False):
+def t_ravel(x, undo=False):
     """Ravel/flatten the last two axes, or undo this operation."""
     if undo:
         *N, ab = x.shape
@@ -587,8 +587,8 @@ def ravel_time(x, undo=False):
 
 # Pre-compute
 ES = ES_update(
-    obs_ens      = ravel_time(prod.past.Prior),
-    observations = ravel_time(prod.past.Noisy),
+    obs_ens      = t_ravel(prod.past.Prior),
+    observations = t_ravel(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
 )
 # -
@@ -670,7 +670,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")
-        Eo = ravel_time(Eo)
+        Eo = t_ravel(Eo)
 
         # Prepare analysis.
         Y, xo  = center(Eo)         # Get anomalies, mean.
@@ -716,7 +716,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 perm.IES, stats_IES = IES(
     ensemble     = perm.Prior,
-    observations = ravel_time(prod.past.Noisy),
+    observations = t_ravel(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
     stepsize=1,
 )
@@ -803,7 +803,7 @@ plots.fields(perm_means, "pperm", "Means");
 # the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = ravel_time(ES(ravel_time(prod.past.Prior)), undo=True)
+prod.past.ES0 = t_ravel(ES(t_ravel(prod.past.Prior)), undo=True)
 
 # #### Production plots
 
@@ -870,7 +870,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = ravel_time(ES(ravel_time(prod.futr.Prior)), undo=True)
+prod.futr.ES0 = t_ravel(ES(t_ravel(prod.futr.Prior)), undo=True)
 
 # #### Production plots
 

@@ -4,7 +4,7 @@
 
 using Colab (requires no installation, but Google login):
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patricknraanes/HistoryMatching/blob/Colab)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patricknraanes/HistoryMatching)
 
 ## OR: install
 
@@ -56,16 +56,6 @@ and ensuring that the `file > Jupytext` menu has check marks on both
 If you use vim I suggest folding (rather than wrapping) the comment blocks
 (corresponding to markdown cells) using
 `:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\#\ ' fdl=0`.
-
-The *Colab branch* has (at least!) one major difference from the master branch:
-it contains the cell that downloads & runs the `colab_bootstrap.sh` script.
-In the presence of such persistent differences, I find git merging back and
-forth to be troublesome (it removes and adds that cell when it shouldn't).
-Therefore I suggest only working on the *master branch*, and merging into
-the Colab branch. Don't manually resolve conflicts in the `.ipynb` file;
-use instead `jupytext` to sync it from the (resolved) python script.
-If it complains (while opening the script) that the timestamps are
-incompatible, simply re-save the `.py` version and reload the page.
 
 ## Contributors
 

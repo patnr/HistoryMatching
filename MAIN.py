@@ -28,6 +28,13 @@ print("Hello world! I'm " + name)
 # know is how to **restart** the session, so that you can start over. Try to
 # locate this option via the top menu bar.
 
+# If you're on **Google Colab**, run the cell below to install the requirements.
+# Otherwise (and assuming you have done the installation described in the README),
+# you should skip/delete this cell.
+
+github = "https://raw.githubusercontent.com/patricknraanes/HistoryMatching"
+# !wget -qO- {github}/master/colab_bootstrap.sh | bash -s
+
 # There is a huge amount of libraries available in **Python**,
 # including the popular `numpy` and `matplotlib/pyplot` packages.
 # These are imported (and abbreviated) as `np`, and `mpl` and `plt`.

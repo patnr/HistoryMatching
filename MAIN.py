@@ -17,9 +17,9 @@ print("Hello world! I'm " + name)
 
 # You will likely be more efficient if you know these **keyboard shortcuts**:
 #
-# | Navigate                      |    | Edit              |    | Exit           |    | Run                              |    | Run & advance                     |
-# | -------------                 | -- | ----------------- | -- | --------       | -- | -------                          | -- | -------------                     |
-# | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
+# | Navigate                      |    | Edit              |    | Exit           |    | Run & advance                     |
+# | -------------                 | -- | ----------------- | -- | --------       | -- | -------------                     |
+# | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
 #
 # When you open a notebook it starts a **session (kernel/runtime)** of Python
 # in the background.  All of the code cells (in a given notebook) are connected

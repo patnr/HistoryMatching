@@ -8,7 +8,7 @@
 # Please do not hesitate to file issues on GitHub,
 # or submit pull requests.
 
-# ## The Jupyter notebook format
+# ## Preface
 # Notebooks combine **cells** of code (Python) with cells of text (markdown).
 # For example, try to edit the cell below to insert your name, and then run it.
 

@@ -55,7 +55,10 @@ and ensuring that the `file > Jupytext` menu has check marks on both
 "Pair with ipynb" and "Pair with light script".
 If you use vim I suggest folding (rather than wrapping) the comment blocks
 (corresponding to markdown cells) using
-`:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\#\ ' fdl=0`.
+
+```vim
+:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\#\ ' fdl=0
+```
 
 ## Contributors
 

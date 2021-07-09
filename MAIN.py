@@ -510,8 +510,13 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # - Set `T = t = 20` and `Field = Point = Saturation`. Why is the green marker
 #   (showing the location of the maximum) on top of the crosshairs?
 #   Does this hold when `Field != Point` (hint: try moving `x` and `y`)?
-# - Set both `Field` and `Point` to `Pre-perm`, and put the point somewhere near the center.
+# - Set `Field = Point = Pre-perm`, and put the point somewhere near the center.
 #   Why is the correlation field so regular (almost perfectly circular or elliptic)?
+#   Also note, as you can tell from `corr_comp`, that time plays no role for the perm field.
+# - Set `Field = Point = Saturation`, set the slider for `T` to the middle, `t` large,
+#   and put the `Point` near a corner (e.g. `x = y = 2`).
+#   - Where is the maximum? And minimum? Does this make sense?
+#   - Gradually increase `T`. How do the extrema move? Why?.
 # - TODO: Add more remarks/questions
 
 # ### Tapering
@@ -760,6 +765,11 @@ ax2.tick_params(axis='y', labelcolor="r")
 # ### Means vs. True field
 
 # #### RMS summary
+# RMS stands for "root-mean-square(d)" and is a summary measure for deviation.
+# With ensemble methods, it is (typically, and in this case study) applied
+# to the deviations of the ensemble *mean* (from the truth, or some other reference),
+# hence the trailing `M` in RMSM.  The middle `M` refers to the (outer) averaging in the
+# spatial dimension, as well as the temporal one, if available.
 
 print("Stats vs. true field\n")
 misc.RMSMs(perm, vs="Truth")
@@ -813,11 +823,19 @@ plots.productions(prod.past, "Past");
 print("Stats vs. past production (i.e. NOISY observations)\n")
 misc.RMSMs(prod.past, vs="Noisy")
 
-# Note that the data mismatch is significantly reduced. This may be the case even if the
-# updated permeability field did not have a reduced rmse (overall, relative to that of
-# the prior prior). The "direct" forecast (essentially just linear regression) may
-# achieve even lower rmse, but generally, less realistic production plots.
-
+# The RMSE obtained from the (given method of approximate computation of the) posterior
+# should pass two criteria.
+# - It should be lower than the `rmse` of the (noisy) observations.
+#   Aside: here, this is represented by the `rmse` of the `Truth`,
+#   since we've set `Noisy` as the reference
+#   (for realism, since in practice the Truth is unknown).
+# - It should be lower than the `rmse` of the `Prior`.
+#   Note that this may occur even if the updated `perm` did not achieve a lower `rmse`;
+#   A related phenomenon is that the `rmse` of `ES0` is likely to be very low.
+#   However, in both cases, as we shall see,
+#   the `rmse` of the `perm` field is a much better indicator of
+#   **predictive** skill of the production
+#   (as well as the saturation fields as a whole).
 
 # ##### Comment on prior
 # Note that the prior "surrounds" the data. This the likely situation in our synthetic
@@ -831,7 +849,8 @@ misc.RMSMs(prod.past, vs="Noisy")
 # twice over (on the prior, and later to update/condition the prior). However, this is
 # justified to the extent that prior information is difficult to quantify and encode.
 # Too much prior adaptation, however, and you risk overfitting! Indeed, it is a delicate
-# matter.
+# matter. It is likely best resolved by only revising coarse features of the prior,
+# and increasing its uncertainty rather than trying to adjust its mean (bias).
 
 # ##### Comment on posterior
 # If the assumptions (statistical indistinguishability, Gaussianity) are not too far

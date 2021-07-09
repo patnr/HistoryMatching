@@ -36,10 +36,9 @@ github = "https://raw.githubusercontent.com/patricknraanes/HistoryMatching"
 # !wget -qO- {github}/master/colab_bootstrap.sh | bash -s
 
 # There is a huge amount of libraries available in **Python**,
-# including the popular `numpy` and `matplotlib/pyplot` packages.
-# These are imported (and abbreviated) as `np`, and `mpl` and `plt`.
-# Try them out by running the following, which illustrates some algebra
-# using syntax reminiscent of Matlab.
+# including the popular `numpy (np)` and `matplotlib/pyplot (plt)` packages.
+# Try them out by running in the next few cells following,
+# which illustrates some algebra using syntax reminiscent of Matlab.
 
 import numpy as np
 from matplotlib import pyplot as plt

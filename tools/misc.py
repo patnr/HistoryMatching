@@ -52,10 +52,10 @@ class RMSM:
     """Compute RMS error & dev **of the ensemble mean**."""
 
     def __init__(self, ensemble, truth):
-        # Try to avoid the confusion that, for 1d x, RMSM(x, x)!=0
-        assert ensemble.ndim >= 2
-
+        # Try to avoid taking a spatial mean instead of ensemble mean
+        assert ensemble.ndim > 1
         mean = ensemble.mean(axis=0)
+
         err = truth - mean
         dev = ensemble - mean
         self.rmse = norm(err)
@@ -66,14 +66,19 @@ class RMSM:
 
 
 def RMSMs(series, vs):
-    """Print `RMSM` for each item in series."""
+    """Print RMS error (of mean compared to vs) and spread, for each item in series."""
     header = "Series    rmse     std"
     header = "\n".join([header, "-"*len(header)])
     print(header)
-    for k in series:
-        # if k != vs:
-        v = RMSM(series[k], series[vs])
-        print(f"{k:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
+
+    for key in series:
+        s = series[key]
+        # if key == vs: continue
+        if key == vs and s.shape[0] != 1:
+            # Add singleton first dimension for "ens" average
+            s = s[None, :]
+        v = RMSM(s, series[vs])
+        print(f"{key:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
 
 
 def svd0(A):

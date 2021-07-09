@@ -159,7 +159,7 @@ wsat = Dict(
 # and a "perturbed" exponential function (to render the problem a little more complex).
 
 # +
-def sample_prior_perm(N=1):
+def sample_prior_perm(N):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
     return lperms
 
@@ -189,7 +189,7 @@ def set_perm(model, log_perm_array):
 
 # Now we are in position to sample the permeability of the (synthetic) truth.
 
-perm.Truth = sample_prior_perm()
+perm.Truth = sample_prior_perm(1)
 set_perm(model, perm.Truth)
 
 # #### Wells

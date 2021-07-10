@@ -277,6 +277,12 @@ plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the
 # same mean and covariance.  Thus, the members are "statistically indistinguishable" to
 # the truth. This assumption underlies ensemble methods.
+#
+# In practice, "encoding" prior information, from a range of experts, and prior
+# information sources, in such a way that it is useful for decision making analyses (and
+# history matching), is a formidable tecnnical task, typically involving multiple
+# different types of modelling.  Nevertheless it is crucial, and must be performed with
+# care.
 
 N = 200
 perm.Prior = sample_prior_perm(N)
@@ -327,20 +333,18 @@ plots.spectrum(svals, "Prior cov.");
 # localisation (implemented further below) will be very beneficial.
 
 # ## Forward model (ensemble propagation)
-# Ensemble methods obtain observation-parameter sensitivities from the
-# covariances of the ensemble run through the ("forward") model.  This is a
-# composite function.  The main work consists of running the reservoir
-# simulator for each realisation in the ensemble.  However, the simulator only
-# inputs/outputs state variables, so we also have to take the necessary steps
-# to set the parameter values. Finally it all has to be stitched together;
-# this is not usually a pleasant task, giving rise to tools like
-# [ERT](https://github.com/equinor/ert).
+# Ensemble methods obtain observation-parameter sensitivities from the covariances of
+# the ensemble run through the ("forward") model.  This is a composite function.  The
+# main work consists of running the reservoir simulator for each realisation in the
+# ensemble.  However, the simulator only inputs/outputs state variables, so we also have
+# to take the necessary steps to set the parameter values. Finally it all has to be
+# stitched together; this is not usually a pleasant task, though some tools like
+# [ERT](https://github.com/equinor/ert) have made it a little easier.
 
-# A huge technical advantage of ensembel methods is that they are
-# "embarrasingly parallelizable", because each iterate is complete independent
-# (requires no communication) from the others.
-# We take advantage of this through multiprocessing which, in Python,
-# requires very little code overhead.
+# A huge technical advantage of ensembel methods is that they are "embarrasingly
+# parallelizable", because each iterate is complete independent (requires no
+# communication) from the others.  We take advantage of this through multiprocessing
+# which, in Python, requires very little code overhead.
 
 # Set (int) number of CPU cores to use. Set to False when debugging.
 multiprocess = False
@@ -765,11 +769,13 @@ ax2.tick_params(axis='y', labelcolor="r")
 # ### Means vs. True field
 
 # #### RMS summary
-# RMS stands for "root-mean-square(d)" and is a summary measure for deviation.
+# RMS stands for "root-mean-square(d)" and is a summary measure for deviations.
 # With ensemble methods, it is (typically, and in this case study) applied
-# to the deviations of the ensemble *mean* (from the truth, or some other reference),
-# hence the trailing `M` in RMSM.  The middle `M` refers to the (outer) averaging in the
-# spatial dimension, as well as the temporal one, if available.
+# to the deviations (from the truth, or some other reference) of the ensemble *mean*,
+# hence the trailing `M` in `RMSM` below. The middle `M` refers to the (outer) averaging
+# in any of the remaining dimensions, here ensemble members (for the spread),
+# space, and time (when available); some conventions take the averages in time
+# after taking the root, but not here.
 
 print("Stats vs. true field\n")
 misc.RMSMs(perm, vs="Truth")

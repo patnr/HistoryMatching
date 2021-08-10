@@ -12,7 +12,7 @@
 # Already in Colab
 jupyter~=1.0.0
 jupytext~=1.11.3
-scipy~=1.4.1
+scipy~=1.6.0
 
 # On newer MacOS, need mpl>=3.3 coz of https://bugs.python.org/issue33725 .
 matplotlib~=3.3.4

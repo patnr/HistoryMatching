@@ -3,6 +3,7 @@
 import numpy as np
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
+
 from mpl_tools.place import freshfig
 from numpy.random import randn
 
@@ -86,4 +87,4 @@ if __name__ == "__main__":
     fields = gaussian_fields(grid.mesh(), N)
     fields = 0.5 + .2*fields
     # fields = truncate_01(fields)
-    plots.fields(plots.field, fields)
+    plots.fields(fields)

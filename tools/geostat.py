@@ -3,7 +3,6 @@
 import numpy as np
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
-
 from mpl_tools.place import freshfig
 from numpy.random import randn
 

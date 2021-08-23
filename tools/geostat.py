@@ -86,4 +86,4 @@ if __name__ == "__main__":
     fields = gaussian_fields(grid.mesh(), N)
     fields = 0.5 + .2*fields
     # fields = truncate_01(fields)
-    plots.fields(plots.field, fields)
+    plots.fields(fields)

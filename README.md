@@ -33,7 +33,8 @@ Ensure the printed version is 3.7 or more.
 
 - Download and unzip (or `git clone`)
   this repository (see the green button up top)
-- Move the resulting folder wherever you like, and `cd` into it
+- Move the resulting folder wherever you like
+- `cd` into the folder
 - Install requirements:  
   `pip install -r path/to/requirements.txt`
 

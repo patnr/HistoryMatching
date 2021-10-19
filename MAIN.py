@@ -5,7 +5,7 @@
 #
 # This (Jupyter/Python) notebook is a self-contained tutorial on
 # history matching (HM) using ensemble methods.
-# Please do not hesitate to file issues on GitHub,
+# Please do not hesitate to file issues on [GitHub](https://github.com/patricknraanes/HistoryMatching),
 # or submit pull requests.
 
 # ## Preface

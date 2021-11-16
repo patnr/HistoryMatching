@@ -140,7 +140,8 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
     # Add argmax marker
     if argmax:
         idx = Z.T.argmax()  # reverse above transpose
-        ax.plot(*model.ind2xy(idx), "g*", ms=12, label="Max")
+        ax.plot(*model.ind2xy(idx), "y*", ms=15, label="max", zorder=98)
+        ax.plot(*model.ind2xy(idx), "k*", ms=4, label="max", zorder=99)
 
     # Add colorbar
     if colorbar:
@@ -435,7 +436,7 @@ def well_scatter(ax, ww, inj=True, text=None, color=None):
 
     # Markers
     # sh = ax.plot(*ww.T[:2], m+c, ms=16, mec="k", clip_on=False)
-    sh = ax.scatter(*ww.T[:2], s=16**2, c=c, marker=m, ec=ec,
+    sh = ax.scatter(*ww.T[:2], s=26**2, c=c, marker=m, ec=ec,
                     clip_on=False,
                     zorder=1.5,  # required on Jupypter
                     )

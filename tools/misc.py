@@ -65,19 +65,19 @@ class RMSM:
         return "%6.4f (rmse),  %6.4f (std)" % (self.rmse, self.rmsd)
 
 
-def RMSMs(series, vs):
-    """Print RMS error (of mean compared to vs) and spread, for each item in series."""
+def RMSMs(series, ref):
+    """Print RMS error and spread, for each item in `series`."""
     header = "Series    rmse     std"
     header = "\n".join([header, "-"*len(header)])
     print(header)
 
     for key in series:
         s = series[key]
-        # if key == vs: continue
-        if key == vs and s.shape[0] != 1:
+        # if key == ref: continue
+        if key == ref and s.shape[0] != 1:
             # Add singleton first dimension for "ens" average
             s = s[None, :]
-        v = RMSM(s, series[vs])
+        v = RMSM(s, series[ref])
         print(f"{key:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
 
 

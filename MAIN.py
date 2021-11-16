@@ -796,7 +796,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 # after taking the root, but not here.
 
 print("Stats vs. true field\n")
-misc.RMSMs(perm, vs="Truth")
+misc.RMSMs(perm, ref="Truth")
 
 # #### Field plots
 # Let's plot mean fields.
@@ -845,7 +845,7 @@ plots.productions(prod.past, "Past");
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)\n")
-misc.RMSMs(prod.past, vs="Noisy")
+misc.RMSMs(prod.past, ref="Noisy")
 
 # The RMSE obtained from the (given method of approximate computation of the) posterior
 # should pass two criteria.
@@ -922,7 +922,7 @@ plots.productions(prod.futr, "Future");
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production\n")
-misc.RMSMs(prod.futr, vs="Truth")
+misc.RMSMs(prod.futr, ref="Truth")
 
 
 # ## Robust optimisation

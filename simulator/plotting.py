@@ -372,12 +372,16 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     # Adjust individual controls -- use border="solid" to debug
     for w in ww:
         if "Slider" in str(type(w)):
-            w.layout.width = "16em"
             w.continuous_update = False  # => faster
             w.style.description_width = "2em"
-            if w.description == "y":
+            if w.description == "x":
+                w.layout.width = "85%"
+            elif w.description == "y":
                 w.orientation = "vertical"
                 w.layout.width = "2em"
+                w.layout.height = "63%"
+            else:
+                w.layout.width = "16em"
         elif "Dropdown" in str(type(w)):
             w.layout.width = 'max-content'
             w.style.description_width = "max-content"
@@ -387,15 +391,19 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     V, H = wg.VBox, wg.HBox
     try:
         # Fancy layout
-        c12, c34, cX, cY = V(ww[:2]), V(ww[2:4]), ww[4], ww[5]
+        cF, cP, cX, cY = V(ww[:2]), V(ww[2:4]), ww[4], ww[5]
     except IndexError:
         # Fallback layout -- works for any number of controls
         cpanel = V(ww, layout=dict(align_items='center'))
         layout = H([output, cpanel])
     else:
         # Complete the fancy layout
-        cY = V([cY], layout={"justify_content": "flex-end"})
-        layout = V([H([output, cY]), H([c12, c34, cX])])
+        # hspace = H([], layout={"width": "50px"})
+        center = {"justify_content": "space-around"}
+        cX = H([cX], layout={**center, "padding": "0 0 0 40px"})
+        cY = V([cY], layout=center)
+        cF = H([cF, cP], layout=center)
+        layout = H([V([cF, output, cX]), cY])
 
     # Display
     display(layout)

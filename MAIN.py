@@ -339,14 +339,21 @@ plots.spectrum(svals, "Prior cov.");
 # lower rank than our ensemble. This is a very realistic situation, and indicates that
 # localisation (implemented further below) will be very beneficial.
 
-# Ensemble methods obtain observation-parameter sensitivities from the covariances of
-# the ensemble run through the ("forward") model.  This is a composite function.  The
-# main work consists of running the reservoir simulator for each realisation in the
-# ensemble.  However, the simulator only inputs/outputs state variables, so we also have
-# to take the necessary steps to set the parameter values. Finally it all has to be
-# stitched together; this is not usually a pleasant task, though some tools like
-# [ERT](https://github.com/equinor/ert) have made it a little easier.
 # ## Forward model
+
+# In order to (begin to attempt to) solve the *inverse problem*,
+# we first have to be able to solve the *forward problem*.
+# Indeed, ensemble methods obtain observation-parameter sensitivities
+# from the covariances of the ensemble run through the ("forward") model.
+# This is a composite function. In our simple case, it only consists of two steps:
+#
+# - The main work consists of running the reservoir simulator
+#   for each realisation in the ensemble.
+# - However, the simulator only inputs/outputs *state* variables,
+#   so we also have to take the necessary steps to set the *parameter* values.
+#
+# This all has to be stitched together; this is not usually a pleasant task, though some
+# tools like [ERT](https://github.com/equinor/ert) have made it a little easier.
 
 # A huge technical advantage of ensembel methods is that they are "embarrasingly
 # parallelizable", because each member run is complete independent (requires no
@@ -357,7 +364,7 @@ plots.spectrum(svals, "Prior cov.");
 multiprocess = False
 
 def forward_model(nTime, *args, desc=""):
-    """Create the (composite) forward model, i.e. forecast. Supports ensemble input."""
+    """Create the (composite) forward model, i.e. forecast. Supports ensemble (2D array) input."""
 
     def run1(estimable):
         """Forward model for a *single* member/realisation."""
@@ -400,7 +407,7 @@ def forward_model(nTime, *args, desc=""):
         Ef = list(progbar(map(run1, E), desc, N))
 
     # Transpose (to unpack)
-    # Here we output everything, but really we need only emit
+    # In this code we output full time series, but really we need only emit
     # - The state at the final time, for restarts (predictions).
     # - The observations (for the assimilation update).
     # - The variables used for production optimisation
@@ -409,20 +416,21 @@ def forward_model(nTime, *args, desc=""):
 
     return np.array(saturation), np.array(production)
 
-# Note that the forward model not only takes an ensemble of permeability fields, but
-# also an ensemble of initial water saturations. This is not because the initial
-# saturations are uncertain (unknown); indeed, this here case study assumes that it is
-# perfectly known, and equal to the true initial water saturation (a constant field of
-# 0). Therefore, the initial water saturation is set to the true value for each member
-# (giving it uncertainty 0).
+# Note that the `args` of `forward_model` should contain **not only** permeability
+# fields, but **also** initial water saturations. It also outputs saturations.  Why did
+# we make it so?  Because further down we'll be "restarting" (running) the simulator
+# from a later point in time (to generate future predictions) at which point the
+# saturation fields will depend on the assumed permeability field, and hence vary from
+# realisation to realisation.  Therefore this state (i.e. time-dependent, prognostic)
+# variable must be part of the input and output of the forward model.
+#
+# On the other hand, in this case study we assume that the time-0 saturations are not
+# uncertain (unknown). Rather than coding a special case in `forward_model` for time-0,
+# we can express this 100% knowledge by setting each saturation field equal to the
+# *true* time-0 saturation (a constant field of 0).
 
 wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
-# So why does `forward_model` have saturation as an input and output? Because the
-# posterior of this state (i.e. time-dependent, prognostic) variable *does* depend on
-# the method used for the conditioning, and will later be used to restart the
-# simulations so as to generate future predictions.
-#
 # Now that we have the forward model, we can make prior estimates of the saturation
 # evolution and production.  This is interesting in and of itself and, as we'll see
 # later, is part of the assimilation process.  Let's run the forward model on the prior.

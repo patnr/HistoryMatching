@@ -32,8 +32,8 @@ repos:
     -   id: mixed-line-ending
         args: ['--fix=no']
 
--   repo: https://github.com/life4/flakehell
-    rev: v.0.8.0
+-   repo: https://github.com/KPLauritzen/flakehell
+    rev: d644612
     hooks:
     -   id: flakehell
         exclude: |
@@ -41,6 +41,7 @@ repos:
                 .*\.ipynb
             )$
         additional_dependencies: [
+          flake8==3.9.0,
           flake8-docstrings,
           flake8-bugbear,
           flake8-comprehensions,

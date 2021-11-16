@@ -14,6 +14,10 @@ jupyter~=1.0.0
 jupytext~=1.11.3
 scipy~=1.6.0
 
+# For jupyterlab
+jupyterlab~=3.2.3
+ipympl~=0.8.2
+
 # On newer MacOS, need mpl>=3.3 coz of https://bugs.python.org/issue33725 .
 matplotlib~=3.3.4
 # I tried (with no luck) the other workarounds from here

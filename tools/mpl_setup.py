@@ -53,7 +53,16 @@ def init():
 
         except ImportError:
             # Local Jupyter
-            mpl.use("nbAgg")
+            try:
+                # Recreate `%matplotlib widget/ipympl`
+                # Compatible with both jupyter-notebook and -lab.
+                # Equivalently: mpl.use('module://ipympl.backend_nbagg')
+                import ipympl  # noqa
+            except ImportError:
+                # Recreate `%matplotlib notebook`.
+                mpl.use("nbAgg")
+            # Not necessary in notebooks, because plt.isinteractive() already.
+            # plt.ion()
 
     else:
         # Script run

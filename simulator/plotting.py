@@ -1,6 +1,12 @@
 """Plot functions for reservoir model.
 
 Note: before using any function, you must set the module vairable `model`.
+Snippet to reload module:
+
+    import importlib
+    import simulator.plotting as m
+    m = importlib.reload(m)
+    plots.model = model
 """
 
 # TODO: unify (nRowCol, turn off, ax.text, etc) for
@@ -16,7 +22,7 @@ import numpy as np
 import struct_tools
 from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
-from mpl_tools import is_inline, place, place_ax
+from mpl_tools import place, place_ax
 from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict as Dict
 
@@ -270,6 +276,8 @@ def captured_fig(output, num, **kwargs):
     ... display(widgets)
     ... plot(*xy0)
     """
+    backend = mpl.get_backend()
+    inline_ish = "inline" in backend or "ipympl" in backend
 
     def fig_ax(num):
         """Create fig, axs. Deserving of particular attention, so factored out."""
@@ -279,7 +287,7 @@ def captured_fig(output, num, **kwargs):
         # causes blank figure => Run outside of f().
         # However, using `ipywidgets.Output` to capture output requires that it runs
         # inside f. In this case it actually seems to work though (no blank figures).
-        if is_inline():
+        if inline_ish:
             # Rm previous (static) image. Necssary when using `ipywidgets.Output`
             # Use `wait=True` because to avoid flickering, ref ipywidgets/issues/1582
             clear_output(wait=True)
@@ -304,7 +312,7 @@ def captured_fig(output, num, **kwargs):
             nonlocal fig, axs
 
             with output:
-                if is_inline() or fig is None:
+                if inline_ish or fig is None:
                     fig, axs = fig_ax(num)
                     newfig = True
                 else:
@@ -318,7 +326,7 @@ def captured_fig(output, num, **kwargs):
                 # Main
                 f(fig, axs, newfig, *args, **kwargs)
 
-                if not is_inline():
+                if not inline_ish:
                     # From https://stackoverflow.com/a/58561439
                     fig.canvas.flush_events()
                     fig.canvas.draw()
@@ -657,7 +665,14 @@ def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
                     h.set_data(tt[:iT-1], p[:iT-1])
 
         ani = animation.FuncAnimation(
-            fig, update_fig, len(tt), blit=False, interval=pause)
+            fig, update_fig, len(tt), blit=False, interval=pause,
+            # Prevent busy/idle indicator constantly flashing, despite %%capture
+            # and even manually clearing the output of the calling cell.
+            repeat=False,  # flashing stops once the (unshown) animation finishes.
+            # An alternative solution is to do this in the next cell:
+            # animation.event_source.stop()
+            # but it does not work if using "run all", even with time.sleep(1).
+        )
 
         return ani
 

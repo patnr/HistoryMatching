@@ -49,14 +49,14 @@ def norm(xx):
 
 
 class RMSM:
-    """Compute RMS error & dev **of the ensemble mean**."""
+    """Compute RMS dev. and error (of the ensemble mean)."""
 
-    def __init__(self, ensemble, truth):
+    def __init__(self, ensemble, ref):
         # Try to avoid taking a spatial mean instead of ensemble mean
         assert ensemble.ndim > 1
         mean = ensemble.mean(axis=0)
 
-        err = truth - mean
+        err = ref - mean
         dev = ensemble - mean
         self.rmse = norm(err)
         self.rmsd = norm(dev)

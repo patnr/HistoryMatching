@@ -273,7 +273,7 @@ for iT in range(nTime):
 
 # Plot of observations (and their noise):
 
-fig, ax = freshfig("Observations")
+fig, ax = freshfig("Observations", figsize=(2, .7), rel=True)
 plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 
 # ## Prior

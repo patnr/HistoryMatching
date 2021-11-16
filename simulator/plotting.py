@@ -340,9 +340,9 @@ def captured_fig(output, num, **kwargs):
 def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
-    title    = dash(kw("title"), title)
-    ctrls    = compute.controls.copy()  # gets modified
-    output   = wg.Output()
+    title  = dash(kw("title"), title)
+    ctrls  = compute.controls.copy()  # gets modified
+    output = wg.Output()
 
     @captured_fig(output, title, figsize=figsize, rel=True)
     def plot(fig, ax, newfig, **kw):

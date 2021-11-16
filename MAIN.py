@@ -8,7 +8,7 @@
 # [GitHub](https://github.com/patricknraanes/HistoryMatching),
 # or submit pull requests.
 
-# ## Preface
+# ## Python in Jupyter
 # **Jupyter notebooks** combine **cells/blocks** of code (Python) and text (markdown).
 #
 # For example, try to *edit* the cell below to insert your name, and then *run* it.
@@ -81,7 +81,7 @@ from numpy import sqrt
 from struct_tools import DotDict as Dict
 from tqdm.auto import tqdm as progbar
 
-# ## Model and case specification
+# ## Problem case (simulator, truth, obs)
 
 # For exact reproducibility of our problem/case, we set the random generator seed.
 
@@ -146,7 +146,7 @@ wsat = Dict(
 # the unknowns are merely concatenated along the last axis, rather than being kept in
 # separate dicts.
 
-# #### Permeability sampling
+# #### The unknown: permeability
 # We will estimate the log permeability field.  We parameterize the permeability
 # parameters via some transform, which becomes part of the forward model. We term the
 # parameterized permeability fields "pre-permeability". *If* we use the exponential,
@@ -334,7 +334,6 @@ plots.spectrum(svals, "Prior cov.");
 # lower rank than our ensemble. This is a very realistic situation, and indicates that
 # localisation (implemented further below) will be very beneficial.
 
-# ## Forward model (ensemble propagation)
 # Ensemble methods obtain observation-parameter sensitivities from the covariances of
 # the ensemble run through the ("forward") model.  This is a composite function.  The
 # main work consists of running the reservoir simulator for each realisation in the
@@ -342,6 +341,7 @@ plots.spectrum(svals, "Prior cov.");
 # to take the necessary steps to set the parameter values. Finally it all has to be
 # stitched together; this is not usually a pleasant task, though some tools like
 # [ERT](https://github.com/equinor/ert) have made it a little easier.
+# ## Forward model
 
 # A huge technical advantage of ensembel methods is that they are "embarrasingly
 # parallelizable", because each member run is complete independent (requires no

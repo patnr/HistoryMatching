@@ -789,11 +789,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 # #### RMS summary
 # RMS stands for "root-mean-square(d)" and is a summary measure for deviations.
 # With ensemble methods, it is (typically, and in this case study) applied
-# to the deviations (from the truth, or some other reference) of the ensemble *mean*,
-# hence the trailing `M` in `RMSM` below. The middle `M` refers to the (outer) averaging
-# in any of the remaining dimensions, here ensemble members (for the spread),
-# space, and time (when available); some conventions take the averages in time
-# after taking the root, but not here.
+# to the deviation from the **ensemble mean**, whence the trailing `M` in `RMSM` below.
 
 print("Stats vs. true field\n")
 misc.RMSMs(perm, ref="Truth")

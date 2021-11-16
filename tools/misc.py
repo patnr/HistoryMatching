@@ -49,7 +49,7 @@ def norm(xx):
 
 
 class RMSM:
-    """Compute RMS dev. and error (of the ensemble mean)."""
+    """Compute RMS of the deviations and error (vs. the ensemble Mean)."""
 
     def __init__(self, ensemble, ref):
         # Try to avoid taking a spatial mean instead of ensemble mean
@@ -67,7 +67,7 @@ class RMSM:
 
 def RMSMs(series, ref):
     """Print RMS error and spread, for each item in `series`."""
-    header = "Series    rmse     std"
+    header = "Series    rms err  rms dev"
     header = "\n".join([header, "-"*len(header)])
     print(header)
 

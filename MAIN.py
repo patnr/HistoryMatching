@@ -3,14 +3,15 @@
 #
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
-# This (Jupyter/Python) notebook is a self-contained tutorial on
-# history matching (HM) using ensemble methods.
-# Please do not hesitate to file issues on [GitHub](https://github.com/patricknraanes/HistoryMatching),
+# This is a self-contained tutorial on history matching (HM) using ensemble methods.
+# Please do not hesitate to file issues on
+# [GitHub](https://github.com/patricknraanes/HistoryMatching),
 # or submit pull requests.
 
 # ## Preface
-# Notebooks combine **cells** of code (Python) with cells of text (markdown).
-# For example, try to edit the cell below to insert your name, and then run it.
+# **Jupyter notebooks** combine **cells/blocks** of code (Python) and text (markdown).
+#
+# For example, try to *edit* the cell below to insert your name, and then *run* it.
 
 name = "Batman"
 print("Hello world! I'm " + name)
@@ -21,12 +22,12 @@ print("Hello world! I'm " + name)
 # | -------------                 | -- | ----------------- | -- | --------       | -- | -------------                     |
 # | <kbd>↓</kbd> and <kbd>↑</kbd> |    | <kbd>Enter</kbd>  |    | <kbd>Esc</kbd> |    | <kbd>Shift</kbd>+<kbd>Enter</kbd> |
 #
-# When you open a notebook it starts a **session (kernel/runtime)** of Python
-# in the background.  All of the code cells (in a given notebook) are connected
-# (they use the same kernel and thus share variables, functions, and classes).
-# Thus, the **order** in which you run the cells matters.  One thing you must
-# know is how to **restart** the session, so that you can start over. Try to
-# locate this option via the top menu bar.
+# When you open a notebook it starts a **session (interpreter/kernel/runtime)** of
+# Python in the background.  All of the code cells (in a given notebook) are connected
+# (share kernel and thus share variables, functions, and classes).  Thus, the **order**
+# in which you run the cells matters.  One thing you must know is how to **restart** the
+# session, so that you can start over. Try to locate this option via the menu bar at the
+# top.
 
 # If you're on **Google Colab**, run the cell below to install the requirements.
 # Otherwise (and assuming you have done the installation described in the README),
@@ -141,8 +142,8 @@ wsat = Dict(
 # `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape
 # `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where
 # `N` is the size of the ensemble. However, in other implementations, different choices
-# of data structure may be more convenient, e.g. where the different components of the
-# unknowns are merely concatenated along the last axis, rather than being kept in
+# for the data structure may be more convenient, e.g. where the different components of
+# the unknowns are merely concatenated along the last axis, rather than being kept in
 # separate dicts.
 
 # #### Permeability sampling
@@ -214,7 +215,8 @@ model.config_wells(
 );
 
 # #### Plot
-# Let's take a moment to visualize the (true) model permeability field, and the well locations.
+# Let's take a moment to visualize the (true) model permeability field,
+# and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # plots.field(ax, perm.Truth, "pperm")
@@ -342,7 +344,7 @@ plots.spectrum(svals, "Prior cov.");
 # [ERT](https://github.com/equinor/ert) have made it a little easier.
 
 # A huge technical advantage of ensembel methods is that they are "embarrasingly
-# parallelizable", because each iterate is complete independent (requires no
+# parallelizable", because each member run is complete independent (requires no
 # communication) from the others.  We take advantage of this through multiprocessing
 # which, in Python, requires very little code overhead.
 
@@ -516,7 +518,8 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 #   Does this hold when `Field != Point` (hint: try moving `x` and `y`)?
 # - Set `Field = Point = Pre-perm`, and put the point somewhere near the center.
 #   Why is the correlation field so regular (almost perfectly circular or elliptic)?
-#   Also note, as you can tell from `corr_comp`, that time plays no role for the perm field.
+#   Also note, as you can tell from `corr_comp`,
+#   that time plays no role for the perm field.
 # - Set `Field = Point = Saturation`, set the slider for `T` to the middle, `t` large,
 #   and put the `Point` near a corner (e.g. `x = y = 2`).
 #   - Where is the maximum? And minimum? Does this make sense?

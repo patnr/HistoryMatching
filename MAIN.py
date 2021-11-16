@@ -9,6 +9,7 @@
 # or submit pull requests.
 
 # ## Python in Jupyter
+
 # **Jupyter notebooks** combine **cells/blocks** of code (Python) and text (markdown).
 #
 # For example, try to *edit* the cell below to insert your name, and then *run* it.
@@ -276,6 +277,7 @@ fig, ax = freshfig("Observations")
 plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 
 # ## Prior
+
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the
 # same mean and covariance.  Thus, the members are "statistically indistinguishable" to
 # the truth. This assumption underlies ensemble methods.
@@ -426,6 +428,7 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
 # ## Localisation (*optional*)
+
 # If you choose not to run this section, then you must use a fairly large ensemble size
 # in order to obtain results of any value.
 #
@@ -757,6 +760,7 @@ ax2.plot(stats_IES.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
 
 # ## Diagnostics
+
 # In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior.
 # The "expectation" wording indicates that this is true on average, but not always. To
 # be specific, it means that it is guaranteed to hold true if the RMSE is calculated for
@@ -867,6 +871,7 @@ misc.RMSMs(prod.past, vs="Noisy")
 # with a tighter fit.
 
 # ## Prediction
+
 # We now prediction the future by forecasting from the current (present-time) ensembles.
 #
 # Note that we must use the current saturation in the "restart" for the predictive
@@ -910,6 +915,7 @@ misc.RMSMs(prod.futr, vs="Truth")
 
 
 # ## Robust optimisation
+
 # NB: This section is very unfinished, and should not be seen as a reference.
 
 # This section uses EnOpt to optimise the controls: the relative rates of production of
@@ -989,6 +995,7 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 
 
 # ## Final comments
+
 # It is instructive to run this notebook/script again, but with a different random seed.
 # This will yield a different truth, and noisy production data, and so a new
 # case/problem, which may be more, or less, difficult.
@@ -1009,6 +1016,7 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 # and increased NPV) in the synthetic case.
 
 # ## References
+
 # <a id="Jaz70">[Jaz70]</a>: Jazwinski, A. H. 1970. *Stochastic Processes and Filtering Theory*. Vol. 63. Academic Press.
 #
 # <a id="Raa19">[Raa19]</a>: Raanes, Patrick Nima, Andreas Størksen Stordal, and Geir Evensen. 2019. “Revising the Stochastic Iterative Ensemble Smoother.” *Nonlinear Processes in Geophysics* 26 (3): 325–38.  https://doi.org/10.5194/npg-26-325-2019.

@@ -276,6 +276,9 @@ for iT in range(nTime):
 fig, ax = freshfig("Observations", figsize=(2, .7), rel=True)
 plots.production1(ax, prod.past.Truth, prod.past.Noisy);
 
+# Note that several observations are above 1,
+# which is "unphysical" or not physically "realisable".
+
 # ## Prior
 
 # The prior ensemble is generated in the same manner as the (synthetic) truth, using the

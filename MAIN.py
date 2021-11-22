@@ -555,23 +555,7 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 
 # ## Assimilation
 
-# ### Ensemble smoother
-
-# #### Why smoothing?
-# Why do we only use smoothers (and not filters) for history matching?  When ensemble
-# methods were first being used for history matching, it was though that filtering,
-# rather than smoothing, should be used.  Filters sequentially assimilate the
-# time-series data, running the model simulator in between each observation time,
-# (re)starting each step from saturation fields that have been conditioned on all of the
-# data up until that point.  Typically, the filters would be augmented with parameter
-# fields (time-independent unknowns) as well. Either way, re-starting the simulator with
-# ensemble-updated fields tends to be problematic, because the updated members might not
-# be physically realistic and realisable, causing the simulator's solver to slow down or
-# fail to converge. This issue is generally aggravated by not having run the simulator
-# from time 0, since the linear updates provided by the ensemble will yield saturation
-# fields that differ from those obtained by re-running the simulator. Therefore,
-# updating the unknowns only once, using all of the observations, is far more
-# convenient.
+# ### Ensemble update
 
 class ES_update:
     """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.
@@ -604,6 +588,22 @@ class ES_update:
     def __call__(self, E):
         """Do the update."""
         return E + self.KGdY @ center(E)[0]
+
+# ### Ensemble smoother
+# Why do we only use smoothers (and not filters) for history matching?  When ensemble
+# methods were first being used for history matching, it was though that filtering,
+# rather than smoothing, should be used.  Filters sequentially assimilate the
+# time-series data, running the model simulator in between each observation time,
+# (re)starting each step from saturation fields that have been conditioned on all of the
+# data up until that point.  Typically, the filters would be augmented with parameter
+# fields (time-independent unknowns) as well. Either way, re-starting the simulator with
+# ensemble-updated fields tends to be problematic, because the updated members might not
+# be physically realistic and realisable, causing the simulator's solver to slow down or
+# fail to converge. This issue is generally aggravated by not having run the simulator
+# from time 0, since the linear updates provided by the ensemble will yield saturation
+# fields that differ from those obtained by re-running the simulator. Therefore,
+# updating the unknowns only once, using all of the observations, is far more
+# convenient.
 
 # #### Compute
 

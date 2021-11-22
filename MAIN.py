@@ -577,10 +577,10 @@ class pre_compute_ens_update:
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
         obs_pert    = rnd.randn(N, len(observations)) @ sqrt(obs_err_cov)
         Y, _        = center(obs_ens)
+        # obs_pert  = center(obs_pert, rescale=True)
         innovations = observations - (obs_ens + obs_pert)
 
-        # (pre-) Kalman gain * Innovations
-        # Also called the X5 matrix by Evensen'2003.
+        # (pre-) Kalman gain * Innovations.Also called the X5 matrix by Evensen'2003.
         self.KGdY = innovations @ sla.pinv2(obs_cov) @ Y.T
 
     def __call__(self, E):

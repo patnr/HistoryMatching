@@ -611,17 +611,18 @@ with np.printoptions(precision=1):
 
 
 # ### Ensemble smoother
-# Why do we only use smoothers (and not filters) for history matching? In fact, when
-# ensemble methods were first being used for history matching, it was though that
+
+# #### Why not filtering?
+# Before ensemble smoothers were used for history matching, it was though that
 # *filtering*, rather than *smoothing*, should be used. As opposed to the (batch)
 # ensemble smoothers, filters *sequentially* assimilate the time-series data,
 # updating/conditioning both the saturation (i.e. state) fields and the permeability
 # (i.e. parameter) fields.  This is problematic because the ensemble update is
 # approximate, which not only causes statistical suboptimality, but also "un-physical"
-# or "non-realisable" members --- a problem that gets exasperated by the simulator
-# (manifesting as convergence problems, hence slow-down, or crash). Moreover, the
-# approximation (and hence the associated problems) only seem likely to worsen if
-# using jointly-updated (rather than re-generated) state fields.
+# or "non-realisable" members -- a problem that gets exasperated by the simulator
+# (manifesting as slow-down or crash, often due to convergence problems in the linear
+# solver).  Moreover, the approximation (and hence the associated problems) only seem
+# likely to worsen if using jointly-updated (rather than re-generated) state fields.
 # This makes the parameter-only update of the (batch) smoothers appealing.
 
 # #### Compute

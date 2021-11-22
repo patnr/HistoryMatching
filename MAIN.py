@@ -557,21 +557,19 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 
 # ### Ensemble update
 
-    """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.
 class pre_compute_ens_update:
+    """Compute the ensemble gain * innovation, using random obs. perturbations.
 
-    Implements the "ensemble smoother" (ES) algorithm,
-    with "perturbed observations".
-    NB: obs_err_cov is treated as diagonal. Alternative: use `sla.sqrtm`.
+    In other words, prepare the ensemble update/conditioning (Bayes' rule).
+    This pre-computed "X5" matrix can then be applied to *any* ensemble,
+    similar to how the state/parm vector of unknowns can be augmented by anything.
 
-    Why have we chosen to use a class (and not a function)?
-    Because this allows storing `KGdY`, for later use.
-    This "on-the-fly" application follows directly from state-augmentation formalism.
+    NB: obs_err_cov is treated as diagonal. A non-diagonal implementation requires using
+    `sla.sqrtm` or equivalent EVD manips.
 
-    NB: some of these formulae appear transposed, and reversed,
-    compared to (EnKF) literature standards. The reason is that
-    we stack the members as rows instead of the conventional columns.
-    Rationale: https://nansencenter.github.io/DAPPER/dapper/index.html#conventions
+    NB: some of these formulae are transposed and reversed compared to EnKF literature
+    convention. The reason is that we stack the members as rows (instead of columns).
+    [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
     """
 
     def __init__(self, obs_ens, observations, obs_err_cov):

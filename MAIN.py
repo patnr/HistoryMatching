@@ -486,9 +486,9 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # lies on top of the well of that panel.  The green stars mark the location of the
 # maximum of the correlation field.
 
-A  = wsat.past.Prior[:, -1]
-bb = prod.past.Prior[:, -1].T
-corrs = [misc.corr(A, b) for b in bb]
+Field = wsat.past.Prior[:, -1]
+Obsvs = prod.past.Prior[:, -1].T
+corrs = [misc.corr(Field, obs) for obs in Obsvs]
 
 plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 
@@ -500,19 +500,22 @@ plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 # fly", should be viable for relatively large scales.
 
 # +
+# Compute correlation field
 def corr_comp(Field, T, Point, t, x, y):
-    A = prior_fields[Field]
-    b = prior_fields[Point]
-    if A.ndim > 2: A = A[:, T]  # noqa
-    if b.ndim > 2: b = b[:, t]  # noqa
-    b = b[:, model.sub2ind(x, y)]
-    return misc.corr(A, b)
+    Field = prior_fields[Field]
+    Point = prior_fields[Point]
+    if Field.ndim > 2: Field = Field[:, T]  # noqa
+    if Point.ndim > 2: Point = Point[:, t]  # noqa
+    Point = Point[:, model.sub2ind(x, y)]
+    return misc.corr(Field, Point)
 
+# Available variable types
 prior_fields = {
     "Saturation": wsat.past.Prior,
     "Pre-perm": perm.Prior,
 }
 
+# Register controls
 corr_comp.controls = dict(
     Field = list(prior_fields),
     T = (0, nTime),

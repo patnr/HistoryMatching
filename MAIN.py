@@ -574,9 +574,9 @@ class pre_compute_ens_update:
 
     def __init__(self, obs_ens, observations, obs_err_cov):
         """Prepare the update."""
-        obs_cov     = obs_err_cov*(N-1) + Y.T@Y
-        obs_pert    = rnd.randn(N, len(observations)) @ sqrt(obs_err_cov)
         Y, _        = center(obs_ens)
+        obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y
+        obs_pert    = rnd.randn(*Y.shape) @ sqrt(obs_err_cov)
         # obs_pert  = center(obs_pert, rescale=True)
         innovations = observations - (obs_ens + obs_pert)
 
@@ -586,6 +586,29 @@ class pre_compute_ens_update:
     def __call__(self, E):
         """Do the update."""
         return E + self.KGdY @ center(E)[0]
+
+# ### Bug check
+
+# It is very easy to introduce bugs in the code.
+# Fortunately, most can be eliminated with a few simple tests.
+#
+# For example, let us generate a case where both $x$ and the observation error are (independently) $\mathcal{N}(0, 2)$,
+# while the forward model is just the identity
+
+Prior = sqrt(2) * rnd.randn(1000, 3)
+Posterior = pre_compute_ens_update(
+    obs_ens = Prior,
+    observations = 10*np.ones(3),
+    obs_err_cov = 2*np.eye(3),
+)(Prior)
+
+# From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.
+# Let us verify that the method reproduces this (up to sampling error)
+
+with np.printoptions(precision=1):
+    print(Posterior.mean(0))
+    print(Posterior.var(0))
+
 
 # ### Ensemble smoother
 # Why do we only use smoothers (and not filters) for history matching?  When ensemble

@@ -625,9 +625,10 @@ with np.printoptions(precision=1):
 # likely to worsen if using jointly-updated (rather than re-generated) state fields.
 # This makes the parameter-only update of the (batch) smoothers appealing.
 
-# #### Compute
+# We have organised our simulated ensemble data in 3D arrays, with time along the middle
+# dimension (the 1st axis). Ensemble methods have no notion of 3D arrays, so we need to
+# be able to flatten the time dimension, and to undo this.
 
-# +
 def t_ravel(x, undo=False):
     """Ravel/flatten the last two axes, or undo this operation."""
     if undo:
@@ -637,14 +638,14 @@ def t_ravel(x, undo=False):
         *N, a, b = x.shape
         return x.reshape(N + [a*b])
 
+# #### Compute
+
 # Pre-compute
 ens_update0 = pre_compute_ens_update(
     obs_ens      = t_ravel(prod.past.Prior),
     observations = t_ravel(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
 )
-# -
-
 # Apply
 perm.ES = ens_update0(perm.Prior)
 

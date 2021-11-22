@@ -767,7 +767,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 # #### Compute
 
-perm.IES, stats_IES = IES(
+perm.IES, diagnostics = IES(
     ensemble     = perm.Prior,
     observations = t_ravel(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
@@ -787,7 +787,7 @@ plots.fields(perm.IES, "pperm", "IES (posterior)");
 
 fig, ax = freshfig("IES Objective function")
 ls = dict(postr="-", prior=":", lklhd="--")
-for name, J in stats_IES.obj.items():
+for name, J in diagnostics.obj.items():
     ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
 ax.set_xlabel("iteration")
 ax.set_ylabel("RMS mismatch", color="b")
@@ -795,7 +795,7 @@ ax.tick_params(axis='y', labelcolor="b")
 ax.legend()
 ax2 = ax.twinx()  # axis for rmse
 ax2.set_ylabel('RMS error', color="r")
-ax2.plot(stats_IES.rmse, color="r")
+ax2.plot(diagnostics.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
 
 # ## Diagnostics

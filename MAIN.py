@@ -557,8 +557,8 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 
 # ### Ensemble update
 
-class ES_update:
     """Update/conditioning (Bayes' rule) of an ensemble, given a vector of obs.
+class pre_compute_ens_update:
 
     Implements the "ensemble smoother" (ES) algorithm,
     with "perturbed observations".
@@ -618,7 +618,7 @@ def t_ravel(x, undo=False):
         return x.reshape(N + [a*b])
 
 # Pre-compute
-ES = ES_update(
+ens_update0 = pre_compute_ens_update(
     obs_ens      = t_ravel(prod.past.Prior),
     observations = t_ravel(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
@@ -626,7 +626,7 @@ ES = ES_update(
 # -
 
 # Apply
-perm.ES = ES(perm.Prior)
+perm.ES = ens_update0(perm.Prior)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -839,7 +839,7 @@ plots.fields(perm_means, "pperm", "Means");
 # the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = t_ravel(ES(t_ravel(prod.past.Prior)), undo=True)
+prod.past.ES0 = t_ravel(ens_update0(t_ravel(prod.past.Prior)), undo=True)
 
 # #### Production plots
 
@@ -916,7 +916,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = t_ravel(ES(t_ravel(prod.futr.Prior)), undo=True)
+prod.futr.ES0 = t_ravel(ens_update0(t_ravel(prod.futr.Prior)), undo=True)
 
 # #### Production plots
 

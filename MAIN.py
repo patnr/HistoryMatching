@@ -451,25 +451,29 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # ### Correlation plots
 # The conditioning "update" of ensemble methods is often formulated in terms of a
 # "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties
-# (see e.g. [[Jaz70]](#Jaz70)): in the linear-Gaussian case, to compute the correct
-# posterior moments; in the linear (non-Gaussian) case, to compute the BLUE, or achieve
-# orthogonality of the posterior error and innovation; in the non-linear, non-Gaussian
-# case, the ensemble version can be derived as linear regression (with some tweaks) from
-# the perturbed observations to the unknowns.
+# (see e.g. [[Jaz70]](#Jaz70)):
+# - in the linear-Gaussian case, to compute the correct posterior moments;
+# - in the linear (not-necessarily-Gaussian) case, to compute the BLUE,
+#   i.e. to achieve orthogonality of the posterior error and innovation;
+# - in the non-linear, non-Gaussian case, the ensemble version can be derived as
+#   linear regression (with some tweaks) from the perturbed obs. to the unknowns.
 #
-# Another way to look at it is to ask "what does it do?". Heuristically, this may be
-# answered in 3 points:
+# Another way to look at it is to ask "what does it do?"
+# Heuristically, this may be answered as follows:
 #
-# - It uses *estimated correlation* coefficients to establish relationships between
+# - It uses correlation coefficients to establish relationships between
 #   observations and unknowns. For example, if there is no correlation, there will
 #   be no update (even for iterative methods).
-# - It takes into account the variables' scales *and* relative uncertainties, via their
-#   variances. Hence why it works with covariances, and not just correlations. One of
-#   the main advantages of ensemble methods is that the estimation inherently provides
-#   reduced-rank representations of covariance matrices.
 # - It takes into account the "intermingling" of correlations. For example, two
 #   measurements/observations that are highly correlated (when including both prior and
-#   observation errors) will barely contribute more than either one.
+#   observation errors) will barely contribute more than either one alone.
+# - It takes into account the variables' variance (hence why it works with covariances,
+#   and not just correlations), and thereby the their relative uncertainties.
+#   Thus, if two variables have equal correlation with an observation,
+#   but one is more uncertain, that one will receive a larger update than the other.
+#   Also, an observation with a larger variance will have less impact than an
+#   observation with a smaller variance. Working with variances also means that
+#   the physical units of the variables are inherently accounted for.
 #
 # In summary, it is useful to investigate the correlation relations of the ensemble,
 # especially for the prior.

@@ -611,20 +611,18 @@ with np.printoptions(precision=1):
 
 
 # ### Ensemble smoother
-# Why do we only use smoothers (and not filters) for history matching?  When ensemble
-# methods were first being used for history matching, it was though that filtering,
-# rather than smoothing, should be used.  Filters sequentially assimilate the
-# time-series data, running the model simulator in between each observation time,
-# (re)starting each step from saturation fields that have been conditioned on all of the
-# data up until that point.  Typically, the filters would be augmented with parameter
-# fields (time-independent unknowns) as well. Either way, re-starting the simulator with
-# ensemble-updated fields tends to be problematic, because the updated members might not
-# be physically realistic and realisable, causing the simulator's solver to slow down or
-# fail to converge. This issue is generally aggravated by not having run the simulator
-# from time 0, since the linear updates provided by the ensemble will yield saturation
-# fields that differ from those obtained by re-running the simulator. Therefore,
-# updating the unknowns only once, using all of the observations, is far more
-# convenient.
+# Why do we only use smoothers (and not filters) for history matching? In fact, when
+# ensemble methods were first being used for history matching, it was though that
+# *filtering*, rather than *smoothing*, should be used. As opposed to the (batch)
+# ensemble smoothers, filters *sequentially* assimilate the time-series data,
+# updating/conditioning both the saturation (i.e. state) fields and the permeability
+# (i.e. parameter) fields.  This is problematic because the ensemble update is
+# approximate, which not only causes statistical suboptimality, but also "un-physical"
+# or "non-realisable" members --- a problem that gets exasperated by the simulator
+# (manifesting as convergence problems, hence slow-down, or crash). Moreover, the
+# approximation (and hence the associated problems) only seem likely to worsen if
+# using jointly-updated (rather than re-generated) state fields.
+# This makes the parameter-only update of the (batch) smoothers appealing.
 
 # #### Compute
 

@@ -574,9 +574,9 @@ class pre_compute_ens_update:
 
     def __init__(self, obs_ens, observations, obs_err_cov):
         """Prepare the update."""
-        Y, _        = center(obs_ens, rescale=True)
         obs_cov     = obs_err_cov*(N-1) + Y.T@Y
         obs_pert    = rnd.randn(N, len(observations)) @ sqrt(obs_err_cov)
+        Y, _        = center(obs_ens)
         innovations = observations - (obs_ens + obs_pert)
 
         # (pre-) Kalman gain * Innovations

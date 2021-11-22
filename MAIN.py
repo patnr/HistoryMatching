@@ -265,8 +265,8 @@ animation
 # observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
-nProd           = len(model.producers)  # num. of obs (each time)
-R               = 1e-3 * np.eye(nProd)
+nProd = len(model.producers)  # num. of obs (each time)
+R = 1e-3 * np.eye(nProd)
 for iT in range(nTime):
     prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nProd)
 
@@ -597,9 +597,9 @@ class pre_compute_ens_update:
 
 Prior = sqrt(2) * rnd.randn(1000, 3)
 Posterior = pre_compute_ens_update(
-    obs_ens = Prior,
+    obs_ens      = Prior,
     observations = 10*np.ones(3),
-    obs_err_cov = 2*np.eye(3),
+    obs_err_cov  = 2*np.eye(3),
 )(Prior)
 
 # From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.

@@ -5,7 +5,13 @@ Sakov (2011), Computational Geosciences:
 'Relation between two common localisation methods for the EnKF'.
 """
 
-import itertools
+# NB: Why is the 'order' argument not supported by this module? Because:
+#  1) Assuming only order (orientation) 'C' simplifies the module's code.
+#  2) It's not necessary, because the module only communicates to *exterior* via indices
+#     [of what assumes to be X.flatten(order='C')], and not coordinates!
+#     Thus, the only adaptation necessary if the order is 'F' is to reverse
+#     the shape parameter passed to these functions (example: mods/QG/sakov2008).
+
 
 import numpy as np
 
@@ -15,11 +21,11 @@ def pairwise_distances(A, B=None, domain=None):
 
     Parameters
     ----------
-    A: array of shape (nPoints, nDims).
-        A collection a points.
+    A: array of shape `(nPoints, nDims)`.
+        A collection of points.
 
     B:
-        Same as `A`, but nPoints can differ.
+        Same as `A`, but `nPoints` can differ.
 
     domain: tuple
         Assume the domain is a **periodic** hyper-rectangle whose
@@ -173,8 +179,8 @@ def localization_setup(y2x_distances, batches):
             return batches, obs_taperer
 
         elif direction == 'y2x':
-            def state_taperer(iObs):
-                return inds_and_coeffs(y2x[iObs], radius, tag=tag)
+            def state_taperer(obs_idx):
+                return inds_and_coeffs(y2x[obs_idx], radius, tag=tag)
             return state_taperer
 
     return localization_now
@@ -185,7 +191,7 @@ def no_localization(Nx, Ny):
     def obs_taperer(batch):
         return np.arange(Ny), np.ones(Ny)
 
-    def state_taperer(iObs):
+    def state_taperer(obs_idx):
         return np.arange(Nx), np.ones(Nx)
 
     def localization_now(radius, direction, t, tag=None):
@@ -193,7 +199,7 @@ def no_localization(Nx, Ny):
 
         Used to validate local DA methods, eg. `LETKF<==>EnKF('Sqrt')`.
         """
-        assert radius == np.inf, "Localization functions not specified"
+        assert radius in [None, np.inf], "Localizer not specified, but radius < infty."
 
         if direction == 'x2y':
             return [np.arange(Nx)], obs_taperer
@@ -218,17 +224,16 @@ def rectangular_partitioning(shape, steps, do_ind=True):
 
     Example
     -------
-    >>> shape    = [4, 13]
-    >>> steps    = [2, 4]
-    >>> batches  = rectangular_partitioning(shape, steps, do_ind=False)
-    >>> M        = np.prod(shape)
-    >>> nB       = len(batches)
-    >>> values   = np.random.choice(np.arange(nB), nB, 0)
-    >>> Z        = np.zeros(shape)
-    >>> for ib, b in enumerate(batches):
+    >>> shape   = [4, 13]
+    ... batches = rectangular_partitioning(shape, [2, 4], do_ind=False)
+    ... nB      = len(batches)
+    ... values  = np.random.choice(np.arange(nB), nB, 0)
+    ... Z       = np.zeros(shape)
+    ... for ib, b in enumerate(batches):
     ...     Z[tuple(b)] = values[ib]
-    >>> plt.imshow(Z)  # doctest: +SKIP
+    ... plt.imshow(Z)  # doctest: +SKIP
     """
+    import itertools
     assert len(shape) == len(steps)
     # ndim = len(steps)
 
@@ -263,14 +268,6 @@ def safe_eval(fun, t):
         return fun(t)
     except TypeError:
         return fun
-
-
-# NB: Why is the 'order' argument not supported by this module? Because:
-#  1) Assuming only order (orientation) 'C' simplifies the module's code.
-#  2) It's not necessary, because the module only communicates to *exterior* via indices
-#     [of what assumes to be X.flatten(order='C')], and not coordinates!
-#     Thus, the only adaptation necessary if the order is 'F' is to reverse
-#     the shape parameter passed to these functions (example: mods/QG/sakov2008).
 
 
 def nd_Id_localization(shape,

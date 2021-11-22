@@ -771,7 +771,7 @@ perm.IES, diagnostics = IES(
     ensemble     = perm.Prior,
     observations = t_ravel(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
-    stepsize=1,
+    stepsize     = 1,
 )
 
 # #### Field plots

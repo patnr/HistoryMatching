@@ -596,19 +596,21 @@ class pre_compute_ens_update:
 # and the observation error are (independently) $\mathcal{N}(0, 2)$,
 # while the forward model is just the identity
 
-Prior = sqrt(2) * rnd.randn(1000, 3)
-Posterior = pre_compute_ens_update(
-    obs_ens      = Prior,
-    observations = 10*np.ones(3),
-    obs_err_cov  = 2*np.eye(3),
-)(Prior)
+# Note: the prefix "gg_" stands for Gaussian-Gaussian
+gg_ndim = 3
+gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
+gg_postr = pre_compute_ens_update(
+    obs_ens      = gg_prior,
+    observations = 10*np.ones(gg_ndim),
+    obs_err_cov  = 2*np.eye(gg_ndim),
+)(gg_prior)
 
 # From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.
 # Let us verify that the method reproduces this (up to sampling error)
 
 with np.printoptions(precision=1):
-    print(Posterior.mean(0))
-    print(Posterior.var(0))
+    print(np.mean(gg_postr, 0))
+    print(np.cov(gg_postr.T))
 
 
 # ### Ensemble smoother

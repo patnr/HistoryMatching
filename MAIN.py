@@ -592,7 +592,8 @@ class pre_compute_ens_update:
 # It is very easy to introduce bugs in the code.
 # Fortunately, most can be eliminated with a few simple tests.
 #
-# For example, let us generate a case where both $x$ and the observation error are (independently) $\mathcal{N}(0, 2)$,
+# For example, let us generate a case where both $x$
+# and the observation error are (independently) $\mathcal{N}(0, 2)$,
 # while the forward model is just the identity
 
 Prior = sqrt(2) * rnd.randn(1000, 3)
@@ -617,13 +618,14 @@ with np.printoptions(precision=1):
 # *filtering*, rather than *smoothing*, should be used. As opposed to the (batch)
 # ensemble smoothers, filters *sequentially* assimilate the time-series data,
 # updating/conditioning both the saturation (i.e. state) fields and the permeability
-# (i.e. parameter) fields.  This is problematic because the ensemble update is
-# approximate, which not only causes statistical suboptimality, but also "un-physical"
-# or "non-realisable" members -- a problem that gets exasperated by the simulator
-# (manifesting as slow-down or crash, often due to convergence problems in the linear
-# solver).  Moreover, the approximation (and hence the associated problems) only seem
-# likely to worsen if using jointly-updated (rather than re-generated) state fields.
-# This makes the parameter-only update of the (batch) smoothers appealing.
+# (i.e. parameter) fields. Some people might also call this a "sequential" smoother. In
+# any case, this is problematic because the ensemble update is approximate, which not
+# only causes statistical suboptimality, but also "un-physical" or "non-realisable"
+# members -- a problem that gets exasperated by the simulator (manifesting as slow-down
+# or crash, often due to convergence problems in the linear solver).  Moreover, the
+# approximation (and hence the associated problems) only seem likely to worsen if using
+# jointly-updated (rather than re-generated) state fields.  This makes the
+# parameter-only update of the (batch) smoothers appealing.
 
 # We have organised our simulated ensemble data in 3D arrays, with time along the middle
 # dimension (the 1st axis). Ensemble methods have no notion of 3D arrays, so we need to
@@ -659,22 +661,21 @@ plots.fields(perm.ES, "pperm", "ES (posterior)");
 # ### Iterative ensemble smoother
 
 # #### Why iterate?
-# Because of the non-linearity of the forward model, the likelihood does not
-# have a Gaussian shape, and the ensemble methods will not compute the true
-# posterior (even with infinite `N`).  However, after performing an update, it
-# may be expected that the estimate of the sensitivity (of the model to the
-# observations) has improved. Therefore it makes sense to retry the update
-# (starting from the prior again, so as not to over-condition/use the data),
-# but this time with the improved sensitivity estimate.
-# This cycle can then be repeated indefinitely.
+# Because of non-linearity of the forward model, the likelihood is non-Gaussian, and
+# ensemble methods do not compute the true posterior (even with infinite `N`).  Still,
+# after the update, it may be expected that the estimate of the sensitivity (of the
+# model to the observations) has improved. Thus, it makes sense to retry the update
+# (starting from the prior again, so as not to over-condition/use the data), but this
+# time with the improved sensitivity estimate.  This cycle can then be repeated
+# indefinitely.
 #
-# However, the meaning of "improvement" of the sensitivity estimate is not well defined.
+# Caution: the meaning of "improvement" of the sensitivity estimate is not well defined.
 # It is known that ensemble sensitivities estimate the *average* sensitivities
-# ([[Raa19]](#Raa19)); however, it is not trivial to argue that the average
-# defined by the (iteratively approximated) posterior is better suited than
-# that of the prior, as neither one will yield the correct posterior.
-# Nevertheless, when accompanied by sufficient hand-waving, most people will
-# feel convinced by the above argument, or something similar.
+# ([[Raa19]](#Raa19)); however, it does not seem possible to prove (with generality)
+# that the average defined by the (iteratively approximated) posterior is better suited
+# than that of the prior, as neither one will yield the correct posterior.
+# Nevertheless, when accompanied by sufficient hand-waving, most people will feel
+# convinced by the above argument, or something similar.
 #
 # Another perspective is that the iterations *might* manage to find the
 # mode of the posterior, i.e. perform maximum-a-posteriori (MAP) estimation.

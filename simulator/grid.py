@@ -3,7 +3,7 @@
 Most functions here are barely in use.
 So they're here mostly just for reference.
 After all, it is surprisingly hard to remember
-which direction/index ix for x and which is for y.
+which direction/index is for x and which is for y.
 
 Index ordering/labels: `x` is 1st coord., `y` is 2nd.
 This is hardcoded in the model code, in what takes place
@@ -73,7 +73,7 @@ class Grid2D:
     def ind2sub(self, ind):
         """Inv. of `self.sub2ind`."""
         ix, iy = np.unravel_index(ind, self.shape)
-        return ix, iy
+        return np.asarray([ix, iy])
 
     def xy2sub(self, x, y):
         """Convert physical coordinate tuple to tuple `(ix, iy)`.
@@ -85,13 +85,13 @@ class Grid2D:
         # iy = int(round(y/self.Ly*(self.Ny-1)))
         ix = (np.array(x) / self.Lx*(self.Nx-1)).round().astype(int)
         iy = (np.array(y) / self.Ly*(self.Ny-1)).round().astype(int)
-        return ix, iy
+        return np.asarray([ix, iy])
 
     def sub2xy(self, ix, iy):
         """Approx. inverse of `self.xy2sub`. NB: see caution in `xy2sub`."""
         x = self.Lx * (ix + .5)/self.Nx
         y = self.Ly * (iy + .5)/self.Ny
-        return x, y
+        return np.asarray([x, y])
 
     def sub2xy_stretched(self, ix, iy):
         """Like `self.xy2sub`, but inflating put node `i=0` at `0`, and `i=N-1` at `L`.
@@ -100,7 +100,7 @@ class Grid2D:
         """
         x = self.Lx * ix/(self.Nx-1)
         y = self.Ly * iy/(self.Ny-1)
-        return x, y
+        return np.asarray([x, y])
 
     def xy2ind(self, x, y):
         """Convert physical coord to flat indx. NB: see caution in `xy2sub`."""
@@ -113,4 +113,4 @@ class Grid2D:
         # but that seems different.
         x    = i/(self.Nx-1)*self.Lx
         y    = j/(self.Ny-1)*self.Ly
-        return x, y
+        return np.asarray([x, y])

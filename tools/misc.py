@@ -171,3 +171,10 @@ def corr(a, b):
     sa = np.std(a.T, axis=-1, ddof=1)
     sb = np.std(b  , axis=+0, ddof=1, keepdims=True)
     return C / sa / sb
+
+
+def insert_batches(E, batch_inds, batches):
+    """There is, AFAICT, no more elegant/fast way to do this."""
+    for ii, Eii in zip(batch_inds, batches):
+        E[:, ii] = Eii
+    return E

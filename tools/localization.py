@@ -146,69 +146,6 @@ def dist2coeff(dists, radius, tag=None):
     return coeffs
 
 
-def inds_and_coeffs(dists, radius, cutoff=1e-3, tag=None):
-    """Compute indices and coefficients of localization.
-
-    - inds   : the indices of pts that are "close to" centre.
-    - coeffs : the corresponding tapering coefficients.
-    """
-    coeffs = dist2coeff(dists, radius, tag)
-
-    # Truncate using cut-off
-    inds   = np.arange(len(dists))[coeffs > cutoff]
-    coeffs = coeffs[inds]
-
-    return inds, coeffs
-
-
-def localization_setup(y2x_distances, batches):
-
-    def localization_now(radius, direction, t, tag=None):
-        """Provide localization setup for time t."""
-        y2x = y2x_distances(t)
-
-        if direction == 'x2y':
-            def obs_taperer(batch):
-                # Don't use `batch = batches[iBatch]`
-                # (with iBatch as this function's input).
-                # This would slow down multiproc.,
-                # coz batches gets copied to each process.
-                x2y = y2x.T
-                dists = x2y[batch].mean(axis=0)
-                return inds_and_coeffs(dists, radius, tag=tag)
-            return batches, obs_taperer
-
-        elif direction == 'y2x':
-            def state_taperer(obs_idx):
-                return inds_and_coeffs(y2x[obs_idx], radius, tag=tag)
-            return state_taperer
-
-    return localization_now
-
-
-def no_localization(Nx, Ny):
-
-    def obs_taperer(batch):
-        return np.arange(Ny), np.ones(Ny)
-
-    def state_taperer(obs_idx):
-        return np.arange(Nx), np.ones(Nx)
-
-    def localization_now(radius, direction, t, tag=None):
-        """Returns all of the indices, with all tapering coeffs. set to 1.
-
-        Used to validate local DA methods, eg. `LETKF<==>EnKF('Sqrt')`.
-        """
-        assert radius in [None, np.inf], "Localizer not specified, but radius < infty."
-
-        if direction == 'x2y':
-            return [np.arange(Nx)], obs_taperer
-        elif direction == 'y2x':
-            return state_taperer
-
-    return localization_now
-
-
 def rectangular_partitioning(shape, steps, do_ind=True):
     """N-D rectangular batch generation.
 
@@ -258,39 +195,3 @@ def rectangular_partitioning(shape, steps, do_ind=True):
         batches = [sub2ind(b) for b in batches]
 
     return batches
-
-
-# NB: Don't try to put the time-dependence of obs_inds inside obs_taperer().
-# That would require calling ind2sub len(batches) times per analysis,
-# and the result cannot be easily cached, because of multiprocessing.
-def safe_eval(fun, t):
-    try:
-        return fun(t)
-    except TypeError:
-        return fun
-
-
-def nd_Id_localization(shape,
-                       batch_shape=None,
-                       obs_inds=None,
-                       periodic=True):
-    """Localize Id (direct) point obs of an N-D, homogeneous, rectangular domain."""
-    M = np.prod(shape)
-
-    if batch_shape is None:
-        batch_shape = (1,)*len(shape)
-    if obs_inds is None:
-        obs_inds = np.arange(M)
-
-    def ind2sub(ind):
-        return np.asarray(np.unravel_index(ind, shape)).T
-
-    batches = rectangular_partitioning(shape, batch_shape)
-
-    state_coord = ind2sub(np.arange(M))
-
-    def y2x_distances(t):
-        obs_coord = ind2sub(safe_eval(obs_inds, t))
-        return pairwise_distances(obs_coord, state_coord, shape if periodic else None)
-
-    return localization_setup(y2x_distances, batches)

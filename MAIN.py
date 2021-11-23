@@ -102,7 +102,8 @@ seed = rnd.seed(4)  # very easy
 import simulator
 import simulator.plotting as plots
 from tools import geostat, misc
-from tools.misc import center
+from tools.misc import center, insert_batches
+import tools.localization as loc
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
@@ -659,6 +660,95 @@ perm.ES = ens_update0(perm.Prior)
 plots.fields(perm.ES, "pperm", "ES (posterior)");
 
 # We will see some more diagnostics later.
+
+# ### With localisation
+
+def enAnalysis(E, Eo, y, R):
+    return pre_compute_ens_update(obs_ens=Eo, observations=y, obs_err_cov=R)(E)
+
+
+def localized_ens_update0(E, Eo, R, y, domains, obs_taperer, mp=map):
+    """Perform local analysis update for the LETKF."""
+    def local_analysis(ii):
+        """Perform analysis, for state index batch `ii`."""
+        # Locate local domain
+        oBatch, tapering = obs_taperer(ii)
+        Eii = E[:, ii]
+
+        # No update
+        if not oBatch.any():
+            return Eii
+
+        # Localize
+        Yl  = Y[:, oBatch]
+        dyl = dy[oBatch]
+        tpr = sqrt(tapering)
+
+        # Since R^{-1/2} was already applied (necesry for effective_N), now use R=Id.
+        # TODO 4: the cost of re-init this R might not always be insignificant.
+        R = np.eye(len(dyl))
+
+        # Update
+        return enAnalysis(Eii, Yl*tpr, dyl*tpr, R)
+
+    # Prepare analysis
+    Y, xo = center(Eo)
+
+    # TODO: leave to EnKF_analysis
+    # Transform obs space
+    Y  = Y        @ np.diag(1/sqrt(np.diag(R)))
+    dy = (y - xo) @ np.diag(1/sqrt(np.diag(R)))
+
+    # Run
+    EE = mp(local_analysis, domains)
+    return insert_batches(np.zeros_like(E), domains, EE)
+
+
+# #### Bug check
+
+gg_postr = localized_ens_update0(
+    E  = gg_prior,
+    Eo = gg_prior,
+    R  = 2*np.eye(gg_ndim),
+    y  = 10*np.ones(gg_ndim),
+    # Localize simply by processing each dim. entirely seperately:
+    domains=np.arange(gg_ndim),
+    obs_taperer=(lambda i: (i == np.arange(gg_ndim), 1)),
+)
+
+with np.printoptions(precision=1):
+    print(np.mean(gg_postr, 0))
+    print(np.cov(gg_postr.T))
+
+
+# ## Localize point obs of an N-D, homogeneous, rectangular domain.
+# TODO: localise differently in time?
+# TODO: localisation adds prior knowledge, because we know htat ensemble does
+#       not "encode" all of our prior knowledge (especially due to sampling error)
+
+# Define local domains
+domains = loc.rectangular_partitioning(model.shape, (5, 7))
+
+# Illustration: fill each domain by random color. Should produce rectangle patchwork!
+colors = rnd.choice(len(domains), len(domains), False)
+Z = np.zeros(model.shape)
+for d, c in zip(domains, colors):
+    Z[tuple(model.ind2sub(d))] = c
+plt.imshow(Z, cmap="tab20")
+
+distances = loc.pairwise_distances(model.ind2sub(np.arange(model.M)).T,
+                                   model.ind2sub(obs_inds*nTime).T)
+
+def obs_taperer(batch):
+    dists = distances[batch].mean(axis=0)  # obs - batch(mean location)
+    coeffs = loc.dist2coeff(dists, radius=10, tag="GC")
+    non0 = coeffs > 1e-3
+    return non0, coeffs[non0]
+
+### fawef
+perm.LES = localized_ens_update0(perm.Prior, t_ravel(prod.past.Prior),
+                                 sla.block_diag(*[R]*nTime), t_ravel(prod.past.Noisy),
+                                 domains, obs_taperer)
 
 # ### Iterative ensemble smoother
 

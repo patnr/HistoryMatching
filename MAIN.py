@@ -248,7 +248,7 @@ nTime = round(T/dt)
 wsat.init.Truth = np.zeros(model.M)
 
 (wsat.past.Truth,
- prod.past.Truth) = misc.repeat(model.step, nTime, wsat.init.Truth, dt, obs_model)
+ prod.past.Truth) = misc.recurse_run(model.step, nTime, wsat.init.Truth, dt, obs_model)
 
 # #### Animation
 # Run the code cells below to get an animation of the oil saturation evolution.
@@ -389,7 +389,7 @@ def forward_model(nTime, *args, desc=""):
         set_perm(model_n, perm)
 
         # Run simulator
-        wsats, prods = misc.repeat(
+        wsats, prods = misc.recurse_run(
             model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
 
         return wsats, prods
@@ -1019,7 +1019,7 @@ plots.fields(wsat_means, "oil", "Means");
 print("Future/prediction")
 
 (wsat.futr.Truth,
- prod.futr.Truth) = misc.repeat(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
+ prod.futr.Truth) = misc.recurse_run(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
 (wsat.futr.Prior,
  prod.futr.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)

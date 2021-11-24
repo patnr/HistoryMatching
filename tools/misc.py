@@ -5,7 +5,7 @@ import scipy.linalg as sla
 from tqdm.auto import tqdm as progbar
 
 
-def repeat(model_step, nSteps, x0, dt, obs_model=None, pbar=True, **kwargs):
+def recurse_run(model_step, nSteps, x0, dt, obs_model=None, pbar=True, **kwargs):
     """Recursively apply `model_step` `nSteps` times. Also apply `obs_model`.
 
     Note that the output time series of states includes the initial conditions

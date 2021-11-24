@@ -266,10 +266,9 @@ animation
 # observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
-nProd = len(model.producers)  # num. of obs (each time)
-R = 1e-3 * np.eye(nProd)
+R = 1e-3 * np.eye(len(model.producers))
 for iT in range(nTime):
-    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nProd)
+    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(len(model.producers))
 
 
 # Plot of observations (and their noise):
@@ -1118,9 +1117,9 @@ def EnOpt(obj, E, ctrls, C12, stepsize=1, nIter=10):
 
 rnd.seed(3)
 # ctrls0  = model.producers[:, 2]
-ctrls0  = rnd.rand(nProd)
+ctrls0  = rnd.rand(len(model.producers))
 ctrls0 /= sum(ctrls0)
-C12     = 0.03 * np.eye(nProd)
+C12     = 0.03 * np.eye(len(ctrls0))
 E       = wsat.curnt.ES, perm.ES
 # E       = wsat.curnt.IES, perm.IES
 ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)

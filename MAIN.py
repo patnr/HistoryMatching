@@ -503,23 +503,22 @@ plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 # fly", should be viable for relatively large scales.
 
 # +
-# Compute correlation field
-def corr_comp(Field, T, Point, t, x, y):
-    Field = prior_fields[Field]
-    Point = prior_fields[Point]
-    if Field.ndim > 2: Field = Field[:, T]  # noqa
-    if Point.ndim > 2: Point = Point[:, t]  # noqa
-    Point = Point[:, model.sub2ind(x, y)]
-    return misc.corr(Field, Point)
-
 # Available variable types
 prior_fields = {
-    "Saturation": wsat.past.Prior,
-    "Pre-perm": perm.Prior,
+    "Saturation": lambda t: wsat.past.Prior[:, t],
+    "Pre-perm"  : lambda t: perm.Prior,
 }
+
+# Compute correlation field
+def corr_comp(N, Field, T, Point, t, x, y):
+    xy = model.sub2ind(x, y)
+    Point = prior_fields[Point](t)[:, xy]
+    Field = prior_fields[Field](T)
+    return misc.corr(Field[:N], Point[:N])
 
 # Register controls
 corr_comp.controls = dict(
+    N = (2, N),
     Field = list(prior_fields),
     T = (0, nTime),
     Point = list(prior_fields),

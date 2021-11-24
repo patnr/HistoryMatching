@@ -391,7 +391,9 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     V, H = wg.VBox, wg.HBox
     try:
         # Fancy layout
-        cF, cP, cX, cY = V(ww[:2]), V(ww[2:4]), ww[4], ww[5]
+        cN, cF, cFt, cP, cPt, cX, cY = ww
+        cF = V([cF, cFt])
+        cP = V([cP, cPt])
     except IndexError:
         # Fallback layout -- works for any number of controls
         cpanel = V(ww, layout=dict(align_items='center'))
@@ -402,8 +404,8 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
         center = {"justify_content": "space-around"}
         cX = H([cX], layout={**center, "padding": "0 0 0 40px"})
         cY = V([cY], layout=center)
-        cF = H([cF, cP], layout=center)
-        layout = H([V([cF, output, cX]), cY])
+        cH = H([cN, cF, cP], layout=center)
+        layout = H([V([cH, output, cX]), cY])
 
     # Display
     display(layout)

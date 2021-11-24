@@ -152,17 +152,20 @@ wsat = Dict(
 # separate dicts.
 
 # #### The unknown: permeability
-# We will estimate the log permeability field.  We parameterize the permeability
-# parameters via some transform, which becomes part of the forward model. We term the
-# parameterized permeability fields "pre-permeability". *If* we use the exponential,
-# then we will we working with log-permeabilities. At any rate, the transform should be
-# chosen so that the parameterized permeabilities are suited for ensemble methods, i.e.
-# are distributed as a Gaussian.  But this consideration must be weighted against the
-# fact that that nonlinearity (which is also a difficulty for ensemble methods) in the
-# transform might add to the nonlinearity of the total/composite forward model.  In any
-# case, since this is a synthetic case, we can freely choose *both* the distribution of
-# the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields,
-# and a "perturbed" exponential function (to render the problem a little more complex).
+# We will estimate the log permeability field.  We *parameterize* the permeability,
+# meaning that they are defined via some transform (function), which becomes part of the
+# forward model. We term the parameterized permeability fields "pre-permeability".
+#
+# *If* we use the exponential, then we will we working with log-permeabilities.
+# In any case, the transform should be chosen so that the parameterized permeabilities
+# are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this
+# consideration must be weighted against the fact that that nonlinearity (another
+# difficulty for ensemble methods) in the transform might add to the nonlinearity of
+# the total/composite forward model.
+#
+# Since this is a synthetic case, we can freely choose *both* the distribution of the
+# parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a
+# almost-exponential function (to make the problem slightly trickier).
 
 def sample_prior_perm(N):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)

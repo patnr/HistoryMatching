@@ -745,6 +745,15 @@ plt.imshow(Z, cmap="tab20")
 
 distances = loc.pairwise_distances(model.ind2sub(np.arange(model.M)).T,
                                    model.ind2sub(obs_inds*nTime).T)
+##
+fig, ax = freshfig("Tapering ('bump') functions", figsize=(1, .5), rel=1)
+dists = np.linspace(-1, 1, 1001)
+for sharpness in [.01, .1, 1, 10, 100, 1000]:
+    coeffs = loc.bump_function(dists, sharpness)
+    ax.plot(dists, coeffs, label=sharpness)
+ax.legend(title="sharpness")
+ax.set_xlabel("Distance")
+
 
 def obs_taperer(batch):
     dists = distances[batch].mean(axis=0)  # obs - batch(mean location)

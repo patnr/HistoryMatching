@@ -28,10 +28,13 @@ from mpl_tools import place, place_ax
 from mpl_tools.misc import axprops, nRowCol
 from struct_tools import DotDict as Dict
 
-# Module "self"
+# The "self"
 model = None
 
-coord_type = "relative"
+# Axes limits
+coord_type = "relative"   # ==> (0, 1)  x (0, 1)
+# coord_type = "absolute" # ==> (0, Lx) x (0, Ly)
+# coord_type = "index"    # ==> (0, Ny) x (0, Ny)
 
 # Colormap for saturation
 lin_cm = mpl.colors.LinearSegmentedColormap.from_list

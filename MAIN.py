@@ -577,6 +577,33 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # - Now try flipping between low and high values of `N`.
 #   What do you think the tapering radius should be?
 
+# #### Chain rule of LS linearisation (regression)
+# Why should we bother to study the correlation between the observations and the
+# saturation field? Simply because it might yield valuable insight into why the
+# sensitivities are how they are. In fact, just as for infinitesimal/differential
+# linearisations (i.e. derivatives), the chain rule applies for linearisations
+# obtained via least-squares (LS) linear regression. This is easy to show.
+# Let $\mathbf{F} = \mathbf{Y} \mathbf{X}^+$ be the OLS linearisation of $y = f(x)$,
+# where each column of $\mathbf{X}$ and $\mathbf{Y}$ is a realisation,
+# and similarly, let $\mathbf{G} = \mathbf{Z} \mathbf{Y}^+$ be the linearisation of
+# $z = g(y)$. Then
+# $$
+# \mathbf{G} \mathbf{F}
+# = \mathbf{Z} \mathbf{Y}^+ \mathbf{Y} \mathbf{X}^+
+# = \mathbf{Z} \mathbf{X}^+ \,,
+# $$
+# providing $\mathbf{Y}$ has full column rank.
+# But $\mathbf{Z} \mathbf{X}^+$ may be recognized as the OLS estimate of
+# the composite function, $z = g(f(x))$.
+#
+# Of course, correlations are not the same as OLS linearisations,
+# and the chain rule does not exactly hold for correlations
+# (because they normalize, on each side, by `diag(variances)`
+# rather than just the covariance of the input variable).
+# However, they are easier to plot (being constrained to [0, 1]), and differences
+# between the gain matrix and the correlations (see discussion above)
+# are not that pertinent for the purpose of localisation.
+
 # ### Tapering
 
 # #### Plot of localized domains

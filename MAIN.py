@@ -34,8 +34,8 @@ print("Hello world! I'm " + name)
 # Otherwise (and assuming you have done the installation described in the README),
 # you should skip/delete this cell.
 
-github = "https://raw.githubusercontent.com/patricknraanes/HistoryMatching"
-# !wget -qO- {github}/master/colab_bootstrap.sh | bash -s
+remote = "https://raw.githubusercontent.com/patricknraanes/HistoryMatching"
+# !wget -qO- {remote}/master/colab_bootstrap.sh | bash -s
 
 # There is a huge amount of libraries available in **Python**,
 # including the popular `numpy (np)` and `matplotlib/pyplot (plt)` packages.

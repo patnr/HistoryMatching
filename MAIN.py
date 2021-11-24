@@ -531,23 +531,25 @@ corr_comp.controls = dict(
 plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True)
 
 # Use the interative control widgets to investigate the correlation structure.
-# Answer and discuss the following questions:
+# Answer the following questions. *NB*: the order matters!
 #
-# - For each combination of `Field` and `Point`:
-#   - Set `T` or `t` to 0. How do the correlation fields look? Why?
-#   - Set `T` or `t` to 1. How do the correlation fields look? Why?
-# - Set `T = t = 20` and `Field = Point = Saturation`. Why is the green marker
-#   (showing the location of the maximum) on top of the crosshairs?
-#   Does this hold when `Field != Point` (hint: try moving `x` and `y`)?
-# - Set `Field = Point = Pre-perm`, and put the point somewhere near the center.
-#   Why is the correlation field so regular (almost perfectly circular or elliptic)?
-#   Also note, as you can tell from `corr_comp`,
-#   that time plays no role for the perm field.
-# - Set `Field = Point = Saturation`, set the slider for `T` to the middle, `t` large,
-#   and put the `Point` near a corner (e.g. `x = y = 2`).
+# - Set the ensemble size: `N=2`.
+#   - How does the correlation field look? Why?
+#   - In the following, use `N=200`
+# - Set `T = t = 20` and `Field = Point = "Saturation"`.
+#   - Move the point around (`x` and `y` sliders).
+#   - Why is the star marker (showing the location of the maximum)
+#     on top of the crosshairs?
+# - Move the point to the center again.
+#   - Set `T=0` How do the correlation fields look? Why?
+#   - Move `T=1,2,3, etc` using your arrow keys. Explain the appearance of "fronts".
+# - Set `T=20`, `t=40`, and move the point to the location of one of the wells.
+#   - *Hint*: you can get the locations (x-, and y-indices) of the wells using
+#     `model.xy2sub(*model.producers.T[:2])`.
 #   - Where is the maximum? And minimum? Does this make sense?
 #   - Gradually increase `T`. How do the extrema move? Why?.
-# - TODO: Add more remarks/questions
+# - Set `Field = "Per-perm"` and `N=2`. Now gradually increase `N`.
+# Investigate correlation between unknowns `"Pre-perm"` and observations.
 
 # ### Tapering
 

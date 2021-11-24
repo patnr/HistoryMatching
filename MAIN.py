@@ -533,23 +533,49 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
 #
-# - Set the ensemble size: `N=2`.
-#   - How does the correlation field look? Why?
-#   - In the following, use `N=200`
-# - Set `T = t = 20` and `Field = Point = "Saturation"`.
+# - Set the times as `T = t = 20`
+#     and the variable kinds as `Field = Point = "Saturation"`.
 #   - Move the point around (`x` and `y` sliders).
 #   - Why is the star marker (showing the location of the maximum)
 #     on top of the crosshairs?
-# - Move the point to the center again.
+# - Set `Field = "Pre-perm"`.
+#   - Move `T` around. Why doesn't anything change?
+#   - Set the ensemble size: `N=2`. How does the correlation field look? Why?
+#     <!-- Answer: Only 2 colors, because 2 points always lie on a straight line -->
+# - Now set `Field = "Saturation"`. Explain the major new and strange appearance.
+#   <!-- Answer: Nan's and inf's at corners. Reason: for most realisations,
+#     the saturation is (as of yet) constant there.
+#   -->
+# - Set `N=200`. Move the point to the center again.
 #   - Set `T=0` How do the correlation fields look? Why?
+#   - Set `t=T=1`. Gradually move `T=2,3,4, etc` (hint: use your arrow keys).
+#     Explain the appearance of "fronts".
 #   - Move `T=1,2,3, etc` using your arrow keys. Explain the appearance of "fronts".
 # - Set `T=20`, `t=40`, and move the point to the location of one of the wells.
 #   - *Hint*: you can get the locations (x-, and y-indices) of the wells using
 #     `model.xy2sub(*model.producers.T[:2])`.
 #   - Where is the maximum? And minimum? Does this make sense?
 #   - Gradually increase `T`. How do the extrema move? Why?.
-# - Set `Field = "Per-perm"` and `N=2`. Now gradually increase `N`.
-# Investigate correlation between unknowns `"Pre-perm"` and observations.
+# - Set `T=40`. Note the location of the maximum. Now switch to `Field = "Per-perm"`.
+#   Note that we are now investigate the correlation between
+#   the unknowns and the observations.
+#   - Where is the maximum now? Does it make sense?
+#   - Gradually decrease `t` back down to `10`.
+#     Describe and explain the change in the correlation field.
+#     <!-- Answer: it weakens, but does not move a lot.
+#     It weakens because the early production (saturation) is 100% anyway,
+#     thus independent of the permeability fields.
+#     -->
+#   - Set `t=40` again. Explain the appearance of negative correlations on the opposite
+#     side of where the point (`x` and `y`) is located.
+#     <!-- Answer: The negative correlations arise because a low permeability on the
+#     other side will make the injector pump more water in the direction of the point.
+#     -->
+# - Set `t=30` and `N=2`, then (use your arrow keys to) gradually increase `N`
+#   to `20`. Do the (changes you observe in the) correlation fields inspire confidence?
+#   Actually, that's a rhetorical question; the answer is clearly no.
+# - Now try flipping between low and high values of `N`.
+#   What do you think the tapering radius should be?
 
 # ### Tapering
 

@@ -613,8 +613,8 @@ gg_postr = pre_compute_ens_update(
 # Let us verify that the method reproduces this (up to sampling error)
 
 with np.printoptions(precision=1):
-    print(np.mean(gg_postr, 0))
-    print(np.cov(gg_postr.T))
+    print("Posterior mean:", np.mean(gg_postr, 0))
+    print("Posterior cov:\n", np.cov(gg_postr.T))
 
 
 # ### Ensemble smoother
@@ -720,8 +720,8 @@ gg_postr = localized_ens_update0(
 )
 
 with np.printoptions(precision=1):
-    print(np.mean(gg_postr, 0))
-    print(np.cov(gg_postr.T))
+    print("Posterior mean:", np.mean(gg_postr, 0))
+    print("Posterior cov:\n", np.cov(gg_postr.T))
 
 
 # ## Localize point obs of an N-D, homogeneous, rectangular domain.

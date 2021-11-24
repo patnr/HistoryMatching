@@ -505,8 +505,8 @@ plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
 # +
 # Available variable types
 prior_fields = {
-    "Saturation": lambda t: wsat.past.Prior[:, t],
-    "Pre-perm"  : lambda t: perm.Prior,
+    "Saturation": lambda time: wsat.past.Prior[:, time],
+    "Pre-perm"  : lambda time: perm.Prior,
 }
 
 # Compute correlation field

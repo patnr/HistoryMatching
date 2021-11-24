@@ -142,7 +142,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
     if argmax:
         idx = Z.T.argmax()  # reverse above transpose
         ax.plot(*model.ind2xy(idx), "y*", ms=15, label="max", zorder=98)
-        ax.plot(*model.ind2xy(idx), "k*", ms=4, label="max", zorder=99)
+        ax.plot(*model.ind2xy(idx), "k*", ms=4 , label="max", zorder=99)
 
     # Add colorbar
     if colorbar:

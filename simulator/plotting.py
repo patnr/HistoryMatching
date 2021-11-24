@@ -367,9 +367,10 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
 
     # Make widget/interactive plot
     linked = wg.interactive(plot, **ctrls)
-
     *ww, _ = linked.children
-    # Adjust individual controls -- use border="solid" to debug
+
+    # Adjust control styles
+    # PS: use border="solid" to debug
     for w in ww:
         if "Slider" in str(type(w)):
             w.continuous_update = False  # => faster
@@ -386,8 +387,8 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
             w.layout.width = 'max-content'
             w.style.description_width = "max-content"
 
-    # Make layout -- Use flexboxes to scale automatically
-    # (which I did not seem to get from AppLayout or TwoByTwoLayout)
+    # Compose layout
+    # PS: Use flexboxes (scale automatically, unlike AppLayout, TwoByTwoLayout)
     V, H = wg.VBox, wg.HBox
     try:
         # Fancy layout

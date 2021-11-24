@@ -13,10 +13,12 @@
 
 # **Jupyter notebooks** combine **cells/blocks** of code (Python) and text (markdown).
 #
-# For example, try to *edit* the cell below to insert your name, and then *run* it.
+# For example, try to **edit** the cell below to insert your name, and then **run** it.
 
 name = "Batman"
-print("Hello world! I'm " + name)
+print("Hello world! I'm ", name)
+
+# Next, as an exercise, try to **insert** a new cell here, and compute `23/3`
 
 # You will likely be more efficient if you know these **keyboard shortcuts**:
 #

@@ -4,6 +4,7 @@
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
 # This is a self-contained tutorial on history matching (HM) using ensemble methods.
+# The code is not supposed to be generally applicable, but the concepts are.
 # Please do not hesitate to file issues on
 # [GitHub](https://github.com/patricknraanes/HistoryMatching),
 # or submit pull requests.
@@ -32,13 +33,13 @@ print("Hello world! I'm " + name)
 
 # If you're on **Google Colab**, run the cell below to install the requirements.
 # Otherwise (and assuming you have done the installation described in the README),
-# you should skip/delete this cell.
+# you can skip/delete this cell.
 
 remote = "https://raw.githubusercontent.com/patricknraanes/HistoryMatching"
 # !wget -qO- {remote}/master/colab_bootstrap.sh | bash -s
 
 # There is a huge amount of libraries available in **Python**,
-# including the popular `numpy (np)` and `matplotlib/pyplot (plt)` packages.
+# including the popular `numpy (np)` and `matplotlib/pyplot (mpl/plt)` packages.
 # Try them out by running in the next few cells following,
 # which illustrates some algebra using syntax reminiscent of Matlab.
 
@@ -144,7 +145,7 @@ wsat = Dict(
 # `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape
 # `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where
 # `N` is the size of the ensemble. However, in other implementations, different choices
-# for the data structure may be more convenient, e.g. where the different components of
+# for the data structure may be more convenient, e.g. where the different types of
 # the unknowns are merely concatenated along the last axis, rather than being kept in
 # separate dicts.
 

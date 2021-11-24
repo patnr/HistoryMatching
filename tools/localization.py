@@ -93,56 +93,12 @@ def pairwise_distances(A, B=None, domain=None):
     return distances.reshape(mA, mB)
 
 
-def dist2coeff(dists, radius, tag=None):
-    """Compute tapering coefficients corresponding to a distances.
-
-    NB: The radius is internally adjusted such that, independently of 'tag',
-    `coeff==np.exp(-0.5)` when `distance==radius`.
-
-    This is largely based on Sakov's enkf-matlab code. Two bugs have here been fixed:
-    - The constants were slightly wrong, as noted in comments below.
-    - It forgot to take sqrt() of coeffs when applying them through 'local analysis'.
-    """
-    coeffs = np.zeros(dists.shape)
-
-    if tag is None:
-        tag = 'GC'
-
-    if tag == 'Gauss':
-        R = radius
-        coeffs = np.exp(-0.5 * (dists/R)**2)
-    elif tag == 'Exp':
-        R = radius
-        coeffs = np.exp(-0.5 * (dists/R)**3)
-    elif tag == 'Cubic':
-        R            = radius * 1.87  # Sakov: 1.8676
-        inds         = dists <= R
-        coeffs[inds] = (1 - (dists[inds] / R) ** 3) ** 3
-    elif tag == 'Quadro':
-        R            = radius * 1.64  # Sakov: 1.7080
-        inds         = dists <= R
-        coeffs[inds] = (1 - (dists[inds] / R) ** 4) ** 4
-    elif tag == 'GC':  # eqn 4.10 of Gaspari-Cohn'99, or eqn 25 of Sakov2011relation
-        R = radius * 1.82  # =np.sqrt(10/3). Sakov: 1.7386
-        # 1st segment
-        ind1         = dists <= R
-        r2           = (dists[ind1] / R) ** 2
-        r3           = (dists[ind1] / R) ** 3
-        coeffs[ind1] = 1 + r2 * (- r3 / 4 + r2 / 2) + r3 * (5 / 8) - r2 * (5 / 3)
-        # 2nd segment
-        ind2         = np.logical_and(R < dists, dists <= 2*R)
-        r1           = (dists[ind2] / R)
-        r2           = (dists[ind2] / R) ** 2
-        r3           = (dists[ind2] / R) ** 3
-        coeffs[ind2] = r2 * (r3 / 12 - r2 / 2) + r3 * (5 / 8) \
-            + r2 * (5 / 3) - r1 * 5 + 4 - (2 / 3) / r1
-    elif tag == 'Step':
-        R            = radius
-        inds         = dists <= R
-        coeffs[inds] = 1
-    else:
-        raise KeyError('No such coeff function.')
-
+def bump_function(distances, sharpness=1):
+    mask = np.abs(distances) < 1
+    x = distances[mask]
+    v = np.exp(1 - 1/(1 - x*x)) ** sharpness
+    coeffs = np.zeros_like(distances)
+    coeffs[mask] = v
     return coeffs
 
 

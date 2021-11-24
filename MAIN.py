@@ -736,12 +736,16 @@ for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
 plt.imshow(Z, cmap="tab20")
 
+# For the tapering, we use "bump function" rather than the conventional
+# (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial function.
+# It is illustrated here.
+
 distances = loc.pairwise_distances(model.ind2sub(np.arange(model.M)).T,
                                    model.ind2sub(obs_inds*nTime).T)
 
 def obs_taperer(batch):
     dists = distances[batch].mean(axis=0)  # obs - batch(mean location)
-    coeffs = loc.dist2coeff(dists, radius=10, tag="GC")
+    coeffs = loc.bump_function(dists/10)
     non0 = coeffs > 1e-3
     return non0, coeffs[non0]
 

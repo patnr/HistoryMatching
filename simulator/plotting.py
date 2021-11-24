@@ -15,6 +15,7 @@ Snippet to reload module:
 # TODO: Should simply check for inline, not colab?
 
 
+import copy
 import warnings
 
 import ipywidgets as wg
@@ -42,6 +43,14 @@ cm_ow = lin_cm("", [(0, "#1d9e97"), (.3, "#b2e0dc"), (1, "#f48974")])
 # cMiddle = .3*ccnvrt(cWater) + .7*ccnvrt(cOil)
 # cm_ow = lin_cm("", [cWater, cMiddle, cOil])
 
+# Colormap for correlations
+cmap_corr = plt.cm.get_cmap("bwr")
+# Set out-of-bounds colors for correlation plot
+cmap_corr = copy.copy(cmap_corr)  # avoid warning
+cmap_corr.set_under("green")
+cmap_corr.set_over("orange")
+cmap_corr.set_bad("black")
+
 # Defaults
 styles = dict(
     default = dict(
@@ -67,8 +76,8 @@ styles = dict(
     ),
     corr = dict(
         title  = "Correlations",
-        cmap   = "bwr",
-        levels = np.linspace(-1, 1, 20),
+        cmap   = cmap_corr,
+        levels = np.linspace(-1.00001, 1.00001, 20),
         ticks  = np.linspace(-1, 1, 6),
     ),
 )
@@ -116,7 +125,10 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         # might be slightly erroneous compared with finite-volume defs.
         # However, it is the definition that agrees with line and scatter
         # plots (e.g. well_scatter), and that correspondence is more important.
-        origin=None, extent=(0, Lx, 0, Ly))
+        origin=None, extent=(0, Lx, 0, Ly), extend="both")
+
+    # Contourf does not plot (at all) the bad regions. "Fake it" by facecolor
+    ax.set_facecolor(getattr(kw("cmap"), "_rgba_bad", "w"))
 
     # Axis lims & labels
     ax.set_xlim((0, Lx))

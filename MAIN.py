@@ -161,21 +161,18 @@ wsat = Dict(
 # the parameterized permeabilities, *and* the transform.  Here we use Gaussian fields,
 # and a "perturbed" exponential function (to render the problem a little more complex).
 
-# +
 def sample_prior_perm(N):
     lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
     return lperms
 
-# Also configure plot parameters suitable for pre-perm
-plots.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
-plots.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
-
-
-# -
-
 def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
+
+# Also configure plot parameters suitable for pre-perm
+
+plots.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
+plots.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
 
 # For any type of parameter, one typically has to write a "setter" function that takes
 # the vector of parameter parameter values, and applies it to the specific model

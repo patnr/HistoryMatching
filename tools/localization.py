@@ -2,7 +2,7 @@
 
 A good introduction to localization:
 Sakov (2011), Computational Geosciences:
-'Relation between two common localisation methods for the EnKF'.
+'Relation between two common localization methods for the EnKF'.
 """
 
 # NB: Why is the 'order' argument not supported by this module? Because:

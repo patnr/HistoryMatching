@@ -341,7 +341,7 @@ plots.spectrum(svals, "Prior cov.");
 # With our limited ensemble size, we see no clear cutoff index. In other words, we are
 # not so fortunate that the prior is implicitly restricted to some subspace that is of
 # lower rank than our ensemble. This is a very realistic situation, and indicates that
-# localisation (implemented further below) will be very beneficial.
+# localization (implemented further below) will be very beneficial.
 
 # ## Forward model
 
@@ -606,7 +606,7 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # rather than just the covariance of the input variable).
 # However, they are easier to plot (being constrained to [0, 1]), and differences
 # between the gain matrix and the correlations (see discussion above)
-# are not that pertinent for the purpose of localisation.
+# are not that pertinent for the purpose of localization.
 
 # #### Location of correlation extrema
 # In the preceding dashboard we could observe that the "locations" (defined as the
@@ -639,25 +639,25 @@ for i, xy_path in enumerate(xy_max_corr):
     plots.arrowhead_endpoints(ax, i, xy_path, **color)
 fig.tight_layout()
 
-# ## Localisation
+# ## localization
 
 # It is technically challenging to translate/encode **all** of our prior knowledge into
 # the computational form of an ensemble.  It is also computationally demanding, because
 # a finite ensemble size, $N$, will contain sampling errors.  Thus, in principle, there
 # is room to improve the performance of the ensemble methods by "injecting" more prior
 # knowledge somehow, as an "auxiliary" technique.  A particularly effective way is
-# **localisation**, wherein we eliminate correlations (i.e. relationships) that we are
+# **localization**, wherein we eliminate correlations (i.e. relationships) that we are
 # "pretty sure" are *spurious*: merely due to sampling error, rather than indicative of
 # an actual inter-dependence.
 #
-# Much can be said about the ad-hoc nature of most localisation schemes.
+# Much can be said about the ad-hoc nature of most localization schemes.
 # This is out of scope here.
 # Furthermore, in particular in petroleum reservoir applications,
-# configuring an effective localisation setup can be very challenging.
-# If successful, however, localisation is unreasonably effective,
+# configuring an effective localization setup can be very challenging.
+# If successful, however, localization is unreasonably effective,
 # allowing the use of much smaller ensemble sizes than one would think.
 #
-# In our simple case, it is sufficient to use distance-based localisation.  Far-away
+# In our simple case, it is sufficient to use distance-based localization.  Far-away
 # (remote) correlations will be dampened ("tapered").
 # For the shape, we here use the "bump function" rather than the
 # conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
@@ -677,7 +677,7 @@ ax.set_xlabel("Distance");
 xy_prm = model.ind2xy(np.arange(model.M))
 xy_obs = model.ind2xy(obs_inds*nTime)
 
-# However, as we saw from the correlation dashboard, the localisation should be
+# However, as we saw from the correlation dashboard, the localization should be
 # time dependent.  It is tempting to say that remote-in-time (i.e. late)
 # observations should have a larger area of impact than earlier observations,
 # since they are integro-spatio-temperal functions (to use a fancy word).  We
@@ -701,7 +701,7 @@ distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 
 
 # The tapering function is similar to the covariance functions used in
-# geostatistics (see Kriging, variograms), and indeed localisation can be
+# geostatistics (see Kriging, variograms), and indeed localization can be
 # framed as a hybridisation of ensemble covariances with theoretical ones.
 # However, the ideal tapering function does not generally equal the theoretical
 # covariance function, but must instead be "tuned" for performance in the
@@ -713,16 +713,16 @@ distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 # changed.
 #
 # Therefore, in lieu of such global tuning, we here undertake a study of the
-# direct impact of the localisation on the correlation fields. Fortunately, we
+# direct impact of the localization on the correlation fields. Fortunately, we
 # can mostly just re-use the functionality from the above correlation
 # dashboard, but now with some different controls; take a moment to study the
 # function below, which generates the folowing plotted data.
 
-def corr_wells(N, t, well, localise, radi, sharp):
-    if not localise:
+def corr_wells(N, t, well, localize, radi, sharp):
+    if not localize:
         N = -1
     C = misc.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
-    if localise:
+    if localize:
         dists = distances_to_obs[:, well + nProd*t]
         c = loc.bump_function(dists/radi, 10**sharp)
         C *= c**2
@@ -731,7 +731,7 @@ def corr_wells(N, t, well, localise, radi, sharp):
 
 
 corr_wells.controls = dict(
-    localise=False,
+    localize=False,
     radi=(0.1, 5),
     sharp=(-1.0, 1),
     N=(2, N),
@@ -743,9 +743,9 @@ corr_wells.controls = dict(
 plots.field_interact(corr_wells, "corr", "Pre-perm vs obs/well at time t", wells=True)
 
 
-# - Note that the `N` slider is only active when `localise` is *enabled*.
-#   When localisation is not enabled, then the full ensemble size is being used.
-# - Set `N=20` and toggle `localise` on/off, while you play with different values of `radi`.
+# - Note that the `N` slider is only active when `localize` is *enabled*.
+#   When localization is not enabled, then the full ensemble size is being used.
+# - Set `N=20` and toggle `localize` on/off, while you play with different values of `radi`.
 #   Try to find a value that makes the `localized` (small-ensemble) fields
 #   resemble (as much as possible) the full-size ensemble fields.
 # - The suggested value from the author is `1.3` (and sharpness $10^0$, i.e. 1).
@@ -843,18 +843,18 @@ plots.fields(perm.ES, "pperm", "ES (posterior)");
 
 # We will see some more diagnostics later.
 
-# ### With localisation
+# ### With localization
 
 def enAnalysis(E, Eo, y, R):
     return pre_compute_ens_update(obs_ens=Eo, observations=y, obs_err_cov=R)(E)
 
 
-def localized_ens_update0(E, Eo, R, y, domains, localiser, mp=map):
+def localized_ens_update0(E, Eo, R, y, domains, localizer, mp=map):
     """Perform local analysis update for the LETKF."""
     def local_analysis(ii):
         """Perform analysis, for state index batch `ii`."""
         # Locate local domain
-        oBatch, tapering = localiser(ii)
+        oBatch, tapering = localizer(ii)
         Eii = E[:, ii]
 
         # No update
@@ -895,16 +895,16 @@ gg_postr = localized_ens_update0(
     y  = 10*np.ones(gg_ndim),
     # Localize simply by processing each dim. entirely seperately:
     domains=np.arange(gg_ndim),
-    localiser=(lambda i: (i == np.arange(gg_ndim), 1)),
+    localizer=(lambda i: (i == np.arange(gg_ndim), 1)),
 )
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:\n", np.cov(gg_postr.T))
 
-# #### Localisation setup
+# #### localization setup
 
-# The form of the localisation used in the above code is "local/domain analysis".
+# The form of the localization used in the above code is "local/domain analysis".
 # As can be seen, it consists of sequentially processing batches (subsets/domains)
 # of the vector of unknowns (actually, ideally, we'd iterate over each single element,
 # but that is generally computationally inefficient). This defines the local domains:
@@ -927,7 +927,7 @@ ax.imshow(Z, cmap="tab20");
 # Here is a function that returns the observation tapering coefficients for a given domain/batch.
 # The default radius is the one we found to be the most promising from the correlation study.
 
-def localisation_setup(batch, radius=1.3, sharpness=1):
+def localization_setup(batch, radius=1.3, sharpness=1):
     dists = distances_to_obs[batch].mean(axis=0)
     obs_coeffs = loc.bump_function(dists/radius, sharpness)
     obs_mask = obs_coeffs > 1e-3
@@ -937,7 +937,7 @@ def localisation_setup(batch, radius=1.3, sharpness=1):
 
 perm.LES = localized_ens_update0(perm.Prior, vect(prod.past.Prior),
                                  sla.block_diag(*[R]*nTime), vect(prod.past.Noisy),
-                                 domains, localisation_setup)
+                                 domains, localization_setup)
 
 # ### Iterative ensemble smoother
 
@@ -1323,7 +1323,7 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 # only be asserted by re-running the experiments several times), then you can not have
 # much confidence in your result. In order to fix this, you must increase the ensemble
 # size (to reduce sampling error), or play with the tuning parameters such as the
-# localisation radius (or more generally, improve your localisation implementation).
+# localization radius (or more generally, improve your localization implementation).
 #
 # Such re-running of the synthetic experiments is similar in aim to statistical
 # cross-validation. Note that it may (and should) also be applied in real applications!

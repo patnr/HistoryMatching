@@ -103,7 +103,7 @@ seed = rnd.seed(4)  # very easy
 # matching and optimisation process.
 
 import simulator
-import simulator.plotting as plots
+import simulator.plotting as plotting
 import tools.localization as loc
 from tools import geostat, utils
 from tools.utils import center
@@ -115,9 +115,9 @@ from tools.utils import center
 # +
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
-# Also init plots module
-plots.model = model
-plots.coord_type = "absolute"
+# Also init plotting module
+plotting.model = model
+plotting.coord_type = "absolute"
 # -
 
 # The following declares some data containers to help us keep organised.
@@ -177,8 +177,8 @@ def perm_transf(x):
 
 # Also configure plot parameters suitable for pre-perm
 
-plots.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
-plots.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
+plotting.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
+plotting.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
 
 # For any type of parameter, one typically has to write a "setter" function that takes
 # the vector of parameter parameter values, and applies it to the specific model
@@ -224,9 +224,9 @@ model.config_wells(
 # and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
-# plots.field(ax, perm.Truth, "pperm")
-plots.field(ax, perm_transf(perm.Truth),
-            locator=LogLocator(), wells=True, colorbar=True)
+# plotting.field(ax, perm.Truth, "pperm")
+plotting.field(ax, perm_transf(perm.Truth),
+               locator=LogLocator(), wells=True, colorbar=True)
 fig.tight_layout()
 
 
@@ -259,7 +259,7 @@ wsat.init.Truth = np.zeros(model.M)
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = plots.dashboard("Truth", perm, wsat.past, prod.past);
+animation = plotting.dashboard("Truth", perm, wsat.past, prod.past);
 
 # Note: can take up to a minute to appear
 animation
@@ -278,7 +278,7 @@ for iT in range(nTime):
 # Plot of observations (and their noise):
 
 fig, ax = freshfig("Observations", figsize=(2, .7), rel=True)
-plots.production1(ax, prod.past.Truth, prod.past.Noisy);
+plotting.production1(ax, prod.past.Truth, prod.past.Noisy);
 
 # Note that several observations are above 1,
 # which is "unphysical" or not physically "realisable".
@@ -308,7 +308,7 @@ print("Prior var.:", np.var(perm.Prior))
 # whereas the histogram of the ensemble counts the values of `N` fields.
 
 fig, ax = freshfig("Perm.", figsize=(1.5, .7), rel=1)
-bins = np.linspace(*plots.styles["pperm"]["levels"][[0, -1]], 32)
+bins = np.linspace(*plotting.styles["pperm"]["levels"][[0, -1]], 32)
 for label, perm_field in perm.items():
     x = perm_field.ravel()
     ax.hist(perm_transf(x),
@@ -328,7 +328,7 @@ fig.tight_layout()
 # #### Field plots
 # Below we can see some (pre-perm) realizations (members) from the ensemble.
 
-plots.fields(perm.Prior, "pperm", "Prior");
+plotting.fields(perm.Prior, "pperm", "Prior");
 
 # #### Variance/Spectrum
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating
@@ -336,7 +336,7 @@ plots.fields(perm.Prior, "pperm", "Prior");
 # in being made that way, let's inspect its spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
-plots.spectrum(svals, "Prior cov.");
+plotting.spectrum(svals, "Prior cov.");
 
 # With our limited ensemble size, we see no clear cutoff index. In other words, we are
 # not so fortunate that the prior is implicitly restricted to some subspace that is of
@@ -529,7 +529,7 @@ corr_comp.controls = dict(
 )
 # -
 
-plots.field_console(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True, wells=True)
+plotting.field_console(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
@@ -632,11 +632,11 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 # Here is a plot of the paths.
 
 fig, ax = freshfig("Time-paths of maxima of corr. fields", figsize=(1.5, 1), rel=1)
-plots.field(ax, np.zeros(model.shape), "corr", wells=True)
+plotting.field(ax, np.zeros(model.shape), "corr", wells=True)
 for i, xy_path in enumerate(xy_max_corr):
     color = dict(color=f"C{i}")
     ax.plot(*xy_path.T, **color)
-    plots.arrowhead_endpoints(ax, i, xy_path, **color)
+    plotting.arrowhead_endpoints(ax, i, xy_path, **color)
 fig.tight_layout()
 
 # ## localization
@@ -740,7 +740,7 @@ corr_wells.controls = dict(
 )
 
 
-plots.field_console(corr_wells, "corr", "Pre-perm vs obs/well at time t", wells=True)
+plotting.field_console(corr_wells, "corr", "Pre-perm vs obs/well at time t", wells=True)
 
 
 # - Note that the `N` slider is only active when `localize` is *enabled*.
@@ -839,7 +839,7 @@ perm.ES = ens_update0(perm.Prior)
 # #### Field plots
 # Let's plot the updated, initial ensemble.
 
-plots.fields(perm.ES, "pperm", "ES (posterior)");
+plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # We will see some more diagnostics later.
 
@@ -1059,7 +1059,7 @@ perm.IES, diagnostics = IES(
 # #### Field plots
 # Let's plot the updated, initial ensemble.
 
-plots.fields(perm.IES, "pperm", "IES (posterior)");
+plotting.fields(perm.IES, "pperm", "IES (posterior)");
 
 # The following plots the cost function(s) together with the error compared to the true
 # (pre-)perm field as a function of the iteration number. Note that the relationship
@@ -1116,7 +1116,7 @@ utils.RMSMs(perm, ref="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plots.fields(perm_means, "pperm", "Means");
+plotting.fields(perm_means, "pperm", "Means");
 
 # ### Means vs. Data mismatch (past production)
 # In synthetic experiments such as this one, is is instructive to computing the "error":
@@ -1146,7 +1146,7 @@ prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior)), undo=True)
 
 # #### Production plots
 
-plots.productions(prod.past, "Past");
+plotting.productions(prod.past, "Past");
 
 # #### RMS summary
 
@@ -1200,7 +1200,7 @@ utils.RMSMs(prod.past, ref="Noisy")
 
 wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
-plots.fields(wsat_means, "oil", "Means");
+plotting.fields(wsat_means, "oil", "Means");
 
 # #### Run
 # Now we predict.
@@ -1223,7 +1223,7 @@ prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior)), undo=True)
 
 # #### Production plots
 
-plots.productions(prod.futr, "Future");
+plotting.productions(prod.futr, "Future");
 
 # #### RMS summary
 

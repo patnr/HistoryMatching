@@ -446,14 +446,15 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # #### Flattening matrices into vectors
 
 # We have organised our simulated ensemble data in 3D arrays,
-# with time along the second-to-last axis.
-# Ensemble methods have no notion of 3D arrays, so we need to
-# be able to flatten the time dimension, and to undo this.
-# Proiding we stick to this axis ordering, here is a convenience function
-# for juggling the array axes.
+# with *time* along the second-to-last axis.
+# Ensemble methods have no notion of 3D arrays, however, so we need to
+# be able to flatten the time and space dimensions (as well as to undo this).
+# Providing we stick to a given array axis ordering,
+# here is a convenient function for juggling the array shapes.
 
-def t_ravel(x, undo=False):
-    """Ravel/flatten the last two axes (whether `x.ndim=2` or 3), or undo this."""
+def vect(x, undo=False):
+    """Unravel/flatten the last two axes. Assumes axis `-2` has length `nTime`."""
+    # Works both for ensemble (3D) and single-realisation (2D) arrays. Also undo.
     if undo:
         *N, ab = x.shape
         return x.reshape(N + [nTime, ab//nTime])
@@ -691,7 +692,7 @@ xy_obs = model.ind2xy(obs_inds*nTime)
 # maxima, which we can achieve by computing distances to the maxima rather than to the
 # wells.
 
-xy_obs = t_ravel(xy_max_corr.T)
+xy_obs = vect(xy_max_corr.T)
 
 # Now we compute the distance between the parameters and the (argmax of the
 # correlations with the) observations.
@@ -828,8 +829,8 @@ with np.printoptions(precision=1):
 
 # Pre-compute
 ens_update0 = pre_compute_ens_update(
-    obs_ens      = t_ravel(prod.past.Prior),
-    observations = t_ravel(prod.past.Noisy),
+    obs_ens      = vect(prod.past.Prior),
+    observations = vect(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
 )
 # Apply
@@ -934,8 +935,8 @@ def localisation_setup(batch, radius=1.3, sharpness=1):
 
 # #### Apply as smoother
 
-perm.LES = localized_ens_update0(perm.Prior, t_ravel(prod.past.Prior),
-                                 sla.block_diag(*[R]*nTime), t_ravel(prod.past.Noisy),
+perm.LES = localized_ens_update0(perm.Prior, vect(prod.past.Prior),
+                                 sla.block_diag(*[R]*nTime), vect(prod.past.Noisy),
                                  domains, localisation_setup)
 
 # ### Iterative ensemble smoother
@@ -1004,7 +1005,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")
-        Eo = t_ravel(Eo)
+        Eo = vect(Eo)
 
         # Prepare analysis.
         Y, xo  = center(Eo)         # Get anomalies, mean.
@@ -1050,7 +1051,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 perm.IES, diagnostics = IES(
     ensemble     = perm.Prior,
-    observations = t_ravel(prod.past.Noisy),
+    observations = vect(prod.past.Noisy),
     obs_err_cov  = sla.block_diag(*[R]*nTime),
     stepsize     = 1,
 )
@@ -1141,7 +1142,7 @@ plots.fields(perm_means, "pperm", "Means");
 # the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = t_ravel(ens_update0(t_ravel(prod.past.Prior)), undo=True)
+prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior)), undo=True)
 
 # #### Production plots
 
@@ -1218,7 +1219,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = t_ravel(ens_update0(t_ravel(prod.futr.Prior)), undo=True)
+prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior)), undo=True)
 
 # #### Production plots
 

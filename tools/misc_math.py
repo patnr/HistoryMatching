@@ -155,7 +155,7 @@ def inflate_ens(E, factor):
     return x + X*factor
 
 
-def cov(a, b):
+def cov_mat(a, b):
     """Compute covariance between a sample of two multivariate variables.
 
     Unlike `np.cov`, `a` and `b` need not have the same shape,
@@ -166,9 +166,9 @@ def cov(a, b):
     return A.T @ B / (len(B) - 1)
 
 
-def corr(a, b):
+def corr_mat(a, b):
     """Compute correlation using `cov`."""
-    C = cov(a, b)
+    C = cov_mat(a, b)
 
     sa = np.std(a.T, axis=-1, ddof=1)
     sb = np.std(b  , axis=+0, ddof=1, keepdims=True)

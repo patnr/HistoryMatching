@@ -679,15 +679,9 @@ xy_obs = model.ind2xy(obs_inds*nTime)
 # However, as we saw from the correlation dashboard, the localisation should be
 # time dependent.  It is tempting to say that remote-in-time (i.e. late)
 # observations should have a larger area of impact than earlier observations,
-# since they are spatio-temperal-integro functions (to use a fancy word).  We
+# since they are integro-spatio-temperal functions (to use a fancy word).  We
 # could achieve that by adding a column to `xy_obs` to represent a time
-# coordinate.
-#
-#     t = np.repeat(np.arange(nTime), nProd)
-#     t = 0*(nTime - t)
-#     xyt_prm = np.insert(xy_prm, 0, 0, 1)
-#     xyt_obs = np.insert(xy_obs, 0, t, 1)
-#
+# coordinate (and a column of zeros to `xy_prm`).
 # However, the correlation dashboard does not really support this "dilation" theory,
 # and we should be careful about growing the tapering mask.
 #

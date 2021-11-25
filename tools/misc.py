@@ -156,9 +156,10 @@ def inflate_ens(E, factor):
 
 
 def cov(a, b):
-    """Compute covariance between multivariate ensembles.
+    """Compute covariance between a sample of two multivariate variables.
 
-    Input `a` and `b` must have same `shape[0]` (ensemble size).
+    Unlike `np.cov`, `a` and `b` need not have the same shape,
+    but must must of course have equal ensemble size, i.e. `shape[0]`.
     """
     A, _ = center(a)
     B, _ = center(b)
@@ -166,8 +167,9 @@ def cov(a, b):
 
 
 def corr(a, b):
-    """Compute correlation between multivariate ensembles. See `cov`."""
+    """Compute correlation using `cov`."""
     C = cov(a, b)
+
     sa = np.std(a.T, axis=-1, ddof=1)
     sb = np.std(b  , axis=+0, ddof=1, keepdims=True)
     Corr = C / sa / sb

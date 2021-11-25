@@ -6,12 +6,10 @@ After all, it is surprisingly hard to remember
 which direction/index is for x and which is for y.
 
 Index ordering/labels: `x` is 1st coord., `y` is 2nd.
-This is hardcoded in the model code, in what takes place
+This choice has been hardcoded in the model code, in what takes place
 **between** `np.ravel` and `np.reshape` (using standard "C" ordering).
-It also means that the letters `x` and `y` tend to occur in alphabetic order.
-
-However, the plots.py module depicts
-x from left to right, and y from bottom to top.
+This choice also means that the letters `x` and `y` tend to occur in alphabetic order.
+However, the plots.py module depicts x from left to right, and y from bottom to top.
 
 Example:
 >>> grid = Grid2D(Lx=4, Ly=10, Nx=2, Ny=5)

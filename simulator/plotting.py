@@ -738,3 +738,24 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                     boxstyle="round,pad=0")
     return ax.text(x, y, txt, c=c, fontsize=fontsize,
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
+
+
+def arrowhead_endpoints(ax, text, path, color=None, fontsize=0, size=20,
+                        arrowstyle="-|>", **kwargs):
+    """Add arrowhead to endpoints of line plot (`path`).
+
+    Works even if path contains duplicates.
+
+    NB: text is hidden by default (`fontsize=20`).
+    NB: text must differ in subsequent uses, otherwise nothing gets plotted.
+    """
+    arrowprops = dict(arrowstyle=arrowstyle, color=color, mutation_scale=size)
+    arrowprops.update(kwargs)
+
+    # Search for last-possible item that differs from path[-1].
+    # Both set and np.unique scramble order ==> just use dumb loop.
+    i = -1
+    while np.all(path[i] == path[-1]):
+        i -= 1
+
+    ax.annotate(i, path[-1], path[i], fontsize=fontsize, arrowprops=arrowprops)

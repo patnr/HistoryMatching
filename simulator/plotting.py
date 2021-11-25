@@ -353,7 +353,7 @@ def captured_fig(output, num, **kwargs):
     return decorator
 
 
-def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
+def field_console(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
     title  = dash(kw("title"), title)

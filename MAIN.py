@@ -268,10 +268,11 @@ animation
 # In reality, observations are never perfect. To emulate this, we corrupt the
 # observations by adding a bit of noise.
 
+nProd = len(model.producers)
 prod.past.Noisy = prod.past.Truth.copy()
-R = 1e-3 * np.eye(len(model.producers))
+R = 1e-3 * np.eye(nProd)
 for iT in range(nTime):
-    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(len(model.producers))
+    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nProd)
 
 
 # Plot of observations (and their noise):
@@ -1183,7 +1184,7 @@ def EnOpt(obj, E, ctrls, C12, stepsize=1, nIter=10):
 
 rnd.seed(3)
 # ctrls0  = model.producers[:, 2]
-ctrls0  = rnd.rand(len(model.producers))
+ctrls0  = rnd.rand(nProd)
 ctrls0 /= sum(ctrls0)
 C12     = 0.03 * np.eye(len(ctrls0))
 E       = wsat.curnt.ES, perm.ES

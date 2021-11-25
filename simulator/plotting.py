@@ -117,6 +117,9 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
     Z = kw("transf")(Z)
     Z = Z.reshape(model.shape).T
 
+    # Did we bother to specify set_over/set_under/set_bad ?
+    has_out_of_range = getattr(kw("cmap"), "_rgba_over", None) is not None
+
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
         Z, kw("levels"), cmap=kw("cmap"), **kwargs,
@@ -128,10 +131,12 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         # might be slightly erroneous compared with finite-volume defs.
         # However, it is the definition that agrees with line and scatter
         # plots (e.g. well_scatter), and that correspondence is more important.
-        origin=None, extent=(0, Lx, 0, Ly), extend="both")
+        origin=None, extent=(0, Lx, 0, Ly),
+        extend="both" if has_out_of_range else "neither")
 
     # Contourf does not plot (at all) the bad regions. "Fake it" by facecolor
-    ax.set_facecolor(getattr(kw("cmap"), "_rgba_bad", "w"))
+    if has_out_of_range:
+        ax.set_facecolor(getattr(kw("cmap"), "_rgba_bad", "w"))
 
     # Axis lims & labels
     ax.set_xlim((0, Lx))

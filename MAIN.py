@@ -104,9 +104,8 @@ seed = rnd.seed(4)  # very easy
 
 import simulator
 import simulator.plotting as plots
-from tools import geostat
-from tools.misc_math import (RMSM, RMSMs, center, corr_mat, insert_batches,
-                             pad0, pows, recurse_run, svd0)
+from tools import geostat, misc
+from tools.misc import center, insert_batches
 import tools.localization as loc
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
@@ -252,7 +251,7 @@ nTime = round(T/dt)
 wsat.init.Truth = np.zeros(model.M)
 
 (wsat.past.Truth,
- prod.past.Truth) = recurse_run(model.step, nTime, wsat.init.Truth, dt, obs_model)
+ prod.past.Truth) = misc.recurse_run(model.step, nTime, wsat.init.Truth, dt, obs_model)
 
 # #### Animation
 # Run the code cells below to get an animation of the oil saturation evolution.
@@ -393,7 +392,8 @@ def forward_model(nTime, *args, desc=""):
         set_perm(model_n, perm)
 
         # Run simulator
-        wsats, prods = recurse_run(model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
+        wsats, prods = misc.recurse_run(
+            model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
 
         return wsats, prods
 
@@ -515,7 +515,7 @@ def corr_comp(N, Field, T, Point, t, x, y):
     xy = model.sub2ind(x, y)
     Point = prior_fields[Point](t)[:, xy]
     Field = prior_fields[Field](T)
-    return corr_mat(Field[:N], Point[:N])
+    return misc.corr(Field[:N], Point[:N])
 
 # Register controls
 corr_comp.controls = dict(
@@ -617,7 +617,7 @@ plots.field_console(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tru
 xy_max_corr = np.zeros((nProd, nTime, 2))
 for i, xy_path in enumerate(xy_max_corr):
     for time in range(6, nTime):
-        C = corr_mat(perm.Prior, prod.past.Prior[:, time, i])
+        C = misc.corr(perm.Prior, prod.past.Prior[:, time, i])
         xy_path[time] = model.ind2xy(np.argmax(C))
 
 # In general, minima might be just as relevant as maxima.
@@ -721,7 +721,7 @@ distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 def corr_wells(N, t, well, localize, radi, sharp):
     if not localize:
         N = -1
-    C = corr_mat(perm.Prior[:N], prod.past.Prior[:N, t, well])
+    C = misc.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
     if localize:
         dists = distances_to_obs[:, well + nProd*t]
         c = loc.bump_function(dists/radi, 10**sharp)
@@ -973,8 +973,8 @@ def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
     N = len(Y)
     Y0       = sla.pinv(T) @ Y        # "De-condition"
-    V, s, UT = svd0(Y0)               # Decompose
-    Cowp     = pows(V, pad0(s**2, N) + N-1)
+    V, s, UT = misc.svd0(Y0)          # Decompose
+    Cowp     = misc.pows(V, misc.pad0(s**2, N) + N-1)
     Cow1     = Cowp(-1.0)             # Posterior cov of w
     grad     = Y0@dy - w*(N-1)        # Cost function gradient
     dw       = grad@Cow1              # Gauss-Newton step
@@ -1001,7 +1001,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     for itr in range(nIter):
         # Compute rmse (vs. Truth)
-        stat.rmse += [RMSM(E, perm.Truth).rmse]
+        stat.rmse += [misc.RMSM(E, perm.Truth).rmse]
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")
@@ -1102,7 +1102,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 # to the deviation from the **ensemble mean**, whence the trailing `M` in `RMSM` below.
 
 print("Stats vs. true field\n")
-RMSMs(perm, ref="Truth")
+misc.RMSMs(perm, ref="Truth")
 
 # #### Field plots
 # Let's plot mean fields.
@@ -1151,7 +1151,7 @@ plots.productions(prod.past, "Past");
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)\n")
-RMSMs(prod.past, ref="Noisy")
+misc.RMSMs(prod.past, ref="Noisy")
 
 # The RMSE obtained from the (given method of approximate computation of the) posterior
 # should pass two criteria.
@@ -1208,7 +1208,7 @@ plots.fields(wsat_means, "oil", "Means");
 print("Future/prediction")
 
 (wsat.futr.Truth,
- prod.futr.Truth) = recurse_run(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
+ prod.futr.Truth) = misc.recurse_run(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
 (wsat.futr.Prior,
  prod.futr.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)
@@ -1228,7 +1228,7 @@ plots.productions(prod.futr, "Future");
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production\n")
-RMSMs(prod.futr, ref="Truth")
+misc.RMSMs(prod.futr, ref="Truth")
 
 
 # ## Robust optimisation

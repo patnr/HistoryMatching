@@ -442,17 +442,29 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
-# ## Localisation (*optional*)
 
-# If you choose not to run this section, then you must use a fairly large ensemble size
-# in order to obtain results of any value.
-#
-# Localisation invervenes to fix-up the estimated correlations before they are used. It
-# is a method of injecting prior information (distant points are likely not strongly
-# codependent) that is not *encoded* in the ensemble (usually due to their finite size).
-# Defining an effective localisation mask or tapering function can be a difficult task.
+# #### Flattening matrices into vectors
 
-# ### Correlation plots
+# We have organised our simulated ensemble data in 3D arrays,
+# with time along the second-to-last axis.
+# Ensemble methods have no notion of 3D arrays, so we need to
+# be able to flatten the time dimension, and to undo this.
+# Proiding we stick to this axis ordering, here is a convenience function
+# for juggling the array axes.
+
+def t_ravel(x, undo=False):
+    """Ravel/flatten the last two axes (whether `x.ndim=2` or 3), or undo this."""
+    if undo:
+        *N, ab = x.shape
+        return x.reshape(N + [nTime, ab//nTime])
+    else:
+        *N, a, b = x.shape
+        return x.reshape(N + [a*b])
+
+# ## Correlation study (*a-priori*)
+
+# #### The mechanics of the Kalman gain
+
 # The conditioning "update" of ensemble methods is often formulated in terms of a
 # "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties
 # (see e.g. [[Jaz70]](#Jaz70)):
@@ -482,21 +494,8 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # In summary, it is useful to investigate the correlation relations of the ensemble,
 # especially for the prior.
 
-# #### Auto-correlation for `wsat`
-# First, as a sanity check, it is useful to plot the correlation of the saturation field
-# at some given time vs. the production at the same time. The correlation should be
-# maximal (1.00) at the location of the well in question. Let us verify this: zoom-in
-# several times (not available on Colab), centering on the green star, to verify that it
-# lies on top of the well of that panel.  The green stars mark the location of the
-# maximum of the correlation field.
+# #### Exploratory correlation plot
 
-Field = wsat.past.Prior[:, -1]
-Obsvs = prod.past.Prior[:, -1].T
-corrs = [misc.corr(Field, obs) for obs in Obsvs]
-
-plots.fields(corrs, "corr", "Saturation vs. obs", argmax=True, wells=True);
-
-# #### Interactive correlation plot
 # The following plots a variety of different correlation fields. Each field may
 # be seen as a single column (or row) of a larger ("cross")-covariance matrix,
 # which would typically be too large for explicit computation or storage. The
@@ -529,7 +528,7 @@ corr_comp.controls = dict(
 )
 # -
 
-plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True)
+plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
@@ -539,13 +538,18 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 #   - Move the point around (`x` and `y` sliders).
 #   - Why is the star marker (showing the location of the maximum)
 #     on top of the crosshairs?
+#     <!-- Answer: Because the correlation the correlation of a variable with itself
+#     is 1.00, which is the maximum possible correlation. This is a useful sanity check
+#     on our correlation and plotting facilities. Use the zoom functionality if necessary
+#     to assert exact superposition.
+#     -->
 # - Set `Field = "Pre-perm"`.
 #   - Move `T` around. Why doesn't anything change?
 #   - Set the ensemble size: `N=2`. How does the correlation field look? Why?
 #     <!-- Answer: Only 2 colors, because 2 points always lie on a straight line -->
 # - Now set `Field = "Saturation"`. Explain the major new and strange appearance.
 #   <!-- Answer: Nan's and inf's at corners. Reason: for most realisations,
-#     the saturation is (as of yet) constant there.
+#   the saturation is (as of yet) constant there.
 #   -->
 # - Set `N=200`. Move the point to the center again.
 #   - Set `T=0` How do the correlation fields look? Why?
@@ -553,8 +557,6 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 #     Explain the appearance of "fronts".
 #   - Move `T=1,2,3, etc` using your arrow keys. Explain the appearance of "fronts".
 # - Set `T=20`, `t=40`, and move the point to the location of one of the wells.
-#   - *Hint*: you can get the locations (x-, and y-indices) of the wells using
-#     `model.xy2sub(*model.producers.T[:2])`.
 #   - Where is the maximum? And minimum? Does this make sense?
 #   - Gradually increase `T`. How do the extrema move? Why?.
 # - Set `T=40`. Note the location of the maximum. Now switch to `Field = "Per-perm"`.
@@ -605,11 +607,145 @@ plots.field_interact(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=Tr
 # between the gain matrix and the correlations (see discussion above)
 # are not that pertinent for the purpose of localisation.
 
-# ### Tapering
+# #### Location of correlation extrema
+# In the preceding dashboard we could observe that the "locations" (defined as the
+# location of the maximum) of the correlations (between a given well observation
+# and the permeability field) moved in time. Let us trace these paths computationally.
+# They will be useful later.
 
-# #### Plot of localized domains
+xy_max_corr = np.zeros((nProd, nTime, 2))
+for i, xy_path in enumerate(xy_max_corr):
+    for time in range(6, nTime):
+        C = misc.corr(perm.Prior, prod.past.Prior[:, time, i])
+        xy_path[time] = model.ind2xy(np.argmax(C))
 
-# #### Plot of localized correlations
+# In general, minima might be just as relevant as maxima.
+# In our case, though, it's a safe bet to focus on the maxima, which also avoids
+# the danger of jumping from one case to another in case of weak correlations.
+#
+# For `time<6`, there is almost zero correlation anywhere,
+# so we should not trust `argmax`. Fallback to `time=6`.
+
+xy_max_corr[:, :6] = xy_max_corr[:, [6]]
+
+# Here is a plot of the paths.
+
+fig, ax = freshfig("Time-paths of maxima of corr. fields", figsize=(1.5, 1), rel=1)
+plots.field(ax, np.zeros(model.shape), "corr", wells=True)
+for i, xy_path in enumerate(xy_max_corr):
+    color = dict(color=f"C{i}")
+    ax.plot(*xy_path.T, **color)
+    plots.arrowhead_endpoints(ax, i, xy_path, **color)
+fig.tight_layout()
+
+# ## Localisation
+
+# It is technically challenging to translate/encode **all** of our prior knowledge into
+# the computational form of an ensemble.  It is also computationally demanding, because
+# a finite ensemble size, $N$, will contain sampling errors.  Thus, in principle, there
+# is room to improve the performance of the ensemble methods by "injecting" more prior
+# knowledge somehow, as an "auxiliary" technique.  A particularly effective way is
+# **localisation**, wherein we eliminate correlations (i.e. relationships) that we are
+# "pretty sure" are *spurious*: merely due to sampling error, rather than indicative of
+# an actual inter-dependence.
+#
+# Much can be said about the ad-hoc nature of most localisation schemes.
+# This is out of scope here.
+# Furthermore, in particular in petroleum reservoir applications,
+# configuring an effective localisation setup can be very challenging.
+# If successful, however, localisation is unreasonably effective,
+# allowing the use of much smaller ensemble sizes than one would think.
+#
+# In our simple case, it is sufficient to use distance-based localisation.  Far-away
+# (remote) correlations will be dampened ("tapered").
+# For the shape, we here use the "bump function" rather than the
+# conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
+# function.  It is illustrated here.
+
+fig, ax = freshfig("Tapering ('bump') functions", figsize=(1.5, .8), rel=1)
+dists = np.linspace(-1, 1, 1001)
+for sharpness in [.01, .1, 1, 10, 100, 1000]:
+    coeffs = loc.bump_function(dists, sharpness)
+    ax.plot(dists, coeffs, label=sharpness)
+ax.legend(title="sharpness")
+ax.set_xlabel("Distance");
+
+# Now we need to compute the distances. We could start by computing the location of each unknown and observation.
+
+xy_prm = model.ind2xy(np.arange(model.M))
+xy_obs = model.ind2xy(obs_inds*nTime)
+
+# However, as we saw from the correlation dashboard, the localisation should be time dependent.
+# It is tempting to say that remote-in-time (i.e. late) observations should have
+# a larger area of impact than earlier observations,
+# since they are spatio-temperal-integro functions (to use a fancy word).
+# We could achieve that by adding a column to `xy_obs` to represent a time coordinate.
+#
+#     t = np.repeat(np.arange(nTime), nProd)
+#     t = 0*(nTime - t)
+#     xyt_prm = np.insert(xy_prm, 0, 0, 1)
+#     xyt_obs = np.insert(xy_obs, 0, t, 1)
+#
+# However, the correlation dashboard does not really support this "dilation" theory,
+# and we should be careful about growing the tapering mask.
+#
+# On the other hand, there was clear movement in the locations of the correlation fields.
+# In fact, the maximum of the correlation to an observation was never even at the
+# location of the well. Therefore, let us collocate the correlation mask with these
+# maxima, which we can achieve by computing distances to the maxima rather than to the
+# wells.
+
+xy_obs = t_ravel(xy_max_corr.T)
+
+# Now we compute the distance between the parameters and the observations (actually, the argmax of the correlations with the observations).
+
+distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
+
+
+# The tapering function is similar to the covariance functions used in geostatistics (see Kriging, variograms),
+# and indeed localisation can be framed as a hybridisation of ensemble covariances with
+# theoretical ones. However, the ideal tapering function does not generally equal the
+# theoretical covariance function, but must instead be "tuned" for performance in the
+# history match. Here we shall content ourselves simply with tuning a "radius" parameter.
+# Neverthless, tuning (wrt. history matching performance) is a breathtakingly costly proposition,
+# requiring a great many synthetic experiments. This is made all the worse by the fact that
+# it might have to be revisited later after some other factors have been tuned, or otherwise changed.
+#
+# Therefore, in lieu of such global tuning, we here undertake a study of the direct impact of the localisation
+# on the correlation fields. Fortunately, we can mostly just re-use the functionality from the above correlation dashboard,
+# but now with some different controls; take a moment to study the function below, which generates the folowing plotted data.
+
+def corr_wells(N, t, well, localise, radi, sharp):
+    if not localise:
+        N = -1
+    C = misc.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
+    if localise:
+        dists = distances_to_obs[:, well + nProd*t]
+        c = loc.bump_function(dists/radi, 10**sharp)
+        C *= c**2
+        C[c < 1e-3] = np.nan
+    return C
+
+
+corr_wells.controls = dict(
+    localise=False,
+    radi=(0.1, 5),
+    sharp=(-1.0, 1),
+    N=(2, N),
+    t=(0, nTime-1),
+    well=np.arange(nProd),
+)
+
+
+plots.field_interact(corr_wells, "corr", "Pre-perm vs obs/well at time t", wells=True)
+
+
+# - Note that the `N` slider is only active when `localise` is *enabled*.
+#   When localisation is not enabled, then the full ensemble size is being used.
+# - Set `N=20` and toggle `localise` on/off, while you play with different values of `radi`.
+#   Try to find a value that makes the `localized` (small-ensemble) fields
+#   resemble (as much as possible) the full-size ensemble fields.
+# - The suggested value from the author is `1.3` (and sharpness $10^0$, i.e. 1).
 
 # ## Assimilation
 
@@ -647,7 +783,7 @@ class pre_compute_ens_update:
 
 # ### Bug check
 
-# It is very easy to introduce bugs in the code.
+# It is very easy to introduce bugs.
 # Fortunately, most can be eliminated with a few simple tests.
 #
 # For example, let us generate a case where both $x$
@@ -670,8 +806,7 @@ with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:\n", np.cov(gg_postr.T))
 
-
-# ### Ensemble smoother
+# ### Apply as smoother
 
 # #### Why not filtering?
 # Before ensemble smoothers were used for history matching, it was though that
@@ -686,19 +821,6 @@ with np.printoptions(precision=1):
 # approximation (and hence the associated problems) only seem likely to worsen if using
 # jointly-updated (rather than re-generated) state fields.  This makes the
 # parameter-only update of the (batch) smoothers appealing.
-
-# We have organised our simulated ensemble data in 3D arrays, with time along the middle
-# dimension (the 1st axis). Ensemble methods have no notion of 3D arrays, so we need to
-# be able to flatten the time dimension, and to undo this.
-
-def t_ravel(x, undo=False):
-    """Ravel/flatten the last two axes, or undo this operation."""
-    if undo:
-        *N, ab = x.shape
-        return x.reshape(N + [nTime, ab//nTime])
-    else:
-        *N, a, b = x.shape
-        return x.reshape(N + [a*b])
 
 # #### Compute
 
@@ -724,12 +846,12 @@ def enAnalysis(E, Eo, y, R):
     return pre_compute_ens_update(obs_ens=Eo, observations=y, obs_err_cov=R)(E)
 
 
-def localized_ens_update0(E, Eo, R, y, domains, obs_taperer, mp=map):
+def localized_ens_update0(E, Eo, R, y, domains, localiser, mp=map):
     """Perform local analysis update for the LETKF."""
     def local_analysis(ii):
         """Perform analysis, for state index batch `ii`."""
         # Locate local domain
-        oBatch, tapering = obs_taperer(ii)
+        oBatch, tapering = localiser(ii)
         Eii = E[:, ii]
 
         # No update
@@ -770,55 +892,49 @@ gg_postr = localized_ens_update0(
     y  = 10*np.ones(gg_ndim),
     # Localize simply by processing each dim. entirely seperately:
     domains=np.arange(gg_ndim),
-    obs_taperer=(lambda i: (i == np.arange(gg_ndim), 1)),
+    localiser=(lambda i: (i == np.arange(gg_ndim), 1)),
 )
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:\n", np.cov(gg_postr.T))
 
+# #### Localisation setup
 
-# ## Localize point obs of an N-D, homogeneous, rectangular domain.
-# TODO: localise differently in time?
-# TODO: localisation adds prior knowledge, because we know htat ensemble does
-#       not "encode" all of our prior knowledge (especially due to sampling error)
+# The form of the localisation used in the above code is "local/domain analysis".
+# As can be seen, it consists of sequentially processing batches (subsets/domains)
+# of the vector of unknowns (actually, ideally, we'd iterate over each single element,
+# but that is generally computationally inefficient). This defines the local domains:
 
-# Define local domains
 domains = loc.rectangular_partitioning(model.shape, (5, 7))
 
-# Illustration: fill each domain by random color. Should produce rectangle patchwork!
+# We can illustrate the partitioning by filling each domain by a random color.
+# This should produce a patchwork of rectangles.
+
 colors = rnd.choice(len(domains), len(domains), False)
 Z = np.zeros(model.shape)
 for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
-plt.imshow(Z, cmap="tab20")
-
-# For the tapering, we use "bump function" rather than the conventional
-# (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial function.
-# It is illustrated here.
-
-distances = loc.pairwise_distances(model.ind2sub(np.arange(model.M)).T,
-                                   model.ind2sub(obs_inds*nTime).T)
-##
-fig, ax = freshfig("Tapering ('bump') functions", figsize=(1, .5), rel=1)
-dists = np.linspace(-1, 1, 1001)
-for sharpness in [.01, .1, 1, 10, 100, 1000]:
-    coeffs = loc.bump_function(dists, sharpness)
-    ax.plot(dists, coeffs, label=sharpness)
-ax.legend(title="sharpness")
-ax.set_xlabel("Distance")
+fig, ax = freshfig("Computing domains", figsize=(1, .5), rel=1)
+ax.imshow(Z, cmap="tab20");
 
 
-def obs_taperer(batch):
-    dists = distances[batch].mean(axis=0)  # obs - batch(mean location)
-    coeffs = loc.bump_function(dists/10)
-    non0 = coeffs > 1e-3
-    return non0, coeffs[non0]
+# The tapering will be applied to the observation ensemble and innovations
+# as a function of their distance to (the mean location of) the local domain/batch.
+# Here is a function that returns the observation tapering coefficients for a given domain/batch.
+# The default radius is the one we found to be the most promising from the correlation study.
 
-### fawef
+def localisation_setup(batch, radius=1.3, sharpness=1):
+    dists = distances_to_obs[batch].mean(axis=0)
+    obs_coeffs = loc.bump_function(dists/radius, sharpness)
+    obs_mask = obs_coeffs > 1e-3
+    return obs_mask, obs_coeffs[obs_mask]
+
+# #### Apply as smoother
+
 perm.LES = localized_ens_update0(perm.Prior, t_ravel(prod.past.Prior),
                                  sla.block_diag(*[R]*nTime), t_ravel(prod.past.Noisy),
-                                 domains, obs_taperer)
+                                 domains, localisation_setup)
 
 # ### Iterative ensemble smoother
 

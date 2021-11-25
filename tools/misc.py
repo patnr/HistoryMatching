@@ -172,6 +172,7 @@ def corr(a, b):
 
     sa = np.std(a.T, axis=-1, ddof=1)
     sb = np.std(b  , axis=+0, ddof=1, keepdims=True)
+    # with np.errstate(divide="ignore", invalid="ignore"):
     Corr = C / sa / sb
 
     # Convert inf to 999. Either way it means that the correlation is ill-defined,

@@ -639,7 +639,7 @@ for i, xy_path in enumerate(xy_max_corr):
     plotting.arrowhead_endpoints(ax, i, xy_path, **color)
 fig.tight_layout()
 
-# ## localization
+# ## Localization
 
 # It is technically challenging to translate/encode **all** of our prior knowledge into
 # the computational form of an ensemble.  It is also computationally demanding, because

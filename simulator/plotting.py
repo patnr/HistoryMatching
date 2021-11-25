@@ -384,48 +384,55 @@ def field_interact(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     linked = wg.interactive(plot, **ctrls)
     *ww, _ = linked.children
 
-    # Adjust control styles
-    # PS: use border="solid" to debug
     for w in ww:
         if "Slider" in str(type(w)):
             w.continuous_update = False  # => faster
-            w.style.description_width = "2em"
             if w.description == "x":
                 w.layout.width = "85%"
             elif w.description == "y":
                 w.orientation = "vertical"
                 w.layout.width = "2em"
                 w.layout.height = "63%"
-            else:
-                w.layout.width = "16em"
         elif "Dropdown" in str(type(w)):
             w.layout.width = 'max-content'
             w.style.description_width = "max-content"
 
-    # Compose layout
-    # PS: Use flexboxes (scale automatically, unlike AppLayout, TwoByTwoLayout)
-    V, H = wg.VBox, wg.HBox
+    # Layout
     try:
-        # Fancy layout
-        cN, cF, cFt, cP, cPt, cX, cY = ww
-        cF = V([cF, cFt])
-        cP = V([cP, cPt])
-    except IndexError:
-        # Fallback layout -- works for any number of controls
-        cpanel = V(ww, layout=dict(align_items='center'))
-        layout = H([output, cpanel])
-    else:
-        # Complete the fancy layout
-        # hspace = H([], layout={"width": "50px"})
-        center = {"justify_content": "space-around"}
-        cX = H([cX], layout={**center, "padding": "0 0 0 40px"})
-        cY = V([cY], layout=center)
-        cH = H([cN, cF, cP], layout=center)
-        layout = H([V([cH, output, cX]), cY])
+        layout = layout1(ww, output)
+    except (ValueError, IndexError):
+        # Fallback
+        cpanel = wg.VBox(ww, layout=dict(align_items='center'))
+        layout = wg.HBox([output, cpanel])
 
     # Display
     display(layout)
     plot(**{w.description: w.value for w in ww})
+
+
+def layout1(ww, output):
+    # try
+    cN, cF, cFt, cP, cPt, cX, cY = ww
+
+    # Adjust control styles
+    for w in ww:
+        if "Slider" in str(type(w)):
+            w.style.description_width = "2em"
+            w.layout.width = "16em"
+
+    # Compose layout
+    # PS: Use flexboxes (scale automatically, unlike AppLayout, TwoByTwoLayout)
+    V, H = wg.VBox, wg.HBox
+    cF = V([cF, cFt])
+    cP = V([cP, cPt])
+    # hspace = H([], layout={"width": "50px"})
+    center = {"justify_content": "space-around"}
+    cX = H([cX], layout={**center, "padding": "0 0 0 40px"})
+    cY = V([cY], layout=center)
+    cH = H([cN, cF, cP], layout=center)
+    layout = H([V([cH, output, cX]), cY])
+
+    return layout
 
 
 def scale_well_geometry(ww):

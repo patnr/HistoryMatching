@@ -669,7 +669,8 @@ for sharpness in [.01, .1, 1, 10, 100, 1000]:
     coeffs = loc.bump_function(dists, sharpness)
     ax.plot(dists, coeffs, label=sharpness)
 ax.legend(title="sharpness")
-ax.set_xlabel("Distance");
+ax.set_xlabel("Distance")
+fig.tight_layout()
 
 # Now we need to compute the distances. We could start by computing the
 # location of each unknown and observation.

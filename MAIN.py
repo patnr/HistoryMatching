@@ -670,16 +670,18 @@ for sharpness in [.01, .1, 1, 10, 100, 1000]:
 ax.legend(title="sharpness")
 ax.set_xlabel("Distance");
 
-# Now we need to compute the distances. We could start by computing the location of each unknown and observation.
+# Now we need to compute the distances. We could start by computing the
+# location of each unknown and observation.
 
 xy_prm = model.ind2xy(np.arange(model.M))
 xy_obs = model.ind2xy(obs_inds*nTime)
 
-# However, as we saw from the correlation dashboard, the localisation should be time dependent.
-# It is tempting to say that remote-in-time (i.e. late) observations should have
-# a larger area of impact than earlier observations,
-# since they are spatio-temperal-integro functions (to use a fancy word).
-# We could achieve that by adding a column to `xy_obs` to represent a time coordinate.
+# However, as we saw from the correlation dashboard, the localisation should be
+# time dependent.  It is tempting to say that remote-in-time (i.e. late)
+# observations should have a larger area of impact than earlier observations,
+# since they are spatio-temperal-integro functions (to use a fancy word).  We
+# could achieve that by adding a column to `xy_obs` to represent a time
+# coordinate.
 #
 #     t = np.repeat(np.arange(nTime), nProd)
 #     t = 0*(nTime - t)
@@ -697,23 +699,29 @@ xy_obs = model.ind2xy(obs_inds*nTime)
 
 xy_obs = t_ravel(xy_max_corr.T)
 
-# Now we compute the distance between the parameters and the observations (actually, the argmax of the correlations with the observations).
+# Now we compute the distance between the parameters and the (argmax of the
+# correlations with the) observations.
 
 distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 
 
-# The tapering function is similar to the covariance functions used in geostatistics (see Kriging, variograms),
-# and indeed localisation can be framed as a hybridisation of ensemble covariances with
-# theoretical ones. However, the ideal tapering function does not generally equal the
-# theoretical covariance function, but must instead be "tuned" for performance in the
-# history match. Here we shall content ourselves simply with tuning a "radius" parameter.
-# Neverthless, tuning (wrt. history matching performance) is a breathtakingly costly proposition,
-# requiring a great many synthetic experiments. This is made all the worse by the fact that
-# it might have to be revisited later after some other factors have been tuned, or otherwise changed.
+# The tapering function is similar to the covariance functions used in
+# geostatistics (see Kriging, variograms), and indeed localisation can be
+# framed as a hybridisation of ensemble covariances with theoretical ones.
+# However, the ideal tapering function does not generally equal the theoretical
+# covariance function, but must instead be "tuned" for performance in the
+# history match. Here we shall content ourselves simply with tuning a "radius"
+# parameter.  Neverthless, tuning (wrt. history matching performance) is a
+# breathtakingly costly proposition, requiring a great many synthetic
+# experiments. This is made all the worse by the fact that it might have to be
+# revisited later after some other factors have been tuned, or otherwise
+# changed.
 #
-# Therefore, in lieu of such global tuning, we here undertake a study of the direct impact of the localisation
-# on the correlation fields. Fortunately, we can mostly just re-use the functionality from the above correlation dashboard,
-# but now with some different controls; take a moment to study the function below, which generates the folowing plotted data.
+# Therefore, in lieu of such global tuning, we here undertake a study of the
+# direct impact of the localisation on the correlation fields. Fortunately, we
+# can mostly just re-use the functionality from the above correlation
+# dashboard, but now with some different controls; take a moment to study the
+# function below, which generates the folowing plotted data.
 
 def corr_wells(N, t, well, localise, radi, sharp):
     if not localise:

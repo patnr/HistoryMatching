@@ -94,7 +94,7 @@ def pairwise_distances(A, B=None, domain=None):
 
 
 def bump_function(distances, sharpness=1):
-    mask = np.abs(distances) < 1
+    mask = np.abs(distances) < 1  # only compute for |distances|<1
     x = distances[mask]
     v = np.exp(1 - 1/(1 - x*x)) ** sharpness
     coeffs = np.zeros_like(distances)

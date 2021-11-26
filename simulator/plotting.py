@@ -443,26 +443,16 @@ def layout1(ww, output):
     return layout
 
 
-def scale_well_geometry(ww):
-    """Wells use absolute scaling. Scale to `coord_type` instead."""
-    ww = ww.copy()  # dont overwrite
-    if "rel" in coord_type:
-        s = 1/model.Lx, 1/model.Ly
-    elif "abs" in coord_type:
-        s = 1, 1
-    elif "ind" in coord_type:
-        s = model.Nx/model.Lx, model.Ny/model.Ly
-    else:
-        raise ValueError("Unsupported coordinate type: %s" % coord_type)
-    ww[:, :2] = ww[:, :2] * s
-    return ww
-
-
 def well_scatter(ax, ww, inj=True, text=None, color=None):
     """Scatter-plot the wells in `ww`."""
     # Well coordinates, stretched for plotting (ref plotting.fields)
     ww = model.sub2xy_stretched(*model.xy2sub(*ww.T[:2])).T
-    ww = scale_well_geometry(ww)
+    # NB: make sure ww array data is not overwritten (avoid in-place)
+    if   "rel" in coord_type: s = 1/model.Lx, 1/model.Ly                   # noqa
+    elif "abs" in coord_type: s = 1, 1                                     # noqa
+    elif "ind" in coord_type: s = model.Nx/model.Lx, model.Ny/model.Ly     # noqa
+    else: raise ValueError("Unsupported coordinate type: %s" % coord_type) # noqa
+    ww = ww * s
 
     # Style
     if inj:

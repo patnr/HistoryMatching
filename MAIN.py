@@ -443,9 +443,9 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
 
 
-# #### Flattening matrices into vectors
+# #### Flattening the time dimension
 
-# We have organised our simulated ensemble data in 3D arrays,
+# We have organised our ensemble data in 3D arrays,
 # with *time* along the second-to-last axis.
 # Ensemble methods have no notion of 3D arrays, however, so we need to
 # be able to flatten the time and space dimensions (as well as to undo this).

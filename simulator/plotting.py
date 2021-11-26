@@ -608,7 +608,7 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
     return plot, kw_subplots
 
 
-def production1(ax, production, obs=None):
+def production1(ax, production, obs=None, legend_outside=True):
     """Production time series. Multiple wells in 1 axes => not ensemble compat."""
     hh = []
     tt = 1+np.arange(len(production))
@@ -621,10 +621,15 @@ def production1(ax, production, obs=None):
 
     # Add legend
     place_ax.adjust_position(ax, w=-0.05)
-    ax.legend(title="Well #.",
+    if legend_outside:
+        kws = dict(
               bbox_to_anchor=(1, 1),
               loc="upper left",
-              ncol=1+len(production.T)//10)
+              ncol=1+len(production.T)//10,
+        )
+    else:
+        kws = dict(loc="lower left")
+    ax.legend(title="Well #.", **kws)
 
     ax.set_ylabel("Production (saturations)")
     ax.set_xlabel("Time index")
@@ -635,51 +640,17 @@ def production1(ax, production, obs=None):
 
 
 # Note: See note in mpl_setup.py about properly displaying the animation.
-def evolution(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
+def anim(key, *dcts, figsize=(2.0, .7), pause=200, animate=True, **kwargs):
     perm, wsats, prod = [d[key] for d in dcts]  # unpack
 
     # Create figure and axes
-    title = dash_join("Evolution", key)
-    # NB: constrained_layout seems to put too much space between axes.
-    # Could be remedied by configuring h_pad, w_pad?
-    fig = plt.figure(num=title,
-                     figsize=place.relative_figsize(figsize))
-    fig.clear()
+    title = dash_join("Animation", key)
+    fig, (ax1, ax2) = place.freshfig(title, ncols=2, figsize=figsize, rel=True)
     fig.suptitle(title)  # coz animation never (any backend) displays title
-    gs = fig.add_gridspec(100, 100)
-    w, h, p, c = 45, 45, 3, 3
-    ax11 = fig.add_subplot(gs[:+h, :w])
-    ax12 = fig.add_subplot(gs[:+h, -w-p-c:-p-c])
-    ax21 = fig.add_subplot(gs[-h:, :w]         , sharex=ax12, sharey=ax12)
-    ax22 = fig.add_subplot(gs[-h:, -w-p-c:-p-c], sharex=ax12, sharey=ax12)
-    # Colorbars
-    ax12c = fig.add_subplot(gs[:+h, -c:])
-    ax22c = fig.add_subplot(gs[-h:, -c:])
-
-    # Perm
-    ax12.cc = field(ax12, perm, "pperm", colorbar=ax12c, **kwargs)
-    ax12c.set_ylabel("Permeability")
-
-    # Saturation0
-    ax21.cc = field(ax21, wsats[+0], "oil", **kwargs)
     # Saturations
-    ax22.cc = field(ax22, wsats[-1], "oil", wells="color", colorbar=ax22c, **kwargs)
-    label_ax(ax21, "Initial", c="k", fontsize="x-large")
-    # Add wells
-    ax22c.set_ylabel(styles["oil"]["title"])
-
+    ax2.cc = field(ax2, wsats[-1], "oil", wells="color", colorbar=True, **kwargs)
     # Production
-    hh = production1(ax11, prod)
-    ax11.set_xlabel(ax11.get_xlabel(), labelpad=-10)
-
-    ax12.yaxis.set_tick_params(labelleft=False)
-    ax22.yaxis.set_tick_params(labelleft=False)
-    ax12.xaxis.set_tick_params(labelbottom=False)
-    ax12.set_ylabel(None)
-    ax22.set_ylabel(None)
-    ax12.set_xlabel(None)
-    # ax12c.yaxis.set_label_position('left')
-    # ax11.yaxis.set_ticks_position("right")
+    hh = production1(ax1, prod, legend_outside=False)
 
     if animate:
         from matplotlib import animation
@@ -687,13 +658,12 @@ def evolution(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
 
         def update_fig(iT):
             # Update field
-            for c in ax22.cc.collections:
+            for c in ax2.cc.collections:
                 try:
-                    ax22.collections.remove(c)
+                    ax2.collections.remove(c)
                 except ValueError:
                     pass  # occurs when re-running script
-            ax22.cc = field(ax22, wsats[iT], "oil", **kwargs)
-            ax22.set_ylabel(None)
+            ax2.cc = field(ax2, wsats[iT], "oil", **kwargs)
 
             # Update production lines
             if iT >= 1:

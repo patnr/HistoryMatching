@@ -322,7 +322,7 @@ def captured_fig(output, num, **kwargs):
                 # I think it's related to being in an ipython widget, but can also
                 # be fixed by changing num (so that freshfig creates a new one).
                 plt.close(num)
-        fig, axs = place.freshfig(num, **kwargs)
+        fig, axs = place.freshfig(num, ipympl_show=False, **kwargs)
         return fig, axs
 
     def decorator(f):

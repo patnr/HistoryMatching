@@ -181,7 +181,7 @@ def fields(ZZ, style=None, title="", figsize=(1.7, 1),
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
 
     # Create figure using freshfig
-    title = dash("Fields", kw("title"), title)
+    title = dash_join("Fields", kw("title"), title)
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
     # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
@@ -212,7 +212,7 @@ def fields(ZZ, style=None, title="", figsize=(1.7, 1),
 
     # Suptitle
     if len(ZZ) > len(axs):
-        suptitle = dash(suptitle, f"First {len(axs)} instances")
+        suptitle = dash_join(suptitle, f"First {len(axs)} instances")
     # Re-set suptitle (since it got cleared above)
     if suptitle:
         fig.suptitle(suptitle)
@@ -361,7 +361,7 @@ def captured_fig(output, num, **kwargs):
 def field_console(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
     kw = lambda k: pop_style_with_fallback(k, style, kwargs)
-    title  = dash(kw("title"), title)
+    title  = dash_join(kw("title"), title)
     ctrls  = compute.controls.copy()  # gets modified
     output = wg.Output()
 
@@ -582,7 +582,7 @@ def toggle_items(wrapped):
 @toggle_items
 def productions(dct, title="", figsize=(1.5, 1), nProd=None):
     """Production time series with data toggler. 1 axes/well. Ensemble compatible."""
-    title = dash("Production profiles", title)
+    title = dash_join("Production profiles", title)
 
     if nProd is None:
         nProd = struct_tools.get0(dct).shape[1]
@@ -651,7 +651,7 @@ def evolution(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
     perm, wsats, prod = [d[key] for d in dcts]  # unpack
 
     # Create figure and axes
-    title = dash("Evolution", key)
+    title = dash_join("Evolution", key)
     # NB: constrained_layout seems to put too much space between axes.
     # Could be remedied by configuring h_pad, w_pad?
     fig = plt.figure(num=title,
@@ -727,7 +727,7 @@ def evolution(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs)
 
 def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):
     """Plotter specialized for spectra."""
-    title = dash("Spectrum", title)
+    title = dash_join("Spectrum", title)
     fig, ax = place.freshfig(title, figsize=figsize, rel=True)
     if semilogy:
         h = ax.semilogy(ydata)
@@ -739,7 +739,7 @@ def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):
     return h
 
 
-def dash(*txts):
+def dash_join(*txts):
     """Join non-empty txts by a dash."""
     return " -- ".join([t for t in txts if t != ""])
 

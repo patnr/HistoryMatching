@@ -198,24 +198,25 @@ perm.Truth = sample_prior_perm(1)
 set_perm(model, perm.Truth)
 
 # #### Wells
+
 # In this model, wells are represented simply by point **sources** and **sinks**. This
 # is of course incredibly basic and not realistic, but works for our purposes. So all we
 # need to specify is their placement and flux (which we will not vary in time). The code
-# below puts wells on a grid. Try `print(grid2)` to see how to easily specify another
-# well configuration.
-#
+# below places the production wells on a grid, and specifies the same (and constant in time) production **rate** for each.
+
+grid1 = [.1, .9]
+grid2 = np.dstack(np.meshgrid(grid1, grid1)).reshape((-1, 2))
+rates = np.ones((len(grid2), 1))
+prods = np.hstack((grid2, rates))
+
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
 # is incompressible, the total of the source terms must equal that of the sinks. This is
 # ensured by the `config_wells` function used below.
 
-grid1 = [.1, .9]
-grid2 = np.dstack(np.meshgrid(grid1, grid1)).reshape((-1, 2))
-rates = np.ones((len(grid2), 1))  # ==> all wells use the same (constant) rate
 model.config_wells(
-    # Each row in `inj` and `prod` should be a tuple: (x, y, rate),
-    # where x, y ∈ (0, 1) and rate > 0.
+    # Each row should be a tuple: (x/Lx, y/Ly, |rate|)
     inj  = [[0.50, 0.50, 1.00]],
-    prod = np.hstack((grid2, rates)),
+    prod = prods,
 );
 
 # #### Plot

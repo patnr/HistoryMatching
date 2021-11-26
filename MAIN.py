@@ -259,7 +259,7 @@ wsat.init.Truth = np.zeros(model.M)
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = plotting.dashboard("Truth", perm, wsat.past, prod.past);
+animation = plotting.evolution("Truth", perm, wsat.past, prod.past);
 
 # Note: can take up to a minute to appear
 animation

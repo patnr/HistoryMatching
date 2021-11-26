@@ -643,11 +643,11 @@ def production1(ax, production, obs=None):
 
 
 # Note: See note in mpl_setup.py about properly displaying the animation.
-def dashboard(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
+def evolution(key, *dcts, figsize=(2.0, 1.3), pause=200, animate=True, **kwargs):
     perm, wsats, prod = [d[key] for d in dcts]  # unpack
 
     # Create figure and axes
-    title = dash("Dashboard", key)
+    title = dash("Evolution", key)
     # NB: constrained_layout seems to put too much space between axes.
     # Could be remedied by configuring h_pad, w_pad?
     fig = plt.figure(num=title,

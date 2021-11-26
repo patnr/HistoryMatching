@@ -755,35 +755,20 @@ plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells
 
 # ### Ensemble update
 
-class pre_compute_ens_update:
-    """Compute the ensemble gain * innovation, using random obs. perturbations.
+# NB: some of these formulae are transposed and reversed compared to EnKF literature
+# convention. The reason is that we stack the members as rows (instead of columns).
+# [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
 
-    In other words, prepare the ensemble update/conditioning (Bayes' rule).
-    This pre-computed "X5" matrix can then be applied to *any* ensemble,
-    similar to how the state/parm vector of unknowns can be augmented by anything.
-
-    NB: obs_err_cov is treated as diagonal. A non-diagonal implementation requires using
-    `sla.sqrtm` or equivalent EVD manips.
-
-    NB: some of these formulae are transposed and reversed compared to EnKF literature
-    convention. The reason is that we stack the members as rows (instead of columns).
-    [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
-    """
-
-    def __init__(self, obs_ens, observations, obs_err_cov):
-        """Prepare the update."""
-        Y, _        = center(obs_ens)
-        obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y
-        obs_pert    = rnd.randn(*Y.shape) @ sqrt(obs_err_cov)
-        # obs_pert  = center(obs_pert, rescale=True)
-        innovations = observations - (obs_ens + obs_pert)
-
-        # (pre-) Kalman gain * Innovations.Also called the X5 matrix by Evensen'2003.
-        self.KGdY = innovations @ sla.pinv2(obs_cov) @ Y.T
-
-    def __call__(self, E):
-        """Do the update."""
-        return E + self.KGdY @ center(E)[0]
+def ens_update0(ens, obs_ens, observations, obs_err_cov):
+    """Compute the ensemble analysis (conditioning/Bayes) update."""
+    X, _        = center(ens)
+    Y, _        = center(obs_ens)
+    obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y  # TODO: use sqrtm for full R compat.
+    obs_pert    = rnd.randn(*Y.shape) @ sqrt(obs_err_cov)
+    # obs_pert  = center(obs_pert, rescale=True)
+    innovations = observations - (obs_ens + obs_pert)
+    KG          = sla.pinv2(obs_cov) @ Y.T @ X
+    return ens + innovations @ KG
 
 # ### Bug check
 
@@ -797,11 +782,7 @@ class pre_compute_ens_update:
 # Note: the prefix "gg_" stands for Gaussian-Gaussian
 gg_ndim = 3
 gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
-gg_postr = pre_compute_ens_update(
-    obs_ens      = gg_prior,
-    observations = 10*np.ones(gg_ndim),
-    obs_err_cov  = 2*np.eye(gg_ndim),
-)(gg_prior)
+gg_postr = ens_update0(gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))
 
 # From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.
 # Let us verify that the method reproduces this (up to sampling error)
@@ -828,14 +809,8 @@ with np.printoptions(precision=1):
 
 # #### Compute
 
-# Pre-compute
-ens_update0 = pre_compute_ens_update(
-    obs_ens      = vect(prod.past.Prior),
-    observations = vect(prod.past.Noisy),
-    obs_err_cov  = sla.block_diag(*[R]*nTime),
-)
-# Apply
-perm.ES = ens_update0(perm.Prior)
+obs_args = (vect(prod.past.Prior), vect(prod.past.Noisy), sla.block_diag(*[R]*nTime))
+perm.ES = ens_update0(perm.Prior, *obs_args)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -845,10 +820,6 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 # We will see some more diagnostics later.
 
 # ### With localization
-
-def enAnalysis(E, Eo, y, R):
-    return pre_compute_ens_update(obs_ens=Eo, observations=y, obs_err_cov=R)(E)
-
 
 def localized_ens_update0(E, Eo, R, y, domains, localizer, mp=map):
     """Perform local analysis update for the LETKF."""
@@ -872,7 +843,7 @@ def localized_ens_update0(E, Eo, R, y, domains, localizer, mp=map):
         R = np.eye(len(dyl))
 
         # Update
-        return enAnalysis(Eii, Yl*tpr, dyl*tpr, R)
+        return ens_update0(Eii, Yl*tpr, dyl*tpr, R)
 
     # Prepare analysis
     Y, xo = center(Eo)
@@ -890,10 +861,7 @@ def localized_ens_update0(E, Eo, R, y, domains, localizer, mp=map):
 # #### Bug check
 
 gg_postr = localized_ens_update0(
-    E  = gg_prior,
-    Eo = gg_prior,
-    R  = 2*np.eye(gg_ndim),
-    y  = 10*np.ones(gg_ndim),
+    gg_prior, gg_prior, 2*np.eye(gg_ndim), 10*np.ones(gg_ndim),
     # Localize simply by processing each dim. entirely seperately:
     domains=np.arange(gg_ndim),
     localizer=(lambda i: (i == np.arange(gg_ndim), 1)),
@@ -1143,7 +1111,7 @@ plotting.fields(perm_means, "pperm", "Means");
 # the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior)), undo=True)
+prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), *obs_args), undo=True)
 
 # #### Production plots
 
@@ -1220,7 +1188,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior)), undo=True)
+prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), *obs_args), undo=True)
 
 # #### Production plots
 

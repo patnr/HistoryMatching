@@ -389,15 +389,10 @@ def field_console(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
     linked = wg.interactive(plot, **ctrls)
     *ww, _ = linked.children
 
+    # Adjust control styles
     for w in ww:
         if "Slider" in str(type(w)):
             w.continuous_update = False  # => faster
-            if w.description == "x":
-                w.layout.width = "85%"
-            elif w.description == "y":
-                w.orientation = "vertical"
-                w.layout.width = "2em"
-                w.layout.height = "63%"
         elif "Dropdown" in str(type(w)):
             w.layout.width = 'max-content'
             w.style.description_width = "max-content"
@@ -422,8 +417,15 @@ def layout1(ww, output):
     # Adjust control styles
     for w in ww:
         if "Slider" in str(type(w)):
-            w.style.description_width = "2em"
             w.layout.width = "16em"
+            if w.description == "x":
+                w.layout.width = "90%"
+            elif w.description == "y":
+                w.orientation = "vertical"
+                w.layout.width = "2em"
+                w.layout.height = "85%"
+            else:
+                w.style.description_width = "2em"
 
     # Compose layout
     # PS: Use flexboxes (scale automatically, unlike AppLayout, TwoByTwoLayout)

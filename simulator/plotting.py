@@ -395,7 +395,6 @@ def field_console(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
             w.continuous_update = False  # => faster
         elif "Dropdown" in str(type(w)):
             w.layout.width = 'max-content'
-            w.style.description_width = "max-content"
 
     # Layout
     try:
@@ -416,18 +415,17 @@ def layout1(ww, output):
 
     # Adjust control styles
     for w in ww:
+        w.style.description_width = "max-content"
         if "Slider" in str(type(w)):
             w.layout.width = "16em"
             if w.description == "x":
-                w.layout.width = "90%"
-                w.layout.padding = "0 60px 0 0"
+                w.layout.width = "76%"
+                w.layout.padding = "0 0 0 20px"
             elif w.description == "y":
                 w.orientation = "vertical"
                 w.layout.width = "2em"
                 w.layout.height = "85%"
                 w.layout.padding = "0 0 25px 0"
-            else:
-                w.style.description_width = "2em"
 
     # Compose layout
     # PS: Use flexboxes (scale automatically, unlike AppLayout, TwoByTwoLayout)

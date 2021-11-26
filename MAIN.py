@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# # Tutorial on ensemble history matching and optimisation
+# # History matching and optimisation with ensembles – an interactive tutorial
 #
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #

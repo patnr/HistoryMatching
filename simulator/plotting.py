@@ -420,10 +420,12 @@ def layout1(ww, output):
             w.layout.width = "16em"
             if w.description == "x":
                 w.layout.width = "90%"
+                w.layout.padding = "0 60px 0 0"
             elif w.description == "y":
                 w.orientation = "vertical"
                 w.layout.width = "2em"
                 w.layout.height = "85%"
+                w.layout.padding = "0 0 25px 0"
             else:
                 w.style.description_width = "2em"
 
@@ -434,10 +436,10 @@ def layout1(ww, output):
     cP = V([cP, cPt])
     # hspace = H([], layout={"width": "50px"})
     center = {"justify_content": "space-around"}
-    cX = H([cX], layout={**center, "padding": "0 0 0 40px"})
+    cX = H([cX], layout=center)
     cY = V([cY], layout=center)
-    cH = H([cN, cF, cP], layout=center)
-    layout = H([V([cH, output, cX]), cY])
+    cH = H([cN, cF, cP], layout={"justify_content": "space-between"})
+    layout = H([V([cH, H([output, cY]), cX])])
 
     return layout
 

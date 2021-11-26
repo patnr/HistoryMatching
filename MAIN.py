@@ -188,7 +188,7 @@ plotting.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
 # `perm_transf`.
 
 def set_perm(model, log_perm_array):
-    """Set perm. in model code. Duplicates the perm. values in x- and y- dir."""
+    """Set perm. in model code (both x and y components)."""
     p = perm_transf(log_perm_array)
     p = p.reshape(model.shape)
     model.Gridded.K = np.stack([p, p])

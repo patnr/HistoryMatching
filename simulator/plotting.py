@@ -6,8 +6,8 @@ Snippet to reload module:
     import importlib
     import simulator.plotting as m
     m = importlib.reload(m)
-    plots.model = model
-    plots.coord_type = "absolute"
+    plotting.model = model
+    plotting.coord_type = "absolute"
 """
 
 # TODO: unify (nRowCol, turn off, ax.text, etc) for

@@ -76,39 +76,46 @@ class Grid2D:
     def xy2sub(self, x, y):
         """Convert physical coordinate tuple to tuple `(ix, iy)`.
 
-        Note: rounds to nearest integers (i.e. is not injective).
+        Here, ix ∈ {0, ..., Nx-1}.
+
+        Note: rounds to nearest mesh center (i.e. is not injective).
         The alternative would be to return some kind of interpolation weights.
         """
-        # ix = int(round(x/self.Lx*(self.Nx-1)))
-        # iy = int(round(y/self.Ly*(self.Ny-1)))
-        ix = (np.array(x) / self.Lx*(self.Nx-1)).round().astype(int)
-        iy = (np.array(y) / self.Ly*(self.Ny-1)).round().astype(int)
+        # Clip to allow for case x==Lx (arguably, Lx [but not 0!] is out-of-domain).
+        # Warning: don't simply subtract 1e-8; causes issue if x==0.
+        x = np.asarray(x).clip(max=self.Lx-1e-8)
+        y = np.asarray(y).clip(max=self.Ly-1e-8)
+        ix = np.floor(x / self.Lx * self.Nx).astype(int)
+        iy = np.floor(y / self.Ly * self.Ny).astype(int)
         return np.asarray([ix, iy])
-
-    def sub2xy(self, ix, iy):
-        """Approx. inverse of `self.xy2sub`. NB: see caution in `xy2sub`."""
-        x = self.Lx * (ix + .5)/self.Nx
-        y = self.Ly * (iy + .5)/self.Ny
-        return np.asarray([x, y])
-
-    def sub2xy_stretched(self, ix, iy):
-        """Like `self.xy2sub`, but inflating put node `i=0` at `0`, and `i=N-1` at `L`.
-
-        This is wrong. Only use with `plotting.field()`, which also stretches the field.
-        """
-        x = self.Lx * ix/(self.Nx-1)
-        y = self.Ly * iy/(self.Ny-1)
-        return np.asarray([x, y])
 
     def xy2ind(self, x, y):
         """Convert physical coord to flat indx. NB: see caution in `xy2sub`."""
-        return self.sub2ind(*self.xy2sub(x, y))
+        i, j = self.xy2sub(x, y)
+        return self.sub2ind(i, j)
+
+    def sub2xy(self, ix, iy):
+        """Inverse of `self.xy2sub` (outputs mesh CENTERS)."""
+        x = (np.asarray(ix) + .5) * self.hx
+        y = (np.asarray(iy) + .5) * self.hy
+        return np.asarray([x, y])
 
     def ind2xy(self, ind):
-        """Inv. of `self.xy2ind`. NB: see caution in `xy2sub`."""
+        """Inv. of `self.xy2ind` (outputs mesh CENTERS)."""
         i, j = self.ind2sub(ind)
-        # TODO: should be able to use sub2xy here,
-        # but that seems different.
-        x    = i/(self.Nx-1)*self.Lx
-        y    = j/(self.Ny-1)*self.Ly
+        return self.sub2xy(i, j)
+
+    def sub2xy_stretched(self, ix, iy):
+        """Like `self.xy2sub`, but inflating. Puts node `i=0` at `0`, and `i=N-1` at `L`.
+
+        This is wrong. Only use with `plotting.field()`, which also stretches the field
+        (because it does not use `origin="lower"`).
+        """
+        x = np.asarray(ix) * self.Lx/(self.Nx-1)
+        y = np.asarray(iy) * self.Ly/(self.Ny-1)
         return np.asarray([x, y])
+
+    def ind2xy_stretched(self, ind):
+        """Like `self.xy2ind`, but using `sub2xy_stretched`."""
+        i, j = self.ind2sub(ind)
+        return self.sub2xy_stretched(i, j)

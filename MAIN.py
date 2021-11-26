@@ -204,7 +204,7 @@ set_perm(model, perm.Truth)
 # need to specify is their placement and flux (which we will not vary in time). The code
 # below places the production wells on a grid, and specifies the same (and constant in time) production **rate** for each.
 
-grid1 = [.1, .9]
+grid1 = [.11, .89]
 grid2 = np.dstack(np.meshgrid(grid1, grid1)).reshape((-1, 2))
 rates = np.ones((len(grid2), 1))
 prods = np.hstack((grid2, rates))

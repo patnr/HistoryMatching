@@ -156,8 +156,8 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
     # Add argmax marker
     if argmax:
         idx = Z.T.argmax()  # reverse above transpose
-        ax.plot(*model.ind2xy(idx), "y*", ms=15, label="max", zorder=98)
-        ax.plot(*model.ind2xy(idx), "k*", ms=4 , label="max", zorder=99)
+        ax.plot(*model.ind2xy_stretched(idx), "y*", ms=15, label="max", zorder=98)
+        ax.plot(*model.ind2xy_stretched(idx), "k*", ms=4 , label="max", zorder=99)
 
     # Add colorbar
     if colorbar:
@@ -459,6 +459,9 @@ def scale_well_geometry(ww):
 
 
 def well_scatter(ax, ww, inj=True, text=None, color=None):
+    """Scatter-plot the wells in `ww`."""
+    # Well coordinates, stretched for plotting (ref plotting.fields)
+    ww = model.sub2xy_stretched(*model.xy2sub(*ww.T[:2])).T
     ww = scale_well_geometry(ww)
 
     # Style

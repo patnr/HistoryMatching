@@ -12,9 +12,6 @@ Snippet to reload module:
 
 # TODO: unify (nRowCol, turn off, ax.text, etc) for
 #       fields() and productions() ?
-# TODO: Should simply check for inline, not colab?
-
-
 import copy
 import warnings
 

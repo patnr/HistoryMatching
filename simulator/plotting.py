@@ -10,8 +10,6 @@ Snippet to reload module:
     plotting.coord_type = "absolute"
 """
 
-# TODO: unify (nRowCol, turn off, ax.text, etc) for
-#       fields() and productions() ?
 import copy
 import warnings
 

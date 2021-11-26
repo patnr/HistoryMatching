@@ -3,8 +3,7 @@
 #
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
-# This is a self-contained tutorial on history matching (HM) using ensemble methods.
-# The code is not supposed to be generally applicable, but the concepts are.
+# This is a self-contained tutorial on history matching (HM) and optimisation using ensemble methods.
 # Please do not hesitate to file issues on
 # [GitHub](https://github.com/patricknraanes/HistoryMatching),
 # or submit pull requests.

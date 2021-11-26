@@ -529,7 +529,7 @@ corr_comp.controls = dict(
 )
 # -
 
-plotting.field_console(corr_comp, "corr", "Field(T) vs. Point(t, x, y)", argmax=True, wells=True)
+plotting.field_console(corr_comp, "corr", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
@@ -741,7 +741,7 @@ corr_wells.controls = dict(
 )
 
 
-plotting.field_console(corr_wells, "corr", "Pre-perm vs obs/well at time t", wells=True)
+plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells=True)
 
 
 # - Note that the `N` slider is only active when `localize` is *enabled*.

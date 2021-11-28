@@ -810,7 +810,10 @@ with np.printoptions(precision=1):
 
 # #### Compute
 
-obs_args = (vect(prod.past.Prior), vect(prod.past.Noisy), sla.block_diag(*[R]*nTime))
+obs_args = (vect(prod.past.Prior),
+            vect(prod.past.Noisy),
+            sla.block_diag(*[R]*nTime))
+
 perm.ES = ens_update0(perm.Prior, *obs_args)
 
 # #### Field plots

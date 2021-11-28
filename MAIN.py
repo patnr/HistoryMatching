@@ -726,7 +726,7 @@ def corr_wells(N, t, well, localize, radi, sharp):
     if localize:
         dists = distances_to_obs[:, well + nProd*t]
         c = loc.bump_function(dists/radi, 10**sharp)
-        C *= c**2
+        C *= c
         C[c < 1e-3] = np.nan
     return C
 
@@ -749,7 +749,7 @@ plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells
 # - Set `N=20` and toggle `localize` on/off, while you play with different values of `radi`.
 #   Try to find a value that makes the `localized` (small-ensemble) fields
 #   resemble (as much as possible) the full-size ensemble fields.
-# - The suggested value from the author is `1.3` (and sharpness $10^0$, i.e. 1).
+# - The suggested value from the author is `0.8` (and sharpness $10^0$, i.e. 1).
 
 # ## Assimilation
 
@@ -896,7 +896,7 @@ ax.imshow(Z, cmap="tab20");
 # Here is a function that returns the observation tapering coefficients for a given domain/batch.
 # The default radius is the one we found to be the most promising from the correlation study.
 
-def localization_setup(batch, radius=1.3, sharpness=1):
+def localization_setup(batch, radius=0.8, sharpness=1):
     dists = distances_to_obs[batch].mean(axis=0)
     obs_coeffs = loc.bump_function(dists/radius, sharpness)
     obs_mask = obs_coeffs > 1e-3

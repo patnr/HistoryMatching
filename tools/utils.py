@@ -180,10 +180,3 @@ def corr(a, b):
     Corr = Corr.clip(-999, 999)
 
     return Corr
-
-
-def insert_batches(E, batch_inds, batches):
-    """There is, AFAICT, no more elegant/fast way to do this."""
-    for ii, Eii in zip(batch_inds, batches):
-        E[:, ii] = Eii
-    return E

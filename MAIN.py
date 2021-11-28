@@ -856,7 +856,10 @@ def localized_ens_update0(E, Eo, R, y, domains, taper, mp=map):
 
     # Run
     EE = mp(local_analysis, domains)
-    return utils.insert_batches(np.zeros_like(E), domains, EE)
+    # Write
+    for ii, Eii in zip(domains, EE):
+        E[:, ii] = Eii
+    return E
 
 
 # #### Bug check

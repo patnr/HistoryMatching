@@ -454,7 +454,7 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
 def vect(x, undo=False):
     """Unravel/flatten the last two axes. Assumes axis `-2` has length `nTime`."""
-    # Works both for ensemble (3D) and single-realisation (2D) arrays. Also undo.
+    # Works both for ensemble (3D) and single-realisation (2D) arrays.
     if undo:
         *N, ab = x.shape
         return x.reshape(N + [nTime, ab//nTime])
@@ -791,7 +791,8 @@ gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 # From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.
 # Let us verify that the method reproduces this (up to sampling error)
 
-gg_postr = ens_update0(gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))
+gg_args = (gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))
+gg_postr = ens_update0(*gg_args)
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
@@ -819,17 +820,18 @@ with np.printoptions(precision=1):
 # However, further below we will also apply the update to other unknowns
 # (future saturation or productions). For brevity, we therefore collect the
 # arguments that are common to all of the applications of this update.
+
+args0 = (vect(prod.past.Prior),
+         vect(prod.past.Noisy),
+         augmented_obs_error_cov)
+
 # We could also go further: pre-computing the matrices of the update that is common
 # to all updates. The fact that this is a possibility should not come as a surprise
 # to the reader familiar with the technique of state-vector augmentation.
+#
+# Now, the update can be done as
 
-obs_args = (vect(prod.past.Prior),
-            vect(prod.past.Noisy),
-            augmented_obs_error_cov)
-
-# Thus, the update can be done by
-
-perm.ES = ens_update0(perm.Prior, *obs_args)
+perm.ES = ens_update0(perm.Prior, *args0)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -840,7 +842,7 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # ### With localization
 
-def localized_ens_update0(E, Eo, R, y, domains, taper, mp=map):
+def localized_ens_update0(E, Eo, y, R, domains, taper, mp=map):
     """Perform local analysis update for the LETKF."""
     def local_analysis(ii):
         """Perform analysis, for state index batch `ii`."""
@@ -901,8 +903,7 @@ def full_localization(batch_inds):
 # this error should be smaller than in our previous test.
 
 gg_postr = localized_ens_update0(
-    gg_prior, gg_prior, 2*np.eye(gg_ndim), 10*np.ones(gg_ndim),
-    domains=np.arange(gg_ndim), taper=full_localization,
+    *gg_args, domains=np.arange(gg_ndim), taper=full_localization,
 )
 
 with np.printoptions(precision=1):
@@ -947,9 +948,7 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 
 # #### Apply as smoother
 
-perm.LES = localized_ens_update0(perm.Prior, vect(prod.past.Prior),
-                                 augmented_obs_error_cov, vect(prod.past.Noisy),
-                                 domains, localization_setup)
+perm.LES = localized_ens_update0(perm.Prior, *args0, domains, localization_setup)
 
 # ### Iterative ensemble smoother
 
@@ -1061,12 +1060,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 # #### Compute
 
-perm.IES, diagnostics = IES(
-    ensemble     = perm.Prior,
-    observations = vect(prod.past.Noisy),
-    obs_err_cov  = augmented_obs_error_cov,
-    stepsize     = 1,
-)
+perm.IES, diagnostics = IES(perm.Prior, *args0[1:], stepsize=1)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -1154,7 +1148,7 @@ plotting.fields(perm_means, "pperm", "Means");
 # the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), *obs_args), undo=True)
+prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), *args0), undo=True)
 
 # #### Production plots
 
@@ -1231,7 +1225,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), *obs_args), undo=True)
+prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), *args0), undo=True)
 
 # #### Production plots
 

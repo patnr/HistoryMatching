@@ -120,11 +120,14 @@ def pows(U, sig):
 
 
 def center(E, axis=0, rescale=False):
-    """Center ensemble.
+    """Center ensemble, `E`.
 
     Makes use of np features: keepdims and broadcasting.
 
-    - rescale: Inflate to compensate for reduction in the expected variance.
+    If it is known that the true/theoretical mean of (the members of) `E`
+    is actually zero, it might be beneficial make it so for `E`, but at the same
+    time compensate for the reduction in the (expected) variance this implies.
+    This is done if `rescale` is `True`.
     """
     x = np.mean(E, axis=axis, keepdims=True)
     X = E - x

@@ -672,8 +672,8 @@ ax.legend(title="sharpness")
 ax.set_xlabel("Distance")
 fig.tight_layout()
 
-# Now we need to compute the distances. We could start by computing the
-# location of each unknown and observation.
+# We will also need the distances, which we can pre-compute.
+# We could start by computing the location of observation and each unknown parameter.
 
 xy_obs = model.ind2xy(obs_inds*nTime)
 xy_prm = model.ind2xy(np.arange(model.M))
@@ -891,9 +891,7 @@ for d, c in zip(domains, colors):
 fig, ax = freshfig("Computing domains", figsize=(1, .5), rel=1)
 ax.imshow(Z, cmap="tab20");
 
-
-# The tapering will be applied to the observation ensemble and innovations
-# as a function of their distance to (the mean location of) the local domain/batch.
+# The tapering will be a function of the batch's mean distance to the observations.
 # Here is a function that returns the observation tapering coefficients for a given domain/batch.
 # The default radius is the one we found to be the most promising from the correlation study.
 

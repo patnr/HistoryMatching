@@ -118,6 +118,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
         Z, kw("levels"), cmap=kw("cmap"), **kwargs,
+        extend="both" if has_out_of_range else "neither",
         # Using origin="lower" puts the points in the gridcell centers.
         # This is great (agrees with finite-volume point definition)
         # but means that the plot wont extend all the way to the edges, which is ugly.
@@ -125,7 +126,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         # and specifying X = [0, .5, 1.5, 2.5, ...] (and likewise for Y).
         # But, instead, we simply stretch the field, using the following:
         origin=None, extent=(0, Lx, 0, Ly),
-        extend="both" if has_out_of_range else "neither")
+        )
 
     # Contourf does not plot (at all) the bad regions. "Fake it" by facecolor
     if has_out_of_range:

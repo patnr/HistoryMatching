@@ -878,7 +878,8 @@ def localized_ens_update0(E, Eo, y, R, perturbs, domains, taper, mp=map):
 
     # Run
     EE = mp(local_analysis, domains)
-    # Write
+    # Write (but don't overwrite!)
+    E = np.empty_like(E)
     for ii, Eii in zip(domains, EE):
         E[:, ii] = Eii
     return E

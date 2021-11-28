@@ -657,8 +657,8 @@ fig.tight_layout()
 # If successful, however, localization is unreasonably effective,
 # allowing the use of much smaller ensemble sizes than one would think.
 #
-# In our simple case, it is sufficient to use distance-based localization.  Far-away
-# (remote) correlations will be dampened ("tapered").
+# In our simple case, it is sufficient to use distance-based localization.
+# Far-away (remote) correlations will be dampened ("tapered").
 # For the shape, we here use the "bump function" rather than the
 # conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
 # function.  It is illustrated here.
@@ -675,21 +675,21 @@ fig.tight_layout()
 # Now we need to compute the distances. We could start by computing the
 # location of each unknown and observation.
 
-xy_prm = model.ind2xy(np.arange(model.M))
 xy_obs = model.ind2xy(obs_inds*nTime)
+xy_prm = model.ind2xy(np.arange(model.M))
 
 # However, as we saw from the correlation dashboard, the localization should be
 # time dependent.  It is tempting to say that remote-in-time (i.e. late)
 # observations should have a larger area of impact than earlier observations,
-# since they are integro-spatio-temperal functions (to use a fancy word).  We
-# could achieve that by adding a column to `xy_obs` to represent a time
+# since they are integro-spatio-temperal functions (to use a fancy word).
+# We could achieve that by adding a column to `xy_obs` to represent a time
 # coordinate (and a column of zeros to `xy_prm`).
 # However, the correlation dashboard does not really support this "dilation" theory,
 # and we should be careful about growing the tapering mask.
 #
 # On the other hand, there was clear movement in the locations of the correlation fields.
 # In fact, the maximum of the correlation to an observation was never even at the
-# location of the well. Therefore, let us collocate the correlation mask with these
+# location of the well. Therefore, we will co-locate the correlation mask with these
 # maxima, which we can achieve by computing distances to the maxima rather than to the
 # wells.
 
@@ -782,10 +782,11 @@ def ens_update0(ens, obs_ens, observations, obs_err_cov):
 # Note: the prefix "gg_" stands for Gaussian-Gaussian
 gg_ndim = 3
 gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
-gg_postr = ens_update0(gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))
 
 # From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.
 # Let us verify that the method reproduces this (up to sampling error)
+
+gg_postr = ens_update0(gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))

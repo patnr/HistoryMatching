@@ -830,14 +830,14 @@ def localized_ens_update0(E, Eo, R, y, domains, taper, mp=map):
         oBatch, tapering = taper(ii)
         Eii = E[:, ii]
 
-        # No update
-        if not oBatch.any():
-            return Eii
-
         # Localize
         Yl  = Y[:, oBatch]
         dyl = dy[oBatch]
         tpr = sqrt(tapering)
+
+        # No local obs => no update
+        if not len(dyl):
+            return Eii
 
         # Since R^{-1/2} was already applied (necesry for effective_N), now use R=Id.
         # TODO 4: the cost of re-init this R might not always be insignificant.
@@ -861,26 +861,47 @@ def localized_ens_update0(E, Eo, R, y, domains, taper, mp=map):
         E[:, ii] = Eii
     return E
 
+# The form of the localization used in the above code is "local/domain analysis".
+# As can be seen, it consists of sequentially processing batches (subsets/domains)
+# of the vector of unknowns (actually, ideally, we'd iterate over each single element,
+# but that is generally computationally inefficient).
+#
+# The localisation setup (`taper`) must return a mask or list of indices
+# that select the observations near the local domain `ii`,
+# and the corresponding tapering coefficients.
+#
+# For example, consider this setup,
+# which makes the update process each local domain entirely independently,
+# (assuming an Id observing system! i.e. that `obs := prm + noise`).
+
+def full_localization(batch_inds):
+    return batch_inds, 1
 
 # #### Bug check
 
+# Again, the (localized) method should yield the correct posterior.
+# However, using `full_localization`, the sampling error should now be smaller
+# than in the previous test.
+
 gg_postr = localized_ens_update0(
     gg_prior, gg_prior, 2*np.eye(gg_ndim), 10*np.ones(gg_ndim),
-    # Localize simply by processing each dim. entirely seperately:
-    domains=np.arange(gg_ndim),
-    localizer=(lambda i: (i == np.arange(gg_ndim), 1)),
+    domains=np.arange(gg_ndim), taper=full_localization,
 )
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:\n", np.cov(gg_postr.T))
 
-# #### localization setup
+# Next, consider this localization setup. The ellipsis (`...`) stands for "all".
 
-# The form of the localization used in the above code is "local/domain analysis".
-# As can be seen, it consists of sequentially processing batches (subsets/domains)
-# of the vector of unknowns (actually, ideally, we'd iterate over each single element,
-# but that is generally computationally inefficient). This defines the local domains:
+def no_localization(batch_inds):
+    return ..., 1
+
+# As an exercise, try using `no_localization` instead of `full_localization` above.
+# Also, set the same (arbitrary) seed right before running the ensemble update functions.
+# The resulting ensemble (and thus the printed statistics) should match exactly
+# that of the global analysis that we ran above, for the first dimension (why?).
+
 
 domains = loc.rectangular_partitioning(model.shape, (5, 7))
 

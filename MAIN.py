@@ -810,9 +810,19 @@ with np.printoptions(precision=1):
 
 # #### Compute
 
+# Our vector of unknowns is the pre-permeability.
+# However, further below we will also apply the update to other unknowns
+# (future saturation or productions). For brevity, we therefore collect the
+# arguments that are common to all of the applications of this update.
+# We could also go further: pre-computing the matrices of the update that is common
+# to all updates. The fact that this is a possibility should not come as a surprise
+# to the reader familiar with the technique of state-vector augmentation.
+
 obs_args = (vect(prod.past.Prior),
             vect(prod.past.Noisy),
             sla.block_diag(*[R]*nTime))
+
+# Thus, the update can be done by
 
 perm.ES = ens_update0(perm.Prior, *obs_args)
 

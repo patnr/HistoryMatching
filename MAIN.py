@@ -902,6 +902,9 @@ def no_localization(batch_inds):
 # The resulting ensemble (and thus the printed statistics) should match exactly
 # that of the global analysis that we ran above, for the first dimension (why?).
 
+# #### Configuration for the history matching problem
+
+# Now let us define the local domains for the permeability field.
 
 domains = loc.rectangular_partitioning(model.shape, (5, 7))
 

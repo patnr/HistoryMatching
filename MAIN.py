@@ -780,15 +780,15 @@ def ens_update0(ens, obs_ens, observations, obs_err_cov):
 # It is very easy to introduce bugs.
 # Fortunately, most can be eliminated with a few simple tests.
 #
-# For example, let us generate a case where both $x$
-# and the observation error are (independently) $\mathcal{N}(0, 2)$,
+# For example, let us generate a case where both $\mathbf{x}$
+# and the observation error are (independently) $\mathcal{N}(\mathbf{0}, 2 \mathbf{I})$,
 # while the forward model is just the identity
 
 # Note: the prefix "gg_" stands for Gaussian-Gaussian
 gg_ndim = 3
 gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 
-# From theory, we know that $x|y \sim \mathcal{N}(y/2, 1)$.
+# From theory, we know that $\mathbf{x}|\mathbf{y} \sim \mathcal{N}(\mathbf{y}/2, 1\mathbf{I})$.
 # Let us verify that the method reproduces this (up to sampling error)
 
 gg_args = (gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))

@@ -862,26 +862,25 @@ def localized_ens_update0(E, Eo, R, y, domains, taper, mp=map):
     return E
 
 # The form of the localization used in the above code is "local/domain analysis".
-# As can be seen, it consists of sequentially processing batches (subsets/domains)
+# Note that it sequentially processing batches (subsets/domains)
 # of the vector of unknowns (actually, ideally, we'd iterate over each single element,
-# but that is generally computationally inefficient).
+# but that is usually computationally inefficient).
 #
 # The localisation setup (`taper`) must return a mask or list of indices
 # that select the observations near the local domain `ii`,
 # and the corresponding tapering coefficients.
-#
 # For example, consider this setup,
 # which makes the update process each local domain entirely independently,
-# (assuming an Id observing system! i.e. that `obs := prm + noise`).
+# (assuming an identity forward model, i.e. that `obs := prm + noise`).
 
 def full_localization(batch_inds):
     return batch_inds, 1
 
 # #### Bug check
 
-# Again, the (localized) method should yield the correct posterior.
-# However, using `full_localization`, the sampling error should now be smaller
-# than in the previous test.
+# Again, the (localized) method should yield the correct posterior,
+# up to some sampling error. However, thanks to `full_localization`,
+# this error should be smaller than in our previous test.
 
 gg_postr = localized_ens_update0(
     gg_prior, gg_prior, 2*np.eye(gg_ndim), 10*np.ones(gg_ndim),
@@ -892,15 +891,15 @@ with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:\n", np.cov(gg_postr.T))
 
-# Next, consider this localization setup. The ellipsis (`...`) stands for "all".
+# Next, consider the following setup. The ellipsis (`...`) stands for "all".
 
 def no_localization(batch_inds):
     return ..., 1
 
 # As an exercise, try using `no_localization` instead of `full_localization` above.
-# Also, set the same (arbitrary) seed right before running the ensemble update functions.
+# Also, set the same (arbitrary) seed right before running `localized_ens_update0`.
 # The resulting ensemble (and thus the printed statistics) should match exactly
-# that of the global analysis that we ran above, for the first dimension (why?).
+# that of the global analysis `ens_update0` that we ran above, for the first dimension (why?).
 
 # #### Configuration for the history matching problem
 
@@ -919,8 +918,8 @@ fig, ax = freshfig("Computing domains", figsize=(1, .5), rel=1)
 ax.imshow(Z, cmap="tab20");
 
 # The tapering will be a function of the batch's mean distance to the observations.
-# Here is a function that returns the observation tapering coefficients for a given domain/batch.
-# The default radius is the one we found to be the most promising from the correlation study.
+# The default radius is the one we found to be the most promising from the above
+# correlation study.
 
 def localization_setup(batch, radius=0.8, sharpness=1):
     dists = distances_to_obs[batch].mean(axis=0)

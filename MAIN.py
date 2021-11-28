@@ -764,13 +764,13 @@ plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells
 # convention. The reason is that we stack the members as rows (instead of columns).
 # [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
 
-def ens_update0(ens, obs_ens, observations, obs_err_cov):
+def ens_update0(ens, obs_ens, observations, obs_err_cov, perturbs):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
     X, _        = center(ens)
     Y, _        = center(obs_ens)
-    obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y  # TODO: use sqrtm for full R compat.
-    obs_pert    = rnd.randn(*Y.shape) @ sqrt(obs_err_cov)
-    # obs_pert  = center(obs_pert, rescale=True)
+    perturbs, _ = center(perturbs, rescale=True)
+    obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y
+    obs_pert    = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
     innovations = observations - (obs_ens + obs_pert)
     KG          = sla.pinv2(obs_cov) @ Y.T @ X
     return ens + innovations @ KG
@@ -791,7 +791,7 @@ gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 # From theory, we know the posterior, $\mathbf{x}|\mathbf{y} \sim \mathcal{N}(\mathbf{y}/2, 1\mathbf{I})$.
 # Let us verify that the ensemble update computes this (up to sampling error)
 
-gg_args = (gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim))
+gg_args = (gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim), rnd.randn(*gg_prior.shape))
 gg_postr = ens_update0(*gg_args)
 
 with np.printoptions(precision=1):
@@ -823,7 +823,8 @@ with np.printoptions(precision=1):
 
 args0 = (vect(prod.past.Prior),
          vect(prod.past.Noisy),
-         augmented_obs_error_cov)
+         augmented_obs_error_cov,
+         rnd.randn(N, nProd*nTime))
 
 # We could also go further: pre-computing the matrices of the update that is common
 # to all updates. The fact that this is a possibility should not come as a surprise
@@ -842,7 +843,7 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # ### With localization
 
-def localized_ens_update0(E, Eo, y, R, domains, taper, mp=map):
+def localized_ens_update0(E, Eo, y, R, perturbs, domains, taper, mp=map):
     """Perform local analysis update for the LETKF."""
     def local_analysis(ii):
         """Perform analysis, for state index batch `ii`."""
@@ -852,6 +853,7 @@ def localized_ens_update0(E, Eo, y, R, domains, taper, mp=map):
 
         # Localize
         Yl  = Y[:, oBatch]
+        D   = perturbs[:, oBatch]
         dyl = dy[oBatch]
         tpr = sqrt(tapering)
 
@@ -864,7 +866,7 @@ def localized_ens_update0(E, Eo, y, R, domains, taper, mp=map):
         R = np.eye(len(dyl))
 
         # Update
-        return ens_update0(Eii, Yl*tpr, dyl*tpr, R)
+        return ens_update0(Eii, Yl*tpr, dyl*tpr, R, D)
 
     # Prepare analysis
     Y, xo = center(Eo)
@@ -903,7 +905,7 @@ def full_localization(batch_inds):
 # this error should be smaller than in our previous test.
 
 gg_postr = localized_ens_update0(
-    *gg_args, domains=np.arange(gg_ndim), taper=full_localization,
+    *gg_args, domains=np.arange(gg_ndim)[:, None], taper=full_localization,
 )
 
 with np.printoptions(precision=1):
@@ -918,7 +920,7 @@ def no_localization(batch_inds):
 # As an exercise, try using `no_localization` instead of `full_localization` above.
 # Also, set the same (arbitrary) seed right before running `localized_ens_update0`.
 # The resulting ensemble (and thus the printed statistics) should match exactly
-# that of the global analysis `ens_update0` that we ran above, for the first dimension (why?).
+# that of the global analysis `ens_update0` that we ran above.
 
 # #### Configuration for the history matching problem
 
@@ -1060,7 +1062,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 # #### Compute
 
-perm.IES, diagnostics = IES(perm.Prior, *args0[1:], stepsize=1)
+perm.IES, diagnostics = IES(perm.Prior, *args0[1:-1], stepsize=1)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.

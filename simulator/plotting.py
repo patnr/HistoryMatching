@@ -120,12 +120,10 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         Z, kw("levels"), cmap=kw("cmap"), **kwargs,
         # Using origin="lower" puts the points in the gridcell centers.
         # This is great (agrees with finite-volume point definition)
-        # but means that the plot wont extend all the way to the edges,
-        # which can only be circumvented by manuallly 20px.
-        # Using `origin=None` stretches the field to the edges, which
-        # might be slightly erroneous compared with finite-volume defs.
-        # However, it is the definition that agrees with line and scatter
-        # plots (e.g. well_scatter), and that correspondence is more important.
+        # but means that the plot wont extend all the way to the edges, which is ugly.
+        # We could make it pretty by padding Z with its border values,
+        # and specifying X = [0, .5, 1.5, 2.5, ...] (and likewise for Y).
+        # But, instead, we simply stretch the field, using the following:
         origin=None, extent=(0, Lx, 0, Ly),
         extend="both" if has_out_of_range else "neither")
 

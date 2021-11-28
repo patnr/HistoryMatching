@@ -462,6 +462,11 @@ def vect(x, undo=False):
         *N, a, b = x.shape
         return x.reshape(N + [a*b])
 
+# Similarly, we need to specify the observation error covariance matrix for the
+# flattened observations.
+
+augmented_obs_error_cov = sla.block_diag(*[R]*nTime)
+
 # ## Correlation study (*a-priori*)
 
 # #### The mechanics of the Kalman gain
@@ -820,7 +825,7 @@ with np.printoptions(precision=1):
 
 obs_args = (vect(prod.past.Prior),
             vect(prod.past.Noisy),
-            sla.block_diag(*[R]*nTime))
+            augmented_obs_error_cov)
 
 # Thus, the update can be done by
 
@@ -943,7 +948,7 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 # #### Apply as smoother
 
 perm.LES = localized_ens_update0(perm.Prior, vect(prod.past.Prior),
-                                 sla.block_diag(*[R]*nTime), vect(prod.past.Noisy),
+                                 augmented_obs_error_cov, vect(prod.past.Noisy),
                                  domains, localization_setup)
 
 # ### Iterative ensemble smoother
@@ -1059,7 +1064,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 perm.IES, diagnostics = IES(
     ensemble     = perm.Prior,
     observations = vect(prod.past.Noisy),
-    obs_err_cov  = sla.block_diag(*[R]*nTime),
+    obs_err_cov  = augmented_obs_error_cov,
     stepsize     = 1,
 )
 

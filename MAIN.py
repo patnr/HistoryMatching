@@ -782,7 +782,7 @@ def ens_update0(ens, obs_ens, observations, obs_err_cov, perturbs):
 #
 # For example, let us generate a case where both the unknown, $\mathbf{x}$,
 # and the observation error are (independently) $\mathcal{N}(\mathbf{0}, 2 \mathbf{I})$,
-# while the forward model is just the identity
+# while the forward model is just the identity.
 
 # Note: the prefix "gg_" stands for Gaussian-Gaussian
 gg_ndim = 3
@@ -826,7 +826,7 @@ args0 = (vect(prod.past.Prior),
          augmented_obs_error_cov,
          rnd.randn(N, nProd*nTime))
 
-# We could also go further: pre-computing the matrices of the update that is common
+# We could go further: pre-computing the matrices of the update that is common
 # to all updates. The fact that this is a possibility should not come as a surprise
 # to the reader familiar with the technique of state-vector augmentation.
 #
@@ -956,7 +956,7 @@ perm.LES = localized_ens_update0(perm.Prior, *args0, domains, localization_setup
 # ### Iterative ensemble smoother
 
 # #### Why iterate?
-# Because of non-linearity of the forward model, the likelihood is non-Gaussian, and
+# Due to non-linearity of the forward model, the likelihood is non-Gaussian, and
 # ensemble methods do not compute the true posterior (even with infinite `N`).  Still,
 # after the update, it may be expected that the estimate of the sensitivity (of the
 # model to the observations) has improved. Thus, it makes sense to retry the update

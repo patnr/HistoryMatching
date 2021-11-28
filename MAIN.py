@@ -821,12 +821,12 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # ### With localization
 
-def localized_ens_update0(E, Eo, R, y, domains, localizer, mp=map):
+def localized_ens_update0(E, Eo, R, y, domains, taper, mp=map):
     """Perform local analysis update for the LETKF."""
     def local_analysis(ii):
         """Perform analysis, for state index batch `ii`."""
         # Locate local domain
-        oBatch, tapering = localizer(ii)
+        oBatch, tapering = taper(ii)
         Eii = E[:, ii]
 
         # No update

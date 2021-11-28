@@ -934,7 +934,7 @@ Z = np.zeros(model.shape)
 for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
 fig, ax = freshfig("Computing domains", figsize=(1, .5), rel=1)
-ax.imshow(Z, cmap="tab20");
+ax.imshow(Z, cmap="tab20", aspect=.5);
 
 # The tapering will be a function of the batch's mean distance to the observations.
 # The default radius is the one we found to be the most promising from the above

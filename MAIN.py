@@ -905,9 +905,7 @@ def full_localization(batch_inds):
 # up to some sampling error. However, thanks to `full_localization`,
 # this error should be smaller than in our previous test.
 
-gg_postr = localized_ens_update0(
-    *gg_args, domains=np.arange(gg_ndim)[:, None], taper=full_localization,
-)
+gg_postr = localized_ens_update0(*gg_args, domains=np.c_[:gg_ndim], taper=full_localization)
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))

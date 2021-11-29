@@ -4,9 +4,12 @@
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
 # This is a self-contained tutorial on history matching (HM) and optimisation using ensemble methods.
-# Please do not hesitate to file issues on
-# [GitHub](https://github.com/patricknraanes/HistoryMatching),
-# or submit pull requests.
+# - By pressing "run all" you can burn through it in 5 min.
+# - For a more detailed "reading", expect to spend around 5 hours.
+# - The code emphasises simplicity, not generality.
+# - Please do not hesitate to file issues on
+#   [GitHub](https://github.com/patricknraanes/HistoryMatching),
+#   or submit pull requests.
 
 # ## Python in Jupyter
 

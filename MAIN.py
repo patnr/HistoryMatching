@@ -858,28 +858,31 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # ### With localization
 
-def ens_update0_loc(E, Eo, y, R, perturbs, domains, taper, mp=map):
+def ens_update0_loc(ens, obs_ens, observations, obs_err_cov, perturbs, domains, taper):
     """Perform local analysis/domain updates using `ens_update0`."""
     def local_analysis(ii):
         """Update for domain/batch `ii`."""
         # Get localization mask, coeffs
         oBatch, tapering = taper(ii)
         # Convert [range, slice, epsilon] to inds (for np.ix_)
-        oBatch = np.arange(len(y))[oBatch]
+        oBatch = np.arange(len(observations))[oBatch]
         # Update
         if len(oBatch) == 0:
             # no obs ==> no update
-            return E[:, ii]
+            return ens[:, ii]
         else:
             c = sqrt(tapering)
-            return ens_update0(E[:, ii], Eo[:, oBatch]*c, y[oBatch]*c,
-                               R[np.ix_(oBatch, oBatch)], perturbs[:, oBatch] * c)
+            return ens_update0(ens[:, ii],
+                               obs_ens[:, oBatch]*c,
+                               observations[oBatch]*c,
+                               obs_err_cov[np.ix_(oBatch, oBatch)],
+                               perturbs[:, oBatch] * c)
 
     # Run
-    EE = mp(local_analysis, domains)
+    EE = map(local_analysis, domains)
 
-    # Write to ensemble matrix. NB: don't re-use E!
-    Ea = np.empty_like(E)
+    # Write to ensemble matrix. NB: don't re-use `ens`!
+    Ea = np.empty_like(ens)
     for ii, Eii in zip(domains, EE):
         Ea[:, ii] = Eii
 

@@ -929,7 +929,7 @@ print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
 
 # Now let us define the local domains for the permeability field.
 
-domains = loc.rectangular_partitioning(model.shape, (5, 7))
+domains = loc.rectangular_partitioning(model.shape, (2, 3))
 
 # We can illustrate the partitioning by filling each domain by a random color.
 # This should produce a patchwork of rectangles.

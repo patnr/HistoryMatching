@@ -806,8 +806,14 @@ gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 # From theory, we know the posterior, $\mathbf{x}|\mathbf{y} \sim \mathcal{N}(\mathbf{y}/2, 1\mathbf{I})$.
 # Let us verify that the ensemble update computes this (up to sampling error)
 
-gg_args = (gg_prior, gg_prior, 10*np.ones(gg_ndim), 2*np.eye(gg_ndim), rnd.randn(*gg_prior.shape))
-gg_postr = ens_update0(*gg_args)
+gg_kwargs = dict(
+    ens          = gg_prior,
+    obs_ens      = gg_prior,
+    observations = 10*np.ones(gg_ndim),
+    obs_err_cov  = 2*np.eye(gg_ndim),
+    perturbs     = rnd.randn(*gg_prior.shape),
+)
+gg_postr = ens_update0(**gg_kwargs)
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
@@ -840,14 +846,16 @@ with np.printoptions(precision=1):
 # all updates, thus saving time later. The fact that this is a possibility will
 # not come as a surprise to readers familiar with state-vector augmentation.*
 
-args0 = (vect(prod.past.Prior),
-         vect(prod.past.Noisy),
-         augmented_obs_error_cov,
-         rnd.randn(N, nProd*nTime))
+kwargs0 = dict(
+    obs_ens      = vect(prod.past.Prior),
+    observations = vect(prod.past.Noisy),
+    obs_err_cov  = augmented_obs_error_cov,
+    perturbs     = rnd.randn(N, nProd*nTime),
+)
 
 # Thus the update is called as follows
 
-perm.ES = ens_update0(perm.Prior, *args0)
+perm.ES = ens_update0(perm.Prior, **kwargs0)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -909,7 +917,7 @@ def full_localization(batch_inds):
 # up to some sampling error. However, thanks to `full_localization`,
 # this error should be smaller than in our bug check for `ens_update0`.
 
-gg_postr = ens_update0_loc(*gg_args, domains=np.c_[:gg_ndim], taper=full_localization)
+gg_postr = ens_update0_loc(**gg_kwargs, domains=np.c_[:gg_ndim], taper=full_localization)
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
@@ -925,7 +933,7 @@ def no_localization(batch_inds):
 # Hopefully, using this should output the same ensemble (up to *numerical* error)
 # as `ens_update0`. Let us verify this:
 
-tmp = ens_update0_loc(perm.Prior, *args0, domains=[...], taper=no_localization)
+tmp = ens_update0_loc(perm.Prior, **kwargs0, domains=[...], taper=no_localization)
 print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
 
 # *PS: with no localization, it should not matter how the domain is partitioned.
@@ -959,7 +967,8 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 
 # #### Apply as smoother
 
-perm.LES = ens_update0_loc(perm.Prior, *args0, domains, localization_setup)
+perm.LES = ens_update0_loc(perm.Prior, **kwargs0,
+                           domains=domains, taper=localization_setup)
 
 # ### Iterative ensemble smoother
 
@@ -1071,7 +1080,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 # #### Compute
 
-perm.IES, diagnostics = IES(perm.Prior, *args0[1:-1], stepsize=1)
+perm.IES, diagnostics = IES(perm.Prior, **kwargs0, stepsize=1)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -1159,7 +1168,7 @@ plotting.fields(perm_means, "pperm", "Means");
 # the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), *args0), undo=True)
+prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), **kwargs0), undo=True)
 
 # #### Production plots
 
@@ -1236,7 +1245,7 @@ print("Future/prediction")
 (wsat.futr.IES,
  prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
 
-prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), *args0), undo=True)
+prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
 
 # #### Production plots
 

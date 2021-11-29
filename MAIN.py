@@ -835,17 +835,17 @@ with np.printoptions(precision=1):
 # However, further below we will also apply the update to other unknowns
 # (future saturation or productions). For brevity, we therefore collect the
 # arguments that are common to all of the applications of this update.
+#
+# *PS: we could also pre-compute the matrices of the update that are common to
+# all updates, thus saving time later. The fact that this is a possibility will
+# not come as a surprise to readers familiar with state-vector augmentation.*
 
 args0 = (vect(prod.past.Prior),
          vect(prod.past.Noisy),
          augmented_obs_error_cov,
          rnd.randn(N, nProd*nTime))
 
-# We could go further: pre-computing the matrices of the update that is common
-# to all updates. The fact that this is a possibility should not come as a surprise
-# to the reader familiar with the technique of state-vector augmentation.
-#
-# Now, the update can be done as
+# Thus the update is called as follows
 
 perm.ES = ens_update0(perm.Prior, *args0)
 
@@ -895,7 +895,7 @@ def ens_update0_loc(E, Eo, y, R, perturbs, domains, taper, mp=map):
 # and the corresponding tapering coefficients.
 # For example, consider this setup,
 # which makes the update process each local domain entirely independently,
-# (assuming an identity forward model, i.e. that `obs := prm + noise`).
+# *assuming an identity forward model, i.e. that `obs := prm + noise`*.
 
 def full_localization(batch_inds):
     return batch_inds, 1
@@ -904,7 +904,7 @@ def full_localization(batch_inds):
 
 # Again, the (localized) method should yield the correct posterior,
 # up to some sampling error. However, thanks to `full_localization`,
-# this error should be smaller than in our previous test.
+# this error should be smaller than in our bug check for `ens_update0`.
 
 gg_postr = ens_update0_loc(*gg_args, domains=np.c_[:gg_ndim], taper=full_localization)
 
@@ -914,10 +914,10 @@ with np.printoptions(precision=1):
 
 # #### Sanity check
 
-# Now consider the following setup. The ellipsis (`...`) stands for "all".
+# Now consider the following setup.
 
 def no_localization(batch_inds):
-    return ..., 1
+    return ..., 1  # ellipsis (...) means "all"
 
 # Hopefully, using this should output the same ensemble (up to *numerical* error)
 # as `ens_update0`. Let us verify this:
@@ -925,8 +925,8 @@ def no_localization(batch_inds):
 tmp = ens_update0_loc(perm.Prior, *args0, domains=[...], taper=no_localization)
 print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
 
-# PS: with no localization, it should not matter how the domain is partitioned.
-# For example, try `domains=np.arange(model.M).reshape(some_integer, -1)`.
+# *PS: with no localization, it should not matter how the domain is partitioned.
+# For example, try `domains=np.arange(model.M).reshape(some_integer, -1)`.*
 
 # #### Configuration for the history matching problem
 
@@ -945,8 +945,8 @@ fig, ax = freshfig("Computing domains", figsize=(1, .5), rel=1)
 ax.imshow(Z, cmap="tab20", aspect=.5);
 
 # The tapering will be a function of the batch's mean distance to the observations.
-# The default radius is the one we found to be the most promising from the above
-# correlation study.
+# The default `radius` and `sharpness` are the ones we found to be the most
+# promising from the above correlation study.
 
 def localization_setup(batch, radius=0.8, sharpness=1):
     dists = distances_to_obs[batch].mean(axis=0)
@@ -1334,17 +1334,17 @@ ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
 # Another alternative is to only re-run the notebook cells starting from where the prior
 # was sampled. Thus, the truth and observations will not change, yet because the prior
 # sample will change, the results will change. If this change is significant (which can
-# only be asserted by re-running the experiments several times), then you can not have
+# only be asserted by re-running the experiments several times), then you cannot have
 # much confidence in your result. In order to fix this, you must increase the ensemble
-# size (to reduce sampling error), or play with the tuning parameters such as the
+# size (to reduce sampling error), or try to tune parameters such as the
 # localization radius (or more generally, improve your localization implementation).
-#
-# Such re-running of the synthetic experiments is similar in aim to statistical
-# cross-validation. Note that it may (and should) also be applied in real applications!
-# Of couse, then the truth is unknown. But even though the truth is unknown, a synthetic
-# truth can be sampled from the prior uncertainty. And at the very least, the history
-# matching and optimisation methods should yield improved performance (reduced errors
-# and increased NPV) in the synthetic case.
+
+# Either way, re-running the synthetic experiments and checking that your setup and tuning
+# produces resonably improved results will give you confidence in their generalizability;
+# as such it it similar in its aim to statistical cross-validation.
+# For this reason, synthetic experiments should also be applied in real applications!
+# The fact that the real truth is unknown does not prevent you from testing your setup
+# with a synthetic truth, sampled from the prior.
 
 # ## References
 

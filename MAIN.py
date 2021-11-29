@@ -377,13 +377,11 @@ def forward_model(nTime, *args, desc=""):
 
     def run1(estimable):
         """Forward model for a *single* member/realisation."""
-        # Avoid the risk (difficult to diagnose with multiprocessing) that
-        # the parameter values of one member overwrite those of another.
-        # Alternative: re-initialize the model.
-        model_n = copy.deepcopy(model)
-
         # Unpack variables
         wsat0, perm, *rates = estimable
+
+        # Don't overwrite the true model settings.
+        model_n = copy.deepcopy(model)
 
         # Set production rates, if provided.
         if rates:

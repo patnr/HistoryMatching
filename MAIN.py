@@ -760,9 +760,18 @@ plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells
 
 # ### Ensemble update
 
-# NB: some of these formulae are transposed and reversed compared to EnKF literature
-# convention. The reason is that we stack the members as rows (instead of columns).
-# [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
+# Denote $\mathbf{E}$ the ensemble matrix (whose columns are a sample from the prior),
+# $\mathcal{M}(\mathbf{E})$ the observed ensemble,
+# and $\mathbf{D}$ be the observation perturbations.
+# Let $\mathbf{X}$ and $\mathbf{Y}$ be the ensemble and the observed ensemble, respectively,
+# but now with their (ensemble-) mean subtracted.
+# Then the ensemble update can be written
+#
+# $$ \mathbf{E}^a
+# = \mathbf{E}
+# + \mathbf{X} \mathbf{Y}^T
+# \big( \mathbf{Y} \mathbf{Y}^T + (N{-}1) \mathbf{R} \big)^{-1}
+# \big\{ \mathbf{y} \mathbf{1}^T - [\mathcal{M}(\mathbf{E}) + \mathbf{D}] \big\} $$
 
 def ens_update0(ens, obs_ens, observations, obs_err_cov, perturbs):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
@@ -774,6 +783,12 @@ def ens_update0(ens, obs_ens, observations, obs_err_cov, perturbs):
     innovations = observations - (obs_ens + obs_pert)
     KG          = sla.pinv2(obs_cov) @ Y.T @ X
     return ens + innovations @ KG
+
+# Notes:
+#  - The formulae used by the code are transposed and reversed compared to the above.
+#    [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
+#  - The perturbations are *input arguments* because we will want to re-use the same ones
+#    when doing localization. It also enables exact reproducibility (see sanity check below).
 
 # ### Bug check
 

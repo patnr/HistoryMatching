@@ -786,7 +786,7 @@ gg_postr = ens_update0(**gg_kwargs)
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
-    print("Posterior cov:\n", np.cov(gg_postr.T))
+    print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
 
 # ### Apply as smoother
 
@@ -891,7 +891,7 @@ gg_postr = ens_update0_loc(**gg_kwargs, domains=np.c_[:gg_ndim], taper=full_loca
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
-    print("Posterior cov:\n", np.cov(gg_postr.T))
+    print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
 
 # #### Sanity check
 

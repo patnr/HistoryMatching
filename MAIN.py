@@ -773,7 +773,7 @@ plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells
 # \big( \mathbf{Y} \mathbf{Y}^T + (N{-}1) \mathbf{R} \big)^{-1}
 # \big\{ \mathbf{y} \mathbf{1}^T - [\mathcal{M}(\mathbf{E}) + \mathbf{D}] \big\} $$
 
-def ens_update0(ens, obs_ens, observations, obs_err_cov, perturbs):
+def ens_update0(ens, obs_ens, observations, perturbs, obs_err_cov):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
     X, _        = center(ens)
     Y, _        = center(obs_ens)
@@ -849,8 +849,8 @@ with np.printoptions(precision=1):
 kwargs0 = dict(
     obs_ens      = vect(prod.past.Prior),
     observations = vect(prod.past.Noisy),
-    obs_err_cov  = augmented_obs_error_cov,
     perturbs     = rnd.randn(N, nProd*nTime),
+    obs_err_cov  = augmented_obs_error_cov,
 )
 
 # Thus the update is called as follows
@@ -866,7 +866,7 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # ### With localization
 
-def ens_update0_loc(ens, obs_ens, observations, obs_err_cov, perturbs, domains, taper):
+def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, taper):
     """Perform local analysis/domain updates using `ens_update0`."""
     def local_analysis(ii):
         """Update for domain/batch `ii`."""
@@ -883,8 +883,8 @@ def ens_update0_loc(ens, obs_ens, observations, obs_err_cov, perturbs, domains, 
             return ens_update0(ens[:, ii],
                                obs_ens[:, oBatch]*c,
                                observations[oBatch]*c,
-                               obs_err_cov[np.ix_(oBatch, oBatch)],
-                               perturbs[:, oBatch] * c)
+                               perturbs[:, oBatch]*c,
+                               obs_err_cov[np.ix_(oBatch, oBatch)])
 
     # Run
     EE = map(local_analysis, domains)

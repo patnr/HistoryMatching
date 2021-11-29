@@ -1131,11 +1131,11 @@ plotting.fields(perm_means, "pperm", "Means");
 (wsat.past.IES,
  prod.past.IES) = forward_model(nTime, wsat.init.Prior, perm.IES)
 
-# It is Bayesian(ally) consistent to apply the pre-computed ES gain to any
-# un-conditioned ensemble, e.g. that of the prior's production predictions. This can be
-# seen (by those familiar with that trick) by state augmentation. This provides another
-# posterior approximation of the production history -- one which doesn't require running
-# the model again (in contrast to what we did for `prod.past.(I)ES` immediately above).
+# The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
+# A particularly interesting case is applying it to the prior's production predictions.
+# This provides another posterior approximation of the production history
+# -- one which doesn't require running the model again
+# (in contrast to what we did for `prod.past.(I)ES` immediately above).
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
 prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), **kwargs0), undo=True)

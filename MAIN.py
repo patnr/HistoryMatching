@@ -4,10 +4,10 @@
 # Copyright Patrick N. Raanes, NORCE, 2020.
 #
 # This is a self-contained tutorial on history matching (HM) and optimisation using ensemble methods.
-# - By pressing "run all" you can burn through it in 5 min.
-# - For a more detailed "reading", expect to spend around 5 hours.
+# - If you "run all" then you will burn through it in 5 min.
+# - For a more detailed reading, expect to spend around 5 hours.
 # - The code emphasises simplicity, not generality.
-# - Please do not hesitate to file issues on
+# - Do not hesitate to file issues on
 #   [GitHub](https://github.com/patricknraanes/HistoryMatching),
 #   or submit pull requests.
 
@@ -444,7 +444,6 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
 (wsat.past.Prior,
  prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
-
 
 # #### Flattening the time dimension
 

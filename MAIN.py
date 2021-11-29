@@ -639,12 +639,14 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # Here is a plot of the paths.
 
-fig, ax = freshfig("Time-paths of maxima of corr. fields", figsize=(1.5, 1), rel=1)
+fig, ax = freshfig("Trajectories of maxima of corr. fields", figsize=(1.5, 1), rel=1)
 plotting.field(ax, np.zeros(model.shape), "corr", wells=True)
 for i, xy_path in enumerate(xy_max_corr):
     color = dict(color=f"C{i}")
     ax.plot(*xy_path.T, **color)
-    plotting.arrowhead_endpoints(ax, i, xy_path, **color)
+    # Also mark start and end points
+    ax.plot(*xy_path[+0], "x", **color)
+    ax.plot(*xy_path[-1], "o", **color)
 fig.tight_layout()
 
 # ## Localization tuning

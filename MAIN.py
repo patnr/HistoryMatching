@@ -786,7 +786,7 @@ def ens_update0(ens, obs_ens, observations, obs_err_cov, perturbs):
 
 # Note: the prefix "gg_" stands for Gaussian-Gaussian
 gg_ndim = 3
-gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
+gg_prior = sqrt(2) * rnd.randn(100, gg_ndim)
 
 # From theory, we know the posterior, $\mathbf{x}|\mathbf{y} \sim \mathcal{N}(\mathbf{y}/2, 1\mathbf{I})$.
 # Let us verify that the ensemble update computes this (up to sampling error)

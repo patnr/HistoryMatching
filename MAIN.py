@@ -843,7 +843,7 @@ plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
 # ### With localization
 
-def localized_ens_update0(E, Eo, y, R, perturbs, domains, taper, mp=map):
+def ens_update0_loc(E, Eo, y, R, perturbs, domains, taper, mp=map):
     """Perform local analysis update for the LETKF."""
     def local_analysis(ii):
         """Perform analysis, for state index batch `ii`."""
@@ -905,7 +905,7 @@ def full_localization(batch_inds):
 # up to some sampling error. However, thanks to `full_localization`,
 # this error should be smaller than in our previous test.
 
-gg_postr = localized_ens_update0(*gg_args, domains=np.c_[:gg_ndim], taper=full_localization)
+gg_postr = ens_update0_loc(*gg_args, domains=np.c_[:gg_ndim], taper=full_localization)
 
 with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
@@ -919,7 +919,7 @@ def no_localization(batch_inds):
 # Hopefully, using this should output the same ensemble (up to *numerical* error)
 # as `ens_update0`. Let us verify this:
 
-tmp = localized_ens_update0(perm.Prior, *args0, domains=[...], taper=no_localization)
+tmp = ens_update0_loc(perm.Prior, *args0, domains=[...], taper=no_localization)
 print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
 
 # PS: with no localization, it should not matter how the domain is partitioned.
@@ -953,7 +953,7 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 
 # #### Apply as smoother
 
-perm.LES = localized_ens_update0(perm.Prior, *args0, domains, localization_setup)
+perm.LES = ens_update0_loc(perm.Prior, *args0, domains, localization_setup)
 
 # ### Iterative ensemble smoother
 

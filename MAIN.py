@@ -897,7 +897,9 @@ with np.printoptions(precision=1):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:\n", np.cov(gg_postr.T))
 
-# Next, consider the following setup. The ellipsis (`...`) stands for "all".
+# #### Sanity check
+
+# Now consider the following setup. The ellipsis (`...`) stands for "all".
 
 def no_localization(batch_inds):
     return ..., 1

@@ -183,3 +183,20 @@ def corr(a, b):
     Corr = Corr.clip(-999, 999)
 
     return Corr
+
+
+def get_map(multiprocessing=False):
+    """Unify multiprocessing/single-processing interface via `map`."""
+    nCores = None if multiprocessing in ["auto", True] else multiprocessing
+
+    def mp(fun, args, **kwargs):
+        desc   = kwargs.pop("desc")
+        total  = kwargs.pop("total")
+
+        if nCores == None or nCores > 1:
+            from p_tqdm import p_map
+            return p_map(fun, list(args), **kwargs, desc=desc, num_cpus=nCores)
+        else:
+            return progbar(map(fun, args, **kwargs), desc=desc, total=total)
+
+    return mp

@@ -108,7 +108,7 @@ import simulator
 import simulator.plotting as plotting
 import tools.localization as loc
 from tools import geostat, utils
-from tools.utils import center
+from tools.utils import center, get_map
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
@@ -365,10 +365,12 @@ plotting.spectrum(svals, "Prior cov.");
 # A huge technical advantage of ensembel methods is that they are "embarrasingly
 # parallelizable", because each member run is complete independent (requires no
 # communication) from the others.  We take advantage of this through multiprocessing
-# which, in Python, requires very little code overhead.
+# which, in Python, requires very little code overhead. Think of the following `mp`
+# as a `for`-loop, except that it will use multiple CPU cores if you set `multiprocessing`
+# to "auto" or an integer.
 
-# Set (int) number of CPU cores to use. Set to False when debugging.
-multiprocess = False
+mp = get_map(multiprocessing=True)
+
 
 def forward_model(nTime, *args, desc=""):
     """Create the (composite) forward model, i.e. forecast. Supports ensemble (2D array) input."""
@@ -400,18 +402,11 @@ def forward_model(nTime, *args, desc=""):
 
         return wsats, prods
 
-    # Compose ensemble. This packing is a technicality necessary for
-    # the syntax of `map`, used instead of a `for`-loop for multiprocessing.
+    # Compose ensemble. This packing is a technicality necessary for the syntax of `map`.
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
-    desc = " ".join(["Ens.simul.", desc])
-    if multiprocess:
-        from p_tqdm import p_map
-        n = None if isinstance(multiprocess, bool) else multiprocess
-        Ef = list(p_map(run1, list(E), num_cpus=n, desc=desc))
-    else:
-        Ef = list(progbar(map(run1, E), desc, N))
+    Ef = mp(run1, E, desc="Ens-run"+desc, total=N)
 
     # Transpose (to unpack)
     # In this code we output full time series, but really we need only emit
@@ -890,7 +885,8 @@ def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, 
                                perturbs[:, oBatch]*c,
                                obs_err_cov[np.ix_(oBatch, oBatch)])
 
-    # Run
+    # Run -- could use multiprocessing here (replace `map` by `mp`),
+    # but in our case the overhead means that it's not worth it.
     EE = map(local_analysis, domains)
 
     # Write to ensemble matrix. NB: don't re-use `ens`!

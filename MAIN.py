@@ -85,7 +85,6 @@ from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
 from numpy import sqrt
 from struct_tools import DotDict as Dict
-from tqdm.auto import tqdm as progbar
 
 # ## Problem case (simulator, truth, obs)
 
@@ -1226,87 +1225,6 @@ plotting.productions(prod.futr, "Future");
 
 print("Stats vs. (supposedly unknown) future production\n")
 utils.RMSMs(prod.futr, ref="Truth")
-
-
-# ## Robust optimisation
-
-# NB: This section is very unfinished, and should not be seen as a reference.
-
-# This section uses EnOpt to optimise the controls: the relative rates of production of
-# the wells (again, for simplicity, these will be constant in time).
-
-# Ojective function definition: total oil from production wells. This objective function
-# takes an ensemble (`*E`) of unknowns (`wsat, perm`) and controls (`rates`) and outputs
-# the corresponding ensemble of total oil productions.
-
-def total_oil(E, rates):
-    # bounded = np.all((0 < rates) & (rates < 1), axis=1)
-    wsat, prod = forward_model(nTime, *E, rates)
-    return np.sum(prod, axis=(1, 2))
-
-# Define step modifier to improve on "vanilla" gradient descent.
-
-def GDM(beta1=0.9):
-    """Gradient descent with (historical) momentum."""
-    grad1 = 0
-
-    def set_historical(g):
-        nonlocal grad1
-        grad1 = beta1*grad1 + (1-beta1)*g
-
-    def step(g):
-        set_historical(g)
-        return grad1
-
-    return step
-
-# Define EnOpt
-
-def EnOpt(obj, E, ctrls, C12, stepsize=1, nIter=10):
-    N = len(E[0])
-    stepper = GDM()
-
-    # Diagnostics
-    print("Initial controls:", ctrls)
-    repeated = np.tile(ctrls, (N, 1))
-    J = obj(E, repeated).mean()
-    print("Total oil (mean) for initial guess: %.3f" % J)
-
-    for _itr in progbar(range(nIter), desc="EnOpt"):
-        Eu = ctrls + rnd.randn(N, len(ctrls)) @ C12.T
-        Eu = Eu.clip(1e-5)
-
-        Ej = obj(E, Eu)
-        # print("Total oil (mean): %.3f"%Ej.mean())
-
-        Xu = center(Eu)[0]
-        Xj = center(Ej)[0]
-
-        G  = Xj.T @ Xu / (N-1)
-
-        du = stepper(G)
-        ctrls  = ctrls + stepsize*du
-        ctrls  = ctrls.clip(1e-5)
-
-    # Diagnostics
-    print("Final controls:", ctrls)
-    repeated = np.tile(ctrls, (N, 1))
-    J = obj(E, repeated).mean()
-    print("Total oil (mean) after optimisation: %.3f" % J)
-
-    return ctrls
-
-# Run EnOpt
-
-rnd.seed(3)
-# ctrls0  = model.producers[:, 2]
-ctrls0  = rnd.rand(nProd)
-ctrls0 /= sum(ctrls0)
-C12     = 0.03 * np.eye(len(ctrls0))
-E       = wsat.curnt.ES, perm.ES
-# E       = wsat.curnt.IES, perm.IES
-ctrls   = EnOpt(total_oil, E, ctrls0, C12, stepsize=10)
-
 
 # ## Final comments
 

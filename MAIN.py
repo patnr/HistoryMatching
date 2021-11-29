@@ -916,10 +916,14 @@ with np.printoptions(precision=1):
 def no_localization(batch_inds):
     return ..., 1
 
-# As an exercise, try using `no_localization` instead of `full_localization` above.
-# Also, set the same (arbitrary) seed right before running `localized_ens_update0`.
-# The resulting ensemble (and thus the printed statistics) should match exactly
-# that of the global analysis `ens_update0` that we ran above.
+# Hopefully, using this should output the same ensemble (up to *numerical* error)
+# as `ens_update0`. Let us verify this:
+
+tmp = localized_ens_update0(perm.Prior, *args0, domains=[...], taper=no_localization)
+print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
+
+# PS: with no localization, it should not matter how the domain is partitioned.
+# For example, try `domains=np.arange(model.M).reshape(some_integer, -1)`.
 
 # #### Configuration for the history matching problem
 

@@ -194,6 +194,11 @@ def get_map(multiprocessing=False):
         total  = kwargs.pop("total")
 
         if nCores == None or nCores > 1:
+            # Make sure np uses only 1 core. Our problem is embarrasingly parallelzable,
+            # so we are more efficient manually instigating multiprocessing.
+            import threadpoolctl
+            threadpoolctl.threadpool_limits(1)
+
             from p_tqdm import p_map
             return p_map(fun, list(args), **kwargs, desc=desc, num_cpus=nCores)
         else:

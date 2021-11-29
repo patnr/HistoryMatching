@@ -878,11 +878,11 @@ def localized_ens_update0(E, Eo, y, R, perturbs, domains, taper, mp=map):
 
     # Run
     EE = mp(local_analysis, domains)
-    # Write (but don't overwrite!)
-    E = np.empty_like(E)
+    # Write to ensemble matrix. NB: don't re-use E!
+    Ea = np.empty_like(E)
     for ii, Eii in zip(domains, EE):
-        E[:, ii] = Eii
-    return E
+        Ea[:, ii] = Eii
+    return Ea
 
 # The form of the localization used in the above code is "local/domain analysis".
 # Note that it sequentially processing batches (subsets/domains)

@@ -1051,7 +1051,12 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 # #### Compute
 
-perm.IES, diagnostics = IES(perm.Prior, **kwargs0, stepsize=1)
+kwargsI = dict(
+    observations = vect(prod.past.Noisy),
+    obs_err_cov  = augmented_obs_error_cov,
+)
+
+perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.

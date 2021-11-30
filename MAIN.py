@@ -369,7 +369,7 @@ plotting.spectrum(svals, "Prior cov.");
 # as a `for`-loop, except that it will use multiple CPU cores if you set `multiprocessing`
 # to "auto" or an integer.
 
-mp = get_map(multiprocessing=True)
+mp = get_map(multiprocessing=4)
 
 
 def forward_model(nTime, *args, desc="", leave=True):

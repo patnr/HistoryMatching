@@ -802,8 +802,11 @@ with np.printoptions(precision=1):
 # members -- a problem that gets exasperated by the simulator (manifesting as slow-down
 # or crash, often due to convergence problems in the linear solver).  Moreover, the
 # approximation (and hence the associated problems) only seem likely to worsen if using
-# jointly-updated (rather than re-generated) state fields.  This makes the
+# jointly-updated (rather than re-generated) state fields. This makes the
 # parameter-only update of the (batch) smoothers appealing.
+# Furthermore, the predominant uncertainty in history matching problems usually originates
+# in the prior, rather than model error, reducing the potential for improvement by filtering.
+# Finally, it is easier to formulate an iterative smoother than an iterative filter.
 
 # #### Compute
 

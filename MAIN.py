@@ -831,7 +831,8 @@ kwargs0 = dict(
 perm.ES = ens_update0(perm.Prior, **kwargs0)
 
 # #### Field plots
-# Let's plot the updated, initial ensemble.
+
+# Let's plot the updated ensemble.
 
 plotting.fields(perm.ES, "pperm", "ES (posterior)");
 
@@ -943,6 +944,10 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 
 perm.LES = ens_update0_loc(perm.Prior, **kwargs0,
                            domains=domains, taper=localization_setup)
+
+# Again, we plot some updated/posterior fields
+
+plotting.fields(perm.LES, "pperm", "LES (posterior)");
 
 # ### Iterative ensemble smoother
 

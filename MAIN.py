@@ -1134,11 +1134,10 @@ plotting.fields(perm_means, "pperm", "Means");
 # predicted and true *observations*), which we get from the predicted
 # production "profiles".
 
-(wsat.past.ES,
- prod.past.ES) = forward_model(nTime, wsat.init.Prior, perm.ES)
-
-(wsat.past.IES,
- prod.past.IES) = forward_model(nTime, wsat.init.Prior, perm.IES)
+for methd in perm:
+    if methd not in prod.past:
+        s, p = forward_model(nTime, wsat.init.Prior, perm[methd], desc=f" ({methd})")
+        wsat.past[methd], prod.past[methd] = s, p
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
 # A particularly interesting case is applying it to the prior's production predictions.
@@ -1215,16 +1214,12 @@ print("Future/prediction")
 (wsat.futr.Truth,
  prod.futr.Truth) = utils.recurse_run(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
-(wsat.futr.Prior,
- prod.futr.Prior) = forward_model(nTime, wsat.curnt.Prior, perm.Prior)
-
-(wsat.futr.ES,
- prod.futr.ES) = forward_model(nTime, wsat.curnt.ES, perm.ES)
-
-(wsat.futr.IES,
- prod.futr.IES) = forward_model(nTime, wsat.curnt.IES, perm.IES)
-
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
+
+for methd in perm:
+    if methd not in prod.futr:
+        s, p = forward_model(nTime, wsat.curnt[methd], perm[methd], desc=f" ({methd})")
+        wsat.futr[methd], prod.futr[methd] = s, p
 
 # #### Production plots
 

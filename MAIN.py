@@ -1214,12 +1214,12 @@ print("Future/prediction")
 (wsat.futr.Truth,
  prod.futr.Truth) = utils.recurse_run(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
 
-prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
-
 for methd in perm:
     if methd not in prod.futr:
         s, p = forward_model(nTime, wsat.curnt[methd], perm[methd], desc=f" ({methd})")
         wsat.futr[methd], prod.futr[methd] = s, p
+
+prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
 
 # #### Production plots
 

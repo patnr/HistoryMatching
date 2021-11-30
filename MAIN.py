@@ -85,6 +85,7 @@ from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
 from numpy import sqrt
 from struct_tools import DotDict as Dict
+from tqdm.auto import tqdm as progbar
 
 # ## Problem case (simulator, truth, obs)
 
@@ -371,7 +372,7 @@ plotting.spectrum(svals, "Prior cov.");
 mp = get_map(multiprocessing=True)
 
 
-def forward_model(nTime, *args, desc=""):
+def forward_model(nTime, *args, desc="", leave=True):
     """Create the (composite) forward model, i.e. forecast. Supports ensemble (2D array) input."""
 
     def run1(estimable):
@@ -403,7 +404,7 @@ def forward_model(nTime, *args, desc=""):
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
-    Ef = mp(run1, E, desc="Ens-run"+desc, total=len(args[0]))
+    Ef = mp(run1, E, desc="Ens-run"+desc, total=len(args[0]), leave=leave)
 
     # Transpose (to unpack)
     # In this code we output full time series, but really we need only emit
@@ -1000,12 +1001,12 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     w      = np.zeros(N)  # Control vector for the mean state.
     T      = np.eye(N)    # Anomalies transform matrix.
 
-    for itr in range(nIter):
+    for itr in progbar(range(nIter), desc="Iter"):
         # Compute rmse (vs. Truth)
         stat.rmse += [utils.RMSM(E, perm.Truth).rmse]
 
         # Forecast.
-        _, Eo = forward_model(nTime, wsat.init.Prior, E, desc=f"Iter #{itr}")
+        _, Eo = forward_model(nTime, wsat.init.Prior, E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.

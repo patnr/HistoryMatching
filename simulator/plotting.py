@@ -512,7 +512,13 @@ def ens_style(label, N=100):
         style.alpha  = .3
         style.zorder = 1.9
     if label == "IES":
+        style.c      = "C3"
+        style.alpha  = .3
+    if label == "LES":
         style.c      = "C4"
+        style.alpha  = .3
+    if label == "ILES":
+        style.c      = "C8"
         style.alpha  = .3
 
     # Incrase alpha if N is small

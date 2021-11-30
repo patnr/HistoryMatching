@@ -189,9 +189,8 @@ def get_map(multiprocessing=False):
     """Unify multiprocessing/single-processing interface via `map`."""
     nCores = None if multiprocessing in ["auto", True] else multiprocessing
 
-    def mp(fun, args, **kwargs):
-        desc   = kwargs.pop("desc")
-        total  = kwargs.pop("total")
+    def mp(fun, args, desc="", **kwargs):
+        total  = kwargs.pop("total", None)
 
         if nCores == None or nCores > 1:
             # Make sure np uses only 1 core. Our problem is embarrasingly parallelzable,

@@ -403,7 +403,7 @@ def forward_model(nTime, *args, desc=""):
     E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
 
     # Dispatch jobs
-    Ef = mp(run1, E, desc="Ens-run"+desc, total=N)
+    Ef = mp(run1, E, desc="Ens-run"+desc, total=len(args[0]))
 
     # Transpose (to unpack)
     # In this code we output full time series, but really we need only emit

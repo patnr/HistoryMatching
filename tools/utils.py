@@ -189,9 +189,7 @@ def get_map(multiprocessing=False):
     """Unify multiprocessing/single-processing interface via `map`."""
     nCores = None if multiprocessing in ["auto", True] else multiprocessing
 
-    def mp(fun, args, desc="", **kwargs):
-        total  = kwargs.pop("total", None)
-
+    def mp(fun, args, desc="", total=None, leave=True):
         if nCores == None or nCores > 1:
             # Make sure np uses only 1 core. Our problem is embarrasingly parallelzable,
             # so we are more efficient manually instigating multiprocessing.
@@ -199,8 +197,8 @@ def get_map(multiprocessing=False):
             threadpoolctl.threadpool_limits(1)
 
             from p_tqdm import p_map
-            return p_map(fun, list(args), **kwargs, desc=desc, num_cpus=nCores)
+            return p_map(fun, list(args), desc=desc, num_cpus=nCores, leave=leave)
         else:
-            return progbar(map(fun, args, **kwargs), desc=desc, total=total)
+            return progbar(map(fun, args), desc=desc, total=total, leave=leave)
 
     return mp

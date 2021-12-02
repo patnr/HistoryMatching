@@ -1,8 +1,8 @@
 # History matching tutorial
 
-## Run in the cloud
+## Run in the cloud (no installation required)
 
-- on Colab (requires no installation, but Google login):  
+- on Colab (requires Google login):  
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patricknraanes/HistoryMatching)
 - on a NORCE server (only available at specific times,
   to specific users):  

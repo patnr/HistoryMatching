@@ -1010,8 +1010,8 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     T      = np.eye(N)    # Anomalies transform matrix.
 
     for itr in progbar(range(nIter), desc="Iter"):
-        # Compute rmse (vs. Truth)
-        stat.rmse += [utils.RMSM(E, perm.Truth).rmse]
+        # Compute rmse (vs. supposedly unknown Truth)
+        stat.rmse += [utils.norm(E.mean(0) - perm.Truth)]
 
         # Forecast.
         _, Eo = forward_model(nTime, wsat.init.Prior, E, leave=False)
@@ -1109,7 +1109,7 @@ ax2.tick_params(axis='y', labelcolor="r")
 # #### RMS summary
 # RMS stands for "root-mean-square(d)" and is a summary measure for deviations.
 # With ensemble methods, it is (typically, and in this case study) applied
-# to the deviation from the **ensemble mean**, whence the trailing `M` in `RMSM` below.
+# to the deviation from the **ensemble mean**, whence the trailing `M` in `RMSMs` below.
 
 print("Stats vs. true field\n")
 utils.RMSMs(perm, ref="Truth")

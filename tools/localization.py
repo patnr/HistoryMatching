@@ -88,7 +88,7 @@ def pairwise_distances(A, B=None, domain=None):
         d = abs(d)
         d = np.minimum(d, domain-d)
 
-    distances = np.sqrt((d * d).sum(axis=-1))  # == sla.norm(d, axis=-1)
+    distances = np.sqrt((d * d).sum(axis=-1))
 
     return distances.reshape(mA, mB)
 

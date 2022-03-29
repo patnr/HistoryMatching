@@ -39,46 +39,37 @@ def recurse_run(model_step, nSteps, x0, dt, obs_model=None, pbar=True, **kwargs)
         return xx
 
 
-def square_sum(X):
-    return np.sum(X*X)
-
-
 def norm(xx):
-    # return nla.norm(xx/xx.size)
+    # return numpy.linalg.norm(xx/sqrt(len(xx)), ord=2)
     return np.sqrt(np.mean(xx * xx))
 
 
-class RMSM:
-    """Compute RMS of the deviations and error (vs. the ensemble Mean)."""
-
-    def __init__(self, ensemble, ref):
-        # Try to avoid taking a spatial mean instead of ensemble mean
-        assert ensemble.ndim > 1
-        mean = ensemble.mean(axis=0)
-
-        err = ref - mean
-        dev = ensemble - mean
-        self.rmse = norm(err)
-        self.rmsd = norm(dev)
-
-    def __str__(self):
-        return "%6.4f (rmse),  %6.4f (std)" % (self.rmse, self.rmsd)
-
-
 def RMSMs(series, ref):
-    """Print RMS error and spread, for each item in `series`."""
-    header = "Series    rms err  rms dev"
-    header = "\n".join([header, "-"*len(header)])
-    print(header)
+    """Print RMS err. and dev., from the Mean (along axis 0), for each item in `series`.
 
-    for key in series:
-        s = series[key]
-        # if key == ref: continue
-        if key == ref and s.shape[0] != 1:
-            # Add singleton first dimension for "ens" average
-            s = s[None, :]
-        v = RMSM(s, series[ref])
-        print(f"{key:8}: {v.rmse:6.4f}   {v.rmsd:6.4f}")
+    The `ref` must point to a data series that is *not* an ensemble.
+    All series (including `ref`) can have both singleton and `squeeze`d axis 0.
+    """
+    x = series[ref]
+
+    # Ensure reference's axis 0 is singleton.
+    if x.shape[0] != 1:
+        x = x[None, :]
+
+    # Print table heading
+    header = "Series    rms err  rms dev"
+    print(header, "-"*len(header), sep="\n")
+
+    for k, y in series.items():
+
+        # Ensure non-ensemble series also has singleton axis 0
+        if y.ndim < x.ndim:
+            y = y[None, :]
+            assert y.shape == x.shape
+
+        err = x - y.mean(0)
+        dev = y - y.mean(0)
+        print(f"{k:8}: {norm(err):6.4f}   {norm(dev):6.4f}")
 
 
 def svd0(A):

@@ -6,18 +6,14 @@
 max_line_length = 88
 ignore = "W6"
 
-[tool.flakehell]
+[tool.flakeheaven]
 exclude = [".*"]
 max_line_length = 88
 format = "grouped" # also try "stat"
 show_source = false
 #whitelist = "../../allowlist.txt" # Used by flake8-spellcheck.
 
-# Tmp fix for flakehell crashing with flake>=3.9.1
-# https://github.com/flakehell/flakehell/issues/10
-extended_default_ignore=[]
-
-[tool.flakehell.plugins]
+[tool.flakeheaven.plugins]
 pyflakes = ["+*"]
 pycodestyle = ["+*",
     "-E24", "-W503", "-E123", "-E226", "-E704", "-E121", "-W504", "-E126", # flake8 defaults
@@ -50,9 +46,9 @@ flake8-docstrings = ["+*", "-D105",
 #flake8-pytest-style = ["+*"]
 #flake8-spellcheck = ["+*"]
 
-[tool.flakehell.exceptions."MAIN.py"]
+[tool.flakeheaven.exceptions."MAIN.py"]
 pycodestyle = ["-E402", "-E501", "-E703", "-E302", "-E305"]
 flake8-docstrings = ["-D100"]
 
-[tool.flakehell.exceptions."simulator/plotting.py"]
+[tool.flakeheaven.exceptions."simulator/plotting.py"]
 pycodestyle = ["-E731"]

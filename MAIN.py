@@ -8,7 +8,7 @@
 # - For a more detailed reading, expect to spend around 5 hours.
 # - The code emphasises simplicity, not generality.
 # - Do not hesitate to file issues on
-#   [GitHub](https://github.com/patricknraanes/HistoryMatching),
+#   [GitHub](https://github.com/patnr/HistoryMatching),
 #   or submit pull requests.
 
 # ## Python in Jupyter
@@ -39,7 +39,7 @@ print("Hello world! I'm ", name)
 # Otherwise (and assuming you have done the installation described in the README),
 # you can skip/delete this cell.
 
-remote = "https://raw.githubusercontent.com/patricknraanes/HistoryMatching"
+remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 # !wget -qO- {remote}/master/colab_bootstrap.sh | bash -s
 
 # There is a huge amount of libraries available in **Python**,

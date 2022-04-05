@@ -13,7 +13,7 @@ main () {
     rm -rf REPO
 
     # Download repo
-    URL=https://github.com/patricknraanes/HistoryMatching.git
+    URL=https://github.com/patnr/HistoryMatching.git
     if [[ ! -d REPO ]]; then git clone --depth=1 $URL REPO; fi
 
     # https://pythonspeed.com/articles/upgrade-pip/

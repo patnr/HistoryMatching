@@ -10,8 +10,11 @@ Depending on thread-safety, this might not be necessary, but is usually cleaner
 when estimating anything other than the model's input/output (i.e. the state
 variables).
 
-Note: Index ordering/labels: `x` is 1st coord., `y` is 2nd.
-See `grid.py` for more info.
+Note: Index ordering/labels: `x` is 1st coord., `y` is 2nd. See `grid.py` for more info.
+
+Other changes:
+- Avoid column vectors (use numpy's 1-dim arrays).
+- Code is 2D only. Not sure if original code had actual 3D capacity.
 """
 
 from functools import wraps

@@ -432,13 +432,14 @@ def layout1(ww, output):
         if "Slider" in str(type(w)):
             w.layout.width = "16em"
             if w.description == "x":
-                w.layout.width = "92%" if isColab else "76%"
-                w.layout.padding = "0 50px 0 0" if isColab else "0 0 0 20px"
+                w.layout.width = "100%"
+                # top right bottom left
+                w.layout.padding = "0 84px 0 30px" if isColab else "0 146px 0 65px"
             elif w.description == "y":
                 w.orientation = "vertical"
                 w.layout.width = "2em"
-                w.layout.height = "100%" if isColab else "85%"
-                w.layout.padding = "0" if isColab else "0 0 25px 0"
+                w.layout.height = "100%"
+                w.layout.padding = "0" if isColab else "63px 0 72px 0"
 
     # Compose layout
     # PS: Use flexboxes (scale automatically, unlike AppLayout, TwoByTwoLayout)

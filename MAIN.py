@@ -105,7 +105,7 @@ seed = rnd.seed(4)  # very easy
 # matching and optimisation process.
 
 import simulator
-import simulator.plotting as plotting
+import tools.plotting as plotting
 import tools.localization as loc
 from tools import geostat, utils
 from tools.utils import center, get_map
@@ -118,8 +118,8 @@ from tools.utils import center, get_map
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 
 # Also init plotting module
-plotting.model = model
-plotting.coord_type = "absolute"
+plotting.single.model = model
+plotting.single.coord_type = "absolute"
 # -
 
 # The following declares some data containers to help us keep organised.
@@ -262,7 +262,7 @@ wsat.init.Truth = np.zeros(model.M)
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = plotting.anim("Truth", perm, wsat.past, prod.past);
+animation = plotting.single.anim("Truth", perm, wsat.past, prod.past);
 
 # Note: can take up to a minute to appear
 animation
@@ -281,7 +281,7 @@ for iT in range(nTime):
 # Plot of observations (and their noise):
 
 fig, ax = freshfig("Observations", figsize=(2, .7), rel=True)
-plotting.production1(ax, prod.past.Truth, prod.past.Noisy);
+plotting.single.production(ax, prod.past.Truth, prod.past.Noisy);
 
 # Note that several observations are above 1,
 # which is "unphysical" or not physically "realisable".

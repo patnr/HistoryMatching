@@ -405,7 +405,19 @@ def field_console(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
 
 
 def layout1(ww, output):
-    # try
+    """Compose a layout.
+
+    ```
+    -----------------
+     cN | cF  | cP
+        | cFt | cPt
+    -----------------
+        output  | cY
+    -----------------
+          cX
+    -----------------
+    ```
+    """
     cN, cF, cFt, cP, cPt, cX, cY = ww
 
     try:

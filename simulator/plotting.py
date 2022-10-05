@@ -52,6 +52,16 @@ cmap_corr.set_bad("black")
 
 # Defaults
 styles = dict(
+    default = dict(
+        title  = "",
+        transf = lambda x: x,
+        cmap   = "viridis",
+        levels = 10,
+        cticks = None,
+        # Note that providing vmin/vmax (and not a levels list) to mpl
+        # yields prettier colobar ticks, but destorys the consistency
+        # of the colorbars from one figure to another.
+    ),
     pperm = dict(
         title  = "Pre-Perm",
         cmap   = "jet",
@@ -72,10 +82,15 @@ styles = dict(
 )
 
 
-def _field(ax, Z, wells=False, argmax=False, colorbar=False,
-           cmap="viridis", cticks=None, levels=10, transf=lambda x: x,  # style kwargs
-           **kwargs):
-    """Contour-plot of the (flat) field `Z`."""
+def field(ax, Z, style="default", wells=False, argmax=False, colorbar=False, **kwargs):
+    """Contour-plot of the (flat) field `Z`. Styles can be overriden by `kwargs`."""
+    # Get style parms, with "default" fallback.
+    style = {**styles["default"], **styles[style]}
+    # Pop styles from kwargs
+    for key in style:
+        if key in kwargs:
+            style[key] = kwargs.pop(key)
+    # Pop axis styles from kwargs
     ax.set(**axprops(kwargs))
 
     # Plotting with extent=(0, Lx, 0, Ly), rather than merely changing ticks
@@ -93,15 +108,15 @@ def _field(ax, Z, wells=False, argmax=False, colorbar=False,
 
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
-    Z = transf(Z)
+    Z = style["transf"](Z)
     Z = Z.reshape(model.shape).T
 
     # Did we bother to specify set_over/set_under/set_bad ?
-    has_out_of_range = getattr(cmap, "_rgba_over", None) is not None
+    has_out_of_range = getattr(style["cmap"], "_rgba_over", None) is not None
 
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
-        Z, levels, cmap=cmap, **kwargs,
+        Z, style["levels"], cmap=style["cmap"], **kwargs,
         extend="both" if has_out_of_range else "neither",
         # Using origin="lower" puts the points in the gridcell centers.
         # This is great (agrees with finite-volume point definition)
@@ -114,7 +129,7 @@ def _field(ax, Z, wells=False, argmax=False, colorbar=False,
 
     # Contourf does not plot (at all) the bad regions. "Fake it" by facecolor
     if has_out_of_range:
-        ax.set_facecolor(getattr(cmap, "_rgba_bad", "w"))
+        ax.set_facecolor(getattr(style["cmap"], "_rgba_bad", "w"))
 
     # Axis lims & labels
     ax.set_xlim((0, Lx))
@@ -148,18 +163,9 @@ def _field(ax, Z, wells=False, argmax=False, colorbar=False,
             cax = dict(cax=colorbar)
         else:
             cax = dict(ax=ax, shrink=.8)
-        ax.figure.colorbar(collections, **cax, ticks=cticks)
+        ax.figure.colorbar(collections, **cax, ticks=style["cticks"])
 
     return collections
-
-
-def field(ax, Z, style=None, **kwargs):
-    """Contour-plot of the (flat) field `Z`."""
-    if style:
-        for key, val in styles[style].items():
-            if key != "title":
-                kwargs.setdefault(key, val)
-    return _field(ax, Z, **kwargs)
 
 
 def fields(ZZ, style, title="", figsize=(1.7, 1),

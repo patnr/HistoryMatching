@@ -164,7 +164,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
         if isinstance(colorbar, type(ax)):
             cax = dict(cax=colorbar)
         else:
-            cax = dict(ax=ax)
+            cax = dict(ax=ax, shrink=.8)
         ax.figure.colorbar(collections, **cax, ticks=kw("ticks"))
 
     return collections

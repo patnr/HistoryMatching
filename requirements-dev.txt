@@ -4,7 +4,7 @@ ipython
 pre-commit
 
 ipdb
-pudb
+pdbpp
 pytest
 
 # vim: ft=requirements

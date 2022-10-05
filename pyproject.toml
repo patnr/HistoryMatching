@@ -51,4 +51,4 @@ pycodestyle = ["-E402", "-E501", "-E703", "-E302", "-E305"]
 flake8-docstrings = ["-D100"]
 
 [tool.flakeheaven.exceptions."simulator/plotting.py"]
-pycodestyle = ["-E731"]
+pycodestyle = ["-E731"]  # do not assign a lambda expression, use a def

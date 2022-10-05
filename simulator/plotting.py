@@ -1,13 +1,14 @@
 """Plot functions for reservoir model.
 
 Note: before using any function, you must set the module vairable `model`.
+
 Snippet to reload module:
 
-    import importlib
-    import simulator.plotting as m
-    m = importlib.reload(m)
-    plotting.model = model
-    plotting.coord_type = "absolute"
+    >>> import importlib
+    >>> import simulator.plotting as m
+    >>> m = importlib.reload(m)
+    >>> plotting.model = model
+    >>> plotting.coord_type = "absolute"
 """
 
 import copy

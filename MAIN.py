@@ -751,7 +751,7 @@ def ens_update0(ens, obs_ens, observations, perturbs, obs_err_cov):
     obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y
     obs_pert    = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
     innovations = observations - (obs_ens + obs_pert)
-    KG          = sla.pinv2(obs_cov) @ Y.T @ X
+    KG          = sla.pinv(obs_cov) @ Y.T @ X
     return ens + innovations @ KG
 
 # Notes:

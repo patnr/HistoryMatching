@@ -12,14 +12,14 @@
 # Already in Colab
 jupyter~=1.0.0
 jupytext~=1.11.3
-scipy~=1.6.0
+scipy~=1.7
 
 # For jupyterlab
 jupyterlab~=3.2.3
 ipympl~=0.8.2
 
 # On newer MacOS, need mpl>=3.3 coz of https://bugs.python.org/issue33725 .
-matplotlib~=3.3.4
+matplotlib~=3.3
 # I tried (with no luck) the other workarounds from here
 # github.com/matplotlib/matplotlib/issues/15410#issuecomment-632283639
 # namely using python>=3.8 or `mp.set_start_method('forkserver')`.

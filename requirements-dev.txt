@@ -7,7 +7,4 @@ ipdb
 pudb
 pytest
 
-PyQt5
-qtpy
-
 # vim: ft=requirements

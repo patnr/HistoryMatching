@@ -180,7 +180,7 @@ def perm_transf(x):
 # Also configure plot parameters suitable for pre-perm
 
 plotting.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
-plotting.styles["pperm"]["ticks"] = np.arange(-4, 4+1)
+plotting.styles["pperm"]["cticks"] = np.arange(-4, 4+1)
 
 # For any type of parameter, one typically has to write a "setter" function that takes
 # the vector of parameter parameter values, and applies it to the specific model

@@ -52,16 +52,6 @@ cmap_corr.set_bad("black")
 
 # Defaults
 styles = dict(
-    default = dict(
-        title  = "",
-        transf = lambda x: x,
-        cmap   = "viridis",
-        levels = 10,
-        ticks  = None,
-        # Note that providing vmin/vmax (and not a levels list) to mpl
-        # yields prettier colobar ticks, but destorys the consistency
-        # of the colorbars from one figure to another.
-    ),
     pperm = dict(
         title  = "Pre-Perm",
         cmap   = "jet",
@@ -71,28 +61,21 @@ styles = dict(
         transf = lambda x: 1 - x,
         cmap   = cm_ow,
         levels = np.linspace(0 - 1e-7, 1 + 1e-7, 20),
-        ticks  = np.linspace(0, 1, 6),
+        cticks = np.linspace(0, 1, 6),
     ),
     corr = dict(
         title  = "Correlations",
         cmap   = cmap_corr,
         levels = np.linspace(-1.00001, 1.00001, 20),
-        ticks  = np.linspace(-1, 1, 6),
+        cticks = np.linspace(-1, 1, 6),
     ),
 )
 
 
-def pop_style_with_fallback(key, style, kwargs):
-    """`kwargs.pop(key)`, defaulting to `styles[style or "default"]`."""
-    x = styles["default"][key]
-    x = styles[style or "default"].get(key, x)
-    x = kwargs.pop(key, x)
-    return x
-
-
-def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs):
+def _field(ax, Z, wells=False, argmax=False, colorbar=False,
+           cmap="viridis", cticks=None, levels=10, transf=lambda x: x,  # style kwargs
+           **kwargs):
     """Contour-plot of the (flat) field `Z`."""
-    kw = lambda k: pop_style_with_fallback(k, style, kwargs)
     ax.set(**axprops(kwargs))
 
     # Plotting with extent=(0, Lx, 0, Ly), rather than merely changing ticks
@@ -110,15 +93,15 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
 
     # Need to transpose coz model assumes shape (Nx, Ny),
     # and contour() uses the same orientation as array printing.
-    Z = kw("transf")(Z)
+    Z = transf(Z)
     Z = Z.reshape(model.shape).T
 
     # Did we bother to specify set_over/set_under/set_bad ?
-    has_out_of_range = getattr(kw("cmap"), "_rgba_over", None) is not None
+    has_out_of_range = getattr(cmap, "_rgba_over", None) is not None
 
     # ax.imshow(Z[::-1])
     collections = ax.contourf(
-        Z, kw("levels"), cmap=kw("cmap"), **kwargs,
+        Z, levels, cmap=cmap, **kwargs,
         extend="both" if has_out_of_range else "neither",
         # Using origin="lower" puts the points in the gridcell centers.
         # This is great (agrees with finite-volume point definition)
@@ -131,7 +114,7 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
 
     # Contourf does not plot (at all) the bad regions. "Fake it" by facecolor
     if has_out_of_range:
-        ax.set_facecolor(getattr(kw("cmap"), "_rgba_bad", "w"))
+        ax.set_facecolor(getattr(cmap, "_rgba_bad", "w"))
 
     # Axis lims & labels
     ax.set_xlim((0, Lx))
@@ -165,18 +148,25 @@ def field(ax, Z, style=None, wells=False, argmax=False, colorbar=False, **kwargs
             cax = dict(cax=colorbar)
         else:
             cax = dict(ax=ax, shrink=.8)
-        ax.figure.colorbar(collections, **cax, ticks=kw("ticks"))
+        ax.figure.colorbar(collections, **cax, ticks=cticks)
 
     return collections
 
 
-def fields(ZZ, style=None, title="", figsize=(1.7, 1),
-           label_color="k", colorbar=True, **kwargs):
-    """Do `field(Z)` for each `Z` in `ZZ`."""
-    kw = lambda k: pop_style_with_fallback(k, style, kwargs)
+def field(ax, Z, style=None, **kwargs):
+    """Contour-plot of the (flat) field `Z`."""
+    if style:
+        for key, val in styles[style].items():
+            if key != "title":
+                kwargs.setdefault(key, val)
+    return _field(ax, Z, **kwargs)
 
+
+def fields(ZZ, style, title="", figsize=(1.7, 1),
+           label_color="k", colorbar=True, **kwargs):
+    """Do `field(Z) for `Z in ZZ`."""
     # Create figure using freshfig
-    title = dash_join("Fields", kw("title"), title)
+    title = dash_join("Fields", styles[style]["title"], title)
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
     # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
@@ -213,7 +203,8 @@ def fields(ZZ, style=None, title="", figsize=(1.7, 1),
         fig.suptitle(suptitle)
 
     if colorbar:
-        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=kw("ticks"))
+        fig.colorbar(hh[0], cax=axs.cbar_axes[0],
+                     ticks=kwargs.pop("cticks", styles[style]["cticks"]))
 
     return fig, axs, hh
 
@@ -353,10 +344,9 @@ def captured_fig(output, num, **kwargs):
     return decorator
 
 
-def field_console(compute, style=None, title="", figsize=(1.5, 1), **kwargs):
+def field_console(compute, style, title="", figsize=(1.5, 1), **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
-    kw = lambda k: pop_style_with_fallback(k, style, kwargs)
-    title  = dash_join(kw("title"), title)
+    title  = dash_join(styles[style]["title"], title)
     ctrls  = compute.controls.copy()  # gets modified
     output = wg.Output()
 

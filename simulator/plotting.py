@@ -445,10 +445,11 @@ def layout1(ww, output):
     V, H = wg.VBox, wg.HBox
     cF = V([cF, cFt])
     cP = V([cP, cPt])
-    # hspace = H([], layout={"width": "50px"})
+    # Centering inside another set of boxes is for safety/fallback
     center = {"justify_content": "space-around"}
     cX = H([cX], layout=center)
     cY = V([cY], layout=center)
+    # hspace = H([], layout={"width": "50px"})
     cH = H([cN, cF, cP], layout={"justify_content": "space-between"})
     layout = H([V([cH, H([output, cY]), cX])])
 

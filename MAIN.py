@@ -350,9 +350,20 @@ plotting.spectrum(svals, "Prior cov.");
 
 # In order to (begin to attempt to) solve the *inverse problem*,
 # we first have to be able to solve the *forward problem*.
-# Indeed, ensemble methods obtain observation-parameter sensitivities
+# Ensemble methods obtain observation-parameter sensitivities
 # from the covariances of the ensemble run through the ("forward") model.
-# This is a composite function. In our simple case, it only consists of two steps:
+#
+# A huge technical advantage of ensembel methods is that they are "embarrasingly
+# parallelizable", because each member simulation is complete independent (requires no
+# communication) from the others. We take advantage of this through multiprocessing
+# which, in Python, requires very little code overhead. Think of the following `mp`
+# as a `for`-loop, except that it will use multiple CPU cores if you set `multiprocessing`
+# to "auto" or an integer.
+
+mp = get_map(multiprocessing=4)
+
+
+# The forward model is generally a composite function. In our simple case, it only consists of two steps:
 #
 # - The main work consists of running the reservoir simulator
 #   for each realisation in the ensemble.
@@ -362,32 +373,22 @@ plotting.spectrum(svals, "Prior cov.");
 # This all has to be stitched together; this is not usually a pleasant task, though some
 # tools like [ERT](https://github.com/equinor/ert) have made it a little easier.
 
-# A huge technical advantage of ensembel methods is that they are "embarrasingly
-# parallelizable", because each member run is complete independent (requires no
-# communication) from the others.  We take advantage of this through multiprocessing
-# which, in Python, requires very little code overhead. Think of the following `mp`
-# as a `for`-loop, except that it will use multiple CPU cores if you set `multiprocessing`
-# to "auto" or an integer.
+def forward_model(nTime, *variables, **kwargs):
+    """Forward/forecast (composite) model. The `variables` may be ensembles (2D arrays)."""
 
-mp = get_map(multiprocessing=4)
-
-
-def forward_model(nTime, *args, desc="", leave=True):
-    """Create the (composite) forward model, i.e. forecast. Supports ensemble (2D array) input."""
-
-    def run1(estimable):
-        """Forward model for a *single* member/realisation."""
-        # Unpack variables
-        wsat0, perm, *rates = estimable
+    def run1(member):
+        """Run a *single* member/realisation."""
+        # Unpack
+        wsat0, perm, *rates = member
 
         # Don't overwrite the true model settings.
         model_n = copy.deepcopy(model)
 
         # Set production rates, if provided.
         if rates:
-            # The historical rates (couble be, but) are not unknowns;
-            # Instead, this "setter" is provided for the purpose
-            # of optimising future production.
+            # The historical rates (couble be, but) are not currently unknowns;
+            # Yet they are included among the variables for the later purpose
+            # of production optimisation.
             model_n.producers[:, 2] = rates[0]
             model_n.config_wells(model_n.injectors, model_n.producers, remap=False)
 
@@ -401,10 +402,11 @@ def forward_model(nTime, *args, desc="", leave=True):
         return wsats, prods
 
     # Compose ensemble. This packing is a technicality necessary for the syntax of `map`.
-    E = zip(*args)  # Tranpose args (so that member_index is 0th axis)
+    E = zip(*variables)  # Tranpose variables (so that "member index" is 0th axis)
 
     # Dispatch jobs
-    Ef = mp(run1, E, desc="Ens-run"+desc, total=len(args[0]), leave=leave)
+    Ef = mp(run1, E, total=len(variables[0]),
+            desc="Ens-run"+kwargs.get("desc", ""), leave=kwargs.get("leave", True))
 
     # Transpose (to unpack)
     # In this code we output full time series, but really we need only emit
@@ -416,11 +418,11 @@ def forward_model(nTime, *args, desc="", leave=True):
 
     return np.array(saturation), np.array(production)
 
-# Note that the `args` of `forward_model` should contain **not only** permeability
-# fields, but **also** initial water saturations. It also outputs saturations.  Why did
-# we make it so?  Because further down we'll be "restarting" (running) the simulator
+# Note that the `variables` of `forward_model` should contain **not only** permeability
+# fields, but **also** initial water saturations, which are also among the outputs.
+# Why? Because later we'll be "restarting" (running) the simulator
 # from a later point in time (to generate future predictions) at which point the
-# saturation fields will depend on the assumed permeability field, and hence vary from
+# saturation fields will depend on the given permeability field, and hence vary from
 # realisation to realisation.  Therefore this state (i.e. time-dependent, prognostic)
 # variable must be part of the input and output of the forward model.
 #

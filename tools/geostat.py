@@ -3,7 +3,7 @@
 import numpy as np
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
-from mpl_tools.place import freshfig
+from mpl_tools.misc import nRowCol
 from numpy.random import randn
 
 
@@ -67,7 +67,6 @@ def gaussian_fields(pts, N=1, r=0.2):
 
 
 if __name__ == "__main__":
-    from simulator import plotting as plots
     from simulator.grid import Grid2D
 
     np.random.seed(3000)
@@ -77,13 +76,15 @@ if __name__ == "__main__":
     ## 1D
     xx = np.linspace(0, 1, 201)
     fields = gaussian_fields((xx,), N)
-    fig, ax = freshfig(1)
+    fig, ax = plt.subplots(num="1D-fields")
     ax.plot(xx, fields.T, lw=2)
 
     ## 2D
+    fig, axs = plt.subplots(
+        num="2D-fields", **nRowCol(min(12, N)), sharex=True, sharey=True)
     grid = Grid2D(Lx=1, Ly=1, Nx=20, Ny=20)
-    plots.model = grid
     fields = gaussian_fields(grid.mesh(), N)
     fields = 0.5 + .2*fields
-    # fields = truncate_01(fields)
-    plots.fields(fields)
+    for field, ax in zip(fields, axs.ravel()):
+        cc = ax.contourf(field.reshape(grid.shape).T, levels=17)
+        ax.contour(field.reshape(grid.shape).T, levels=17)

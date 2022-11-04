@@ -18,13 +18,8 @@
 # (also in VCS) a list of direct/top-level and abstract (unpinned) deps
 # (to be able to easily update & refresh the requirements).
 
+git+https://github.com/patnr/TPFA-ResSim.git
 p_tqdm~=1.3
-
 threadpoolctl
-
-# By Patrick
-mpl-tools==0.2.57
-patlib==0.3.5
-struct-tools==0.2.5
 
 # vim: ft=requirements

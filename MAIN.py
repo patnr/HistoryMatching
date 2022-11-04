@@ -253,8 +253,8 @@ dt = 0.025
 nTime = round(T/dt)
 wsat.init.Truth = np.zeros(model.M)
 
-(wsat.past.Truth,
- prod.past.Truth) = utils.recurse_run(model.step, nTime, wsat.init.Truth, dt, obs_model)
+wsat.past.Truth = simulator.recurse(model.time_stepper(dt), nTime, wsat.init.Truth)
+prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 
 # #### Animation
 # Run the code cells below to get an animation of the oil saturation evolution.
@@ -262,7 +262,7 @@ wsat.init.Truth = np.zeros(model.M)
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = plotting.single.anim("Truth", perm, wsat.past, prod.past);
+animation = plotting.single.anim(None, wsat.past.Truth, prod.past.Truth);
 
 # Note: can take up to a minute to appear
 animation
@@ -396,8 +396,8 @@ def forward_model(nTime, *variables, **kwargs):
         set_perm(model_n, perm)
 
         # Run simulator
-        wsats, prods = utils.recurse_run(
-            model_n.step, nTime, wsat0, dt, obs_model, pbar=False)
+        wsats = simulator.recurse(model_n.time_stepper(dt), nTime, wsat0, pbar=False)
+        prods = np.array([obs_model(x) for x in wsats[1:]])
 
         return wsats, prods
 
@@ -1218,8 +1218,8 @@ plotting.fields(wsat_means, "oil", "Means");
 
 print("Future/prediction")
 
-(wsat.futr.Truth,
- prod.futr.Truth) = utils.recurse_run(model.step, nTime, wsat.curnt.Truth, dt, obs_model)
+wsat.futr.Truth = simulator.recurse(model.time_stepper(dt), nTime, wsat.curnt.Truth)
+prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
 
 for methd in perm:
     if methd not in prod.futr:

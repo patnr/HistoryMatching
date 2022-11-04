@@ -18,6 +18,8 @@
 # (also in VCS) a list of direct/top-level and abstract (unpinned) deps
 # (to be able to easily update & refresh the requirements).
 
+matplotlib==3.2.*
+
 git+https://github.com/patnr/TPFA-ResSim.git
 p_tqdm~=1.3
 threadpoolctl

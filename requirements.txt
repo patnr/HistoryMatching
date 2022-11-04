@@ -7,7 +7,11 @@
 # However, on MacOS I need a different mpl version (see below),
 # so that dependency must go in here.
 
--r requirements-colab.txt
+# -r requirements-colab.txt
+git+https://github.com/patnr/TPFA-ResSim.git
+p_tqdm~=1.3
+threadpoolctl
+
 
 # Already in Colab
 jupyter~=1.0.0

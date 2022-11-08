@@ -170,7 +170,7 @@ wsat = Dict(
 # almost-exponential function (to make the problem slightly trickier).
 
 def sample_prior_perm(N):
-    lperms = geostat.gaussian_fields(model.mesh(), N, r=0.8)
+    lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
     return lperms
 
 def perm_transf(x):

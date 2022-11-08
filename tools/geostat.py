@@ -83,7 +83,7 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(
         num="2D-fields", **nRowCol(min(12, N)), sharex=True, sharey=True)
     grid = Grid2D(Lx=1, Ly=1, Nx=20, Ny=20)
-    fields = gaussian_fields(grid.mesh(), N)
+    fields = gaussian_fields(grid.mesh, N)
     fields = 0.5 + .2*fields
     for field, ax in zip(fields, axs.ravel()):
         cc = ax.contourf(field.reshape(grid.shape).T, levels=17)

@@ -18,14 +18,13 @@ import ipywidgets as wg
 import matplotlib as mpl
 import numpy as np
 import struct_tools
+import TPFA_ResSim.plotting as single
 from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from mpl_tools import place
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
-
-import simulator.plotting as single
-from simulator.plotting import field, styles
+from TPFA_ResSim.plotting import field, styles
 
 # Colormap for correlations
 cmap_corr = plt.cm.get_cmap("bwr")

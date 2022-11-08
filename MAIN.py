@@ -104,7 +104,7 @@ seed = rnd.seed(4)  # very easy
 # algebra. Hence our focus and code will be of aspects directly related to the history
 # matching and optimisation process.
 
-import simulator
+import TPFA_ResSim as simulator
 import tools.plotting as plotting
 import tools.localization as loc
 from tools import geostat, utils

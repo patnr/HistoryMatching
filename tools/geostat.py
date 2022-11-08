@@ -67,7 +67,7 @@ def gaussian_fields(pts, N=1, r=0.2):
 
 
 if __name__ == "__main__":
-    from simulator.grid import Grid2D
+    from TPFA_ResSim.grid import Grid2D
 
     np.random.seed(3000)
     plt.ion()

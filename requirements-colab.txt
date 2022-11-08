@@ -1,27 +1,21 @@
-# Why?
+# NB: keep in sync (manually) with requirements.txt
+
+# Why not `pip freeze`? Because
+# - Numpy/scipy/mpl... are already imported when opening Colab,
+#   and so cannot be down/upgraded without restarting the kernel
+#   (doable, especially since Colab restarts automatically,
+#   https://stackoverflow.com/a/60237923 , but still cumbersome).
+# - Colab only works w/ mpl 3.2. My Mac requires 3.3.
+# - Much slower than just installing abstract (unpinned) deps.
 #
-# - Colab has special needs, usually conflicting with the (detailed)
-#   output of `pip freeze`.
-# - Installing the output of `pip freeze` on Colab takes
-#   much longer than installing a list of abstract deps.
-# - For the above reasons `pip install -r requirements-dev.txt`
-#   is not suitable for Colab. On the other hand, not doing it
-#   yields different local/Colab environments.
-# - Tools like pip-tools might fix this, but are pretty complicated
-#   (uses requirements.in (or setup.py) just to produce requirements.txt,
-#   all the while suggests using one requirements file for each python env and OS)
-#   Also, we don't want to use poetry/pipenv in this case.
-#
-# As a moderately reasonable fix, we manually pin the top-level dependencies.
-# Note that this goes against the general recommendation that apps/notebooks
-# (unlike libs/packages) should use `pip freeze`, while also maintaining
-# (also in VCS) a list of direct/top-level and abstract (unpinned) deps
-# (to be able to easily update & refresh the requirements).
+# ⇒ manually pin top-level dependencies, contrary to general recommendation
+# that apps/notebooks (unlike libs/packages) should use `pip freeze`, while also
+# (for easy update/refresh) maintaining (in VCS) a list of direct/top-level deps.
 
 matplotlib==3.2.*
 
-git+https://github.com/patnr/TPFA-ResSim.git
 p_tqdm~=1.3
 threadpoolctl
+git+https://github.com/patnr/TPFA-ResSim.git
 
 # vim: ft=requirements

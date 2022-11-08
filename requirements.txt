@@ -1,19 +1,14 @@
-# In general, these deps should be pinned to the version provided by Colab,
-# so that we get the same environment locally.
-# In particular, numpy/scipy/matplotlib... are already imported when opening Colab,
-# and so cannot be down/upgraded without restarting the kernel
-# (which is quite doable, especially since Colab restarts automatically
-# https://stackoverflow.com/a/60237923 , but still cumbersome).
-# However, on MacOS I need a different mpl version (see below),
-# so that dependency must go in here.
+# NB: keep in sync (manually) with requirements-colab.txt
 
-# -r requirements-colab.txt
-git+https://github.com/patnr/TPFA-ResSim.git
+# Similar to requirements-colab.txt
 p_tqdm~=1.3
 threadpoolctl
+# Install TPFA-ResSim a dependency:
+git+https://github.com/patnr/TPFA-ResSim.git
+# Install TPFA-ResSim in "editable" model from a local path:
+# -e ${HOME}/P/TPFA-ResSim
 
-
-# Already in Colab
+# Try to pin to Colab's versions, for env parity.
 jupyter~=1.0.0
 jupytext~=1.11.3
 scipy~=1.7

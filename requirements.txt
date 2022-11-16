@@ -4,7 +4,7 @@
 p_tqdm~=1.3
 threadpoolctl
 # Install TPFA-ResSim a dependency:
-git+https://github.com/patnr/TPFA-ResSim.git@e386bd7
+git+https://github.com/patnr/TPFA-ResSim.git
 # Install TPFA-ResSim in "editable" model from a local path:
 # -e ${HOME}/P/TPFA-ResSim
 

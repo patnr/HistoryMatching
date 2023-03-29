@@ -1,6 +1,6 @@
 """Configure mpl.
 
-On the choice of backend:
+## On the choice of backend:
 
 - In scripts, `Qt5Agg` is nice coz it (is interactive and) allows
   programmatic (automatic) placement of figures on screen.
@@ -14,7 +14,8 @@ On the choice of backend:
 - Colab only supports `%matplotlib inline` (but could look into "plotly")
   https://stackoverflow.com/a/64297121
 
-On IPython magics vs `mpl.use()`:
+## On IPython magics vs `mpl.use()`:
+
 The magics (like `%matplotlib notebook/ipympl`) set `plt.ion()` and some rcParams.
 They could probably be used in a module via `get_ipython().run_line_magic()`
 however, here I choose to instead use `mpl.use(...)` or `import ipympl`.
@@ -25,14 +26,17 @@ however, here I choose to instead use `mpl.use(...)` or `import ipympl`.
   PS: this "interactive" is not to be confused with "interactive backends".
   PS: check status with `plt.isinteractive`.
 
-About figures not displaying on 2nd run (cell execution):
+## About figures not displaying on 2nd run (cell execution):
+
 This seems to be an issue with ipympl when the figure `num` is re-used.
 Should be fixed in `freshfig` as of mpl-tools 0.2.55.
 
-About "run all (cells)":
+## About "run all (cells)":
+
 On my Mac, the figures sometimes don't display, or are "inline" instead of "nbAgg".
 
-About animation displaying twice:
+## About animation displaying twice:
+
 The solution seems to be to split the creation and display cells, and using %%capture.
 This worked both locally and on Colab.
 - [Ref](https://stackoverflow.com/q/47138023)

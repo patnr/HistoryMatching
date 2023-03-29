@@ -1,5 +1,10 @@
 -r requirements.txt
 
+# For jupyterlab
+jupyterlab~=3.6
+jupytext~=1.14
+ipympl~=0.9
+
 ipython
 pre-commit
 

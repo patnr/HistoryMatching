@@ -87,4 +87,4 @@ def init():
             mpl.use("Qt5Agg")
         except ImportError:
             pass  # fall back to e.g. MacOS backend
-        plt.ion()
+    plt.ion()

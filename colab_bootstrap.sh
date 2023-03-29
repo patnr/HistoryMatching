@@ -20,7 +20,7 @@ main () {
     pip install --upgrade pip
 
     # Install requirements
-    pip install -r REPO/requirements-colab.txt
+    pip install -r REPO/requirements.txt
 
     # Put repo contents (including hidden files) in PWD
     shopt -s dotglob
@@ -28,7 +28,7 @@ main () {
 }
 
 # Only run if we're on colab
-if python -c "import colab" 2>/dev/null; then
+if python -c "import google.colab" 2>/dev/null; then
 
     # Use `bash -s -- --debug` to get verbose output
     if echo $@ | grep -E -- '(--debug|-v)' > /dev/null ; then

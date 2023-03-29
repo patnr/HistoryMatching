@@ -1,25 +1,7 @@
-# NB: keep in sync (manually) with requirements-colab.txt
+git+https://github.com/patnr/TPFA-ResSim.git@789921fb
+# "Editable" mode:
+# -e ${HOME}/path/TPFA-ResSim
 
-# Similar to requirements-colab.txt
-p_tqdm~=1.3
+jupyter
+p_tqdm~=1.4
 threadpoolctl
-# Install TPFA-ResSim a dependency:
-git+https://github.com/patnr/TPFA-ResSim.git@e386bd7
-# Install TPFA-ResSim in "editable" model from a local path:
-# -e ${HOME}/P/TPFA-ResSim
-
-# Try to pin to Colab's versions, for env parity.
-jupyter~=1.0.0
-jupytext~=1.11.3
-scipy~=1.7
-
-# For jupyterlab
-jupyterlab~=3.2.3
-ipympl~=0.8.2
-
-# On newer MacOS, need mpl>=3.3 coz of https://bugs.python.org/issue33725 .
-#   I tried (with no luck) the other workarounds from here
-#   github.com/matplotlib/matplotlib/issues/15410#issuecomment-632283639
-#   namely using python>=3.8 or `mp.set_start_method('forkserver')`.
-# !=3.6.0 because https://github.com/matplotlib/matplotlib/issues/23921
-matplotlib~=3.3, !=3.6.0

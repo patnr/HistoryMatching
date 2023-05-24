@@ -2,7 +2,6 @@
 
 import numpy as np
 import scipy.linalg as sla
-from tqdm.auto import tqdm as progbar
 
 
 def norm(xx):
@@ -142,13 +141,21 @@ def corr(a, b):
     return Corr
 
 
-def get_map(multiprocessing=False):
-    """Unify multiprocessing/single-processing interface via `map`."""
-    nCores = None if multiprocessing in ["auto", True] else multiprocessing
+def get_map(nCores):
+    """Provide map using either multiprocessing or no.
 
-    def mp(fun, args, desc="", leave=True):
-        if nCores == None or nCores > 1:
-            # Make sure np uses only 1 core. Our problem is embarrasingly parallelzable,
+    Think of the output (map) as a `for`-loop, except using multiple CPU cores.
+    """
+    if nCores in ["auto", True, None]:
+        nCores = 999
+
+    if nCores not in [1, False]:
+        import multiprocessing
+        nCores = min(multiprocessing.cpu_count(), nCores)
+
+    def mp(fun, args, total=None, desc="", leave=True):
+        if nCores > 1:
+            # Make sure np uses only 1 core. Our problem is embarrasingly parallelizable,
             # so we are more efficient manually instigating multiprocessing.
             import threadpoolctl
             threadpoolctl.threadpool_limits(1)
@@ -156,6 +163,21 @@ def get_map(multiprocessing=False):
             from p_tqdm import p_map
             return p_map(fun, list(args), desc=desc, num_cpus=nCores, leave=leave)
         else:
-            return progbar(map(fun, args), desc=desc, leave=leave)
+            from tqdm.auto import tqdm
+            return tqdm(map(fun, args), desc=desc, total=total, leave=leave)
 
     return mp
+
+
+def ens_run(fun, *inputs, leave=True):
+    """Apply `fun` to *ensembles* (2D arrays) of `inputs`."""
+    mp = get_map(nCPU)
+    # Ensemble gets composed such that "member index" is on axis 0.
+    # Un-transpose after dispatching jobs (map forward_model to each member of E).
+    E = zip(*inputs)
+    Ef = mp(fun, E, total=len(inputs[0]), desc=f"{fun.__name__} on ens", leave=leave)
+    return list(map(np.array, zip(*Ef)))
+
+
+nCPU = 1
+"Number of CPUs to use in parallelization"

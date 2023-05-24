@@ -18,7 +18,7 @@
 # For example, try to **edit** the cell below to insert your name, and then **run** it.
 
 name = "Batman"
-print("Hello world! I'm ", name)
+print("Hello world! I'm", name)
 
 # Next, as an exercise, try to **insert** a new cell here, and compute `23/3`
 
@@ -108,7 +108,7 @@ import TPFA_ResSim as simulator
 import tools.plotting as plotting
 import tools.localization as loc
 from tools import geostat, utils
-from tools.utils import center, get_map
+from tools.utils import center, ens_run
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
@@ -383,47 +383,35 @@ def forward_model(member):
     # for possible diagnostic purposes we emit the full time series of wsats.
     return wsats, prods
 
-# Note that the `variables` of `ensemble_sim` should contain **not only** permeability
-# fields, but **also** initial water saturations, which are also among the outputs.
-# Why? Because later we'll be "restarting" (running) the simulator
-# from a later point in time (to generate future predictions) at which point the
-# saturation fields will depend on the given permeability field, and hence vary from
-# realisation to realisation.  Therefore this state (i.e. time-dependent, prognostic)
-# variable must be part of the input and output of the forward model.
+# Note that the input to `forward_model` should contain **not only** permeability
+# fields, but **also** the state (i.e. time-dependent, prognostic) variable,
+# i.e. water saturations.
+# Why? Because further below we'll be "restarting" (running) the simulator
+# from a later point in time (to generate future predictions) in which case
+# the saturation fields (which is also among the outputs) will depend on the
+# given permeability field, and hence vary from realisation to realisation.
 #
-# On the other hand, in this case study we assume that the time-0 saturations are not
-# uncertain (unknown). Rather than coding a special case in `ensemble_sim` for time-0,
-# we can express this 100% knowledge by setting each saturation field equal to the
-# *true* time-0 saturation (a constant field of 0).
+# But for time 0, the saturations (in this case study) are not uncertain (unknown).
+# We can express this 100% certainty by setting each saturation field
+# equal to the *true* time-0 saturation (a constant field of 0).
 
 wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
-# #### Paralellization
-
-# A huge technical advantage of ensembel methods is that they are "embarrasingly
-# parallelizable", because each member simulation is completely independent (requires no
-# communication) from the others. We take advantage of this through multiprocessing
-# which, in Python, requires very little code overhead.
-
-def ensemble_sim(*variables, desc='', leave=True):
-    """Apply `forward_model` to *ensembles* (2D arrays) of `variables`."""
-    # Think of `mp` as a `for`-loop, except using multiple CPU cores.
-    mp = get_map(multiprocessing=4)  # use "auto"/`int`/False
-    # Ensemble gets composed such that "member index" is on axis 0.
-    # Un-transpose after dispatching jobs (map forward_model to each member of E).
-    E = zip(*variables)
-    Ef = mp(forward_model, E, desc=f"Ens-simul {desc}", leave=leave)
-    saturation, production = zip(*Ef)
-    return np.array(saturation), np.array(production)
-
 # #### Run
 
-# Now that we have the forward model, we can make prior estimates of the saturation
-# evolution and production.  This is interesting in and of itself and, as we'll see
-# later, is part of the assimilation process.  Let's run the forward model on the prior.
+# A huge technical advantage of ensembel methods is that they are
+# "embarrasingly parallelizable", because each member simulation
+# is completely independent (requires no communication) from the others.
+# Configure the number of CPUs to use in `ens_run`. Can set to an `int` or False.
+
+utils.nCPU = "auto"
+
+# Now that our forward model is ready, we can make prior estimates of the saturation
+# evolution and production. This is interesting in and of itself and, as we'll see
+# later, is part of the assimilation process.
 
 (wsat.past.Prior,
- prod.past.Prior) = ensemble_sim(wsat.init.Prior, perm.Prior)
+ prod.past.Prior) = ens_run(forward_model, wsat.init.Prior, perm.Prior)
 
 # #### Flattening the time dimension
 
@@ -1001,7 +989,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         stat.rmse += [utils.norm(E.mean(0) - perm.Truth)]
 
         # Forecast.
-        _, Eo = ensemble_sim(wsat.init.Prior, E, leave=False)
+        _, Eo = ens_run(forward_model, wsat.init.Prior, E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.
@@ -1128,7 +1116,8 @@ plotting.fields(perm_means, "pperm", "Means");
 
 for methd in perm:
     if methd not in prod.past:
-        s, p = ensemble_sim(wsat.init.Prior, perm[methd], desc=f" ({methd})")
+        print(methd, ":")
+        s, p = ens_run(forward_model, wsat.init.Prior, perm[methd])
         wsat.past[methd], prod.past[methd] = s, p
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
@@ -1208,7 +1197,8 @@ prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
 
 for methd in perm:
     if methd not in prod.futr:
-        s, p = ensemble_sim(wsat.curnt[methd], perm[methd], desc=f" ({methd})")
+        print(methd, ":")
+        s, p = ens_run(forward_model, wsat.curnt[methd], perm[methd])
         wsat.futr[methd], prod.futr[methd] = s, p
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)

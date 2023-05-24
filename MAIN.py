@@ -367,9 +367,9 @@ plotting.spectrum(svals, "Prior cov.");
 # This all has to be stitched together; this is not usually a pleasant task, though some
 # tools like [ERT](https://github.com/equinor/ert) have made it a little easier.
 
-def forward_model(member):
+def forward_model(parameters):
     """Forecast (composite) model for a *single* member (realisation)."""
-    wsat0, perm = member  # unpack
+    wsat0, perm = parameters
 
     # Set attribute params, w/o overwriting truth model
     model_n = copy.deepcopy(model)

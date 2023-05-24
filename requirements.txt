@@ -1,4 +1,4 @@
-git+https://github.com/patnr/TPFA-ResSim.git@789921fb
+git+https://github.com/patnr/TPFA-ResSim.git@5aa055ed
 # "Editable" mode:
 # -e ${HOME}/path/TPFA-ResSim
 

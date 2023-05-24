@@ -202,13 +202,14 @@ set_perm(model, perm.Truth)
 
 # #### Wells
 
-# In this model, wells are represented simply by point **sources** and **sinks**. This
-# is of course incredibly basic and not realistic, but works for our purposes. So all we
-# need to specify is their placement and flux (which we will not vary in time). The code
-# below places the production wells on a grid, and specifies the same (and constant in time) production **rate** for each.
+# In this model, wells are represented simply by point **sources** and **sinks**.
+# This is of course incredibly basic and not realistic, but works for our purposes.
+# So all we need to specify is their placement and flux (which we will not vary in time).
+# The code below places 4 production wells on a grid,
+# and specifies the same (and constant in time) production **rate** for each.
 
-grid1 = [.12, .87]
-grid2 = np.dstack(np.meshgrid(grid1, grid1)).reshape((-1, 2))
+grid1 = np.array([.12, .87])
+grid2 = np.dstack(np.meshgrid(grid1*model.Lx, grid1*model.Ly)).reshape((-1, 2))
 rates = np.ones((len(grid2), 1))
 prods = np.hstack((grid2, rates))
 
@@ -217,8 +218,8 @@ prods = np.hstack((grid2, rates))
 # ensured by the `config_wells` function used below.
 
 model.config_wells(
-    # Each row should be a tuple: (x/Lx, y/Ly, |rate|)
-    inj  = [[0.50, 0.50, 1.00]],
+    # Each row should be a tuple: (x, y, |rate|)
+    inj  = [[0.50*model.Lx, 0.50*model.Ly, 1.00]],
     prod = prods,
 );
 
@@ -350,20 +351,13 @@ plotting.spectrum(svals, "Prior cov.");
 
 # In order to (begin to attempt to) solve the *inverse problem*,
 # we first have to be able to solve the *forward problem*.
-# Ensemble methods obtain observation-parameter sensitivities
+# Indeed, ensemble methods obtain observation-parameter sensitivities
 # from the covariances of the ensemble run through the ("forward") model.
-#
-# A huge technical advantage of ensembel methods is that they are "embarrasingly
-# parallelizable", because each member simulation is complete independent (requires no
-# communication) from the others. We take advantage of this through multiprocessing
-# which, in Python, requires very little code overhead. Think of the following `mp`
-# as a `for`-loop, except that it will use multiple CPU cores if you set `multiprocessing`
-# to "auto" or an integer.
 
-mp = get_map(multiprocessing=4)
+# #### Function composition
 
-
-# The forward model is generally a composite function. In our simple case, it only consists of two steps:
+# The forward model is generally a composite function.
+# In our simple case, it only consists of two steps:
 #
 # - The main work consists of running the reservoir simulator
 #   for each realisation in the ensemble.
@@ -373,52 +367,23 @@ mp = get_map(multiprocessing=4)
 # This all has to be stitched together; this is not usually a pleasant task, though some
 # tools like [ERT](https://github.com/equinor/ert) have made it a little easier.
 
-def forward_model(nTime, *variables, **kwargs):
-    """Forward/forecast (composite) model. The `variables` may be ensembles (2D arrays)."""
+def forward_model(member):
+    """Forecast (composite) model for a *single* member (realisation)."""
+    wsat0, perm = member  # unpack
 
-    def run1(member):
-        """Run a *single* member/realisation."""
-        # Unpack
-        wsat0, perm, *rates = member
+    # Set attribute params, w/o overwriting truth model
+    model_n = copy.deepcopy(model)
+    set_perm(model_n, perm)
 
-        # Don't overwrite the true model settings.
-        model_n = copy.deepcopy(model)
+    # Run simulator
+    wsats = simulator.recurse(model_n.time_stepper(dt), nTime, wsat0, pbar=False)
+    prods = np.array([obs_model(x) for x in wsats[1:]])  # extract prod time series
 
-        # Set production rates, if provided.
-        if rates:
-            # The historical rates (couble be, but) are not currently unknowns;
-            # Yet they are included among the variables for the later purpose
-            # of production optimisation.
-            model_n.producers[:, 2] = rates[0]
-            model_n.config_wells(model_n.injectors, model_n.producers, remap=False)
+    # While we only reall need the state at the *final* time (for future predictions),
+    # for possible diagnostic purposes we emit the full time series of wsats.
+    return wsats, prods
 
-        # Set permeabilities
-        set_perm(model_n, perm)
-
-        # Run simulator
-        wsats = simulator.recurse(model_n.time_stepper(dt), nTime, wsat0, pbar=False)
-        prods = np.array([obs_model(x) for x in wsats[1:]])
-
-        return wsats, prods
-
-    # Compose ensemble. This packing is a technicality necessary for the syntax of `map`.
-    E = zip(*variables)  # Tranpose variables (so that "member index" is 0th axis)
-
-    # Dispatch jobs
-    Ef = mp(run1, E, total=len(variables[0]),
-            desc="Ens-run"+kwargs.get("desc", ""), leave=kwargs.get("leave", True))
-
-    # Transpose (to unpack)
-    # In this code we output full time series, but really we need only emit
-    # - The state at the final time, for restarts (predictions).
-    # - The observations (for the assimilation update).
-    # - The variables used for production optimisation
-    #   (in this case the same as the obs, namely the production).
-    saturation, production = zip(*Ef)
-
-    return np.array(saturation), np.array(production)
-
-# Note that the `variables` of `forward_model` should contain **not only** permeability
+# Note that the `variables` of `ensemble_sim` should contain **not only** permeability
 # fields, but **also** initial water saturations, which are also among the outputs.
 # Why? Because later we'll be "restarting" (running) the simulator
 # from a later point in time (to generate future predictions) at which point the
@@ -427,18 +392,38 @@ def forward_model(nTime, *variables, **kwargs):
 # variable must be part of the input and output of the forward model.
 #
 # On the other hand, in this case study we assume that the time-0 saturations are not
-# uncertain (unknown). Rather than coding a special case in `forward_model` for time-0,
+# uncertain (unknown). Rather than coding a special case in `ensemble_sim` for time-0,
 # we can express this 100% knowledge by setting each saturation field equal to the
 # *true* time-0 saturation (a constant field of 0).
 
 wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
+
+# #### Paralellization
+
+# A huge technical advantage of ensembel methods is that they are "embarrasingly
+# parallelizable", because each member simulation is completely independent (requires no
+# communication) from the others. We take advantage of this through multiprocessing
+# which, in Python, requires very little code overhead.
+
+def ensemble_sim(*variables, desc='', leave=True):
+    """Apply `forward_model` to *ensembles* (2D arrays) of `variables`."""
+    # Think of `mp` as a `for`-loop, except using multiple CPU cores.
+    mp = get_map(multiprocessing=4)  # use "auto"/`int`/False
+    # Ensemble gets composed such that "member index" is on axis 0.
+    # Un-transpose after dispatching jobs (map forward_model to each member of E).
+    E = zip(*variables)
+    Ef = mp(forward_model, E, desc=f"Ens-simul {desc}", leave=leave)
+    saturation, production = zip(*Ef)
+    return np.array(saturation), np.array(production)
+
+# #### Run
 
 # Now that we have the forward model, we can make prior estimates of the saturation
 # evolution and production.  This is interesting in and of itself and, as we'll see
 # later, is part of the assimilation process.  Let's run the forward model on the prior.
 
 (wsat.past.Prior,
- prod.past.Prior) = forward_model(nTime, wsat.init.Prior, perm.Prior)
+ prod.past.Prior) = ensemble_sim(wsat.init.Prior, perm.Prior)
 
 # #### Flattening the time dimension
 
@@ -1016,7 +1001,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         stat.rmse += [utils.norm(E.mean(0) - perm.Truth)]
 
         # Forecast.
-        _, Eo = forward_model(nTime, wsat.init.Prior, E, leave=False)
+        _, Eo = ensemble_sim(wsat.init.Prior, E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.
@@ -1143,7 +1128,7 @@ plotting.fields(perm_means, "pperm", "Means");
 
 for methd in perm:
     if methd not in prod.past:
-        s, p = forward_model(nTime, wsat.init.Prior, perm[methd], desc=f" ({methd})")
+        s, p = ensemble_sim(wsat.init.Prior, perm[methd], desc=f" ({methd})")
         wsat.past[methd], prod.past[methd] = s, p
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
@@ -1223,7 +1208,7 @@ prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
 
 for methd in perm:
     if methd not in prod.futr:
-        s, p = forward_model(nTime, wsat.curnt[methd], perm[methd], desc=f" ({methd})")
+        s, p = ensemble_sim(wsat.curnt[methd], perm[methd], desc=f" ({methd})")
         wsat.futr[methd], prod.futr[methd] = s, p
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)

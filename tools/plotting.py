@@ -75,6 +75,7 @@ def fields(ZZ, style, title="", figsize=(1.7, 1),
     if not isinstance(ZZ, dict):
         ZZ = {i: Z for (i, Z) in enumerate(ZZ)}
 
+    # Plot
     hh = []
     for ax, label in zip(axs, ZZ):
         label_ax(ax, label, c=label_color)
@@ -90,6 +91,10 @@ def fields(ZZ, style, title="", figsize=(1.7, 1),
     if colorbar:
         fig.colorbar(hh[0], cax=axs.cbar_axes[0],
                      ticks=kwargs.pop("cticks", styles[style]["cticks"]))
+
+    warnings.filterwarnings("ignore", category=UserWarning)
+    fig.tight_layout()  # Not necessary with ipympl
+    # warnings.resetwarnings()  # Don't! Causes warnings from (mpl?) libraries
 
     return fig, axs, hh
 

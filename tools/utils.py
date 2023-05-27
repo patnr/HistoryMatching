@@ -141,43 +141,67 @@ def corr(a, b):
     return Corr
 
 
-def get_map(nCores):
-    """Provide map using either multiprocessing or no.
-
-    Think of the output (map) as a `for`-loop, except using multiple CPU cores.
-    """
-    if nCores in ["auto", True, None]:
-        nCores = 999
-
-    if nCores not in [1, False]:
-        import multiprocessing
-        nCores = min(multiprocessing.cpu_count(), nCores)
-
-    def mp(fun, args, total=None, desc="", leave=True):
-        if nCores > 1:
-            # Make sure np uses only 1 core. Our problem is embarrasingly parallelizable,
-            # so we are more efficient manually instigating multiprocessing.
-            import threadpoolctl
-            threadpoolctl.threadpool_limits(1)
-
-            from p_tqdm import p_map
-            return p_map(fun, list(args), desc=desc, num_cpus=nCores, leave=leave)
-        else:
-            from tqdm.auto import tqdm
-            return tqdm(map(fun, args), desc=desc, total=total, leave=leave)
-
-    return mp
+nCPU = 1
+"Number of CPUs to use in parallelization"
 
 
 def ens_run(fun, *inputs, leave=True):
-    """Apply `fun` to *ensembles* (2D arrays) of `inputs`."""
-    mp = get_map(nCPU)
-    # Ensemble gets composed such that "member index" is on axis 0.
-    # Un-transpose after dispatching jobs (map forward_model to each member of E).
-    E = zip(*inputs)
-    Ef = mp(fun, E, total=len(inputs[0]), desc=f"{fun.__name__} on ens", leave=leave)
-    return list(map(np.array, zip(*Ef)))
+    """Apply `fun` to *ensembles* (2D arrays) of `inputs`.
 
+    This is mainly a wrapper around `multiprocessing`.
 
-nCPU = 1
-"Number of CPUs to use in parallelization"
+    - Emits progressbar.
+    - Contains alternative for-loop implementation through equal interface.
+    - Takes care of transpose and un-transpose vars.
+    - `nCPU` specification shenanigans.
+
+    >>> xx = [1, 2, 3]
+    >>> yy = [10, 20, 30]
+    >>> ens_run(lambda x: x, xx)
+    [1, 2, 3]
+    >>> ens_run(lambda xy: xy[0] + xy[1], xx, yy)
+    [11, 22, 33]
+    >>> ens_run(lambda xy: (xy[0], xy[1]), xx, yy)
+    [array([1, 2, 3]), array([10, 20, 30])]
+    """
+
+    global nCPU
+    is_int = type(nCPU) == int  # `isinstance(True, int)` is True
+    if not is_int and nCPU in [True, None, "auto"]:
+        nCPU = 999
+
+    tqdm_kws = dict(
+        desc=f"{fun.__name__} on ens",
+        total=len(inputs[0]),
+        leave=leave,
+    )
+
+    if len(inputs) > 1:
+        # Tranpose such that "member index" is on axis 0.
+        xx = zip(*inputs)
+    else:
+        # Squeeze
+        xx = inputs[0]
+
+    if nCPU > 1:
+        import multiprocessing
+        import threadpoolctl
+        from p_tqdm import p_map
+        nCPU = min(multiprocessing.cpu_count(), nCPU)
+        threadpoolctl.threadpool_limits(1)  # make np use only 1 core
+        yy = p_map(fun, list(xx), num_cpus=nCPU, **tqdm_kws)
+
+    else:
+        from tqdm.auto import tqdm
+        # yy = tqdm(map(fun, xx), **tqdm_kws)
+        yy = []
+        for x in tqdm(xx, **tqdm_kws):
+            yy.append(fun(x))
+
+    try:
+        # Un-transpose
+        yy = [np.array(y) for y in zip(*yy)]
+    except TypeError:
+        pass
+
+    return yy

@@ -147,7 +147,7 @@ wsat = Dict(
 # Technical note: This data hierarchy is convienient in *this* notebook/script,
 # especially for plotting purposes. For example, we can with ease refer to
 # `wsat.past.Truth` and `wsat.past.Prior`. The former will be a numpy array of shape
-# `(nTime, M)` where `M = model.M`, and the latter will have shape `(N, nTime, M)` where
+# `(nTime, model.Nxy)` and the latter will have shape `(N, nTime, model.Nxy)` where
 # `N` is the size of the ensemble. However, in other implementations, different choices
 # for the data structure may be more convenient, e.g. where the different types of
 # the unknowns are merely concatenated along the last axis, rather than being kept in
@@ -253,7 +253,7 @@ def obs_model(water_sat):
 T = 1
 dt = 0.025
 nTime = round(T/dt)
-wsat.init.Truth = np.zeros(model.M)
+wsat.init.Truth = np.zeros(model.Nxy)
 
 wsat.past.Truth = simulator.recurse(model.time_stepper(dt), nTime, wsat.init.Truth)
 prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
@@ -627,7 +627,7 @@ fig.tight_layout()
 # locations of each observation and each unknown parameter.
 
 xy_obs = model.ind2xy(obs_inds)
-xy_prm = model.ind2xy(np.arange(model.M))
+xy_prm = model.ind2xy(np.arange(model.Nxy))
 
 # However, as we saw from the correlation dashboard, the localization should be
 # time dependent. For example, it is tempting to say that remote-in-time (i.e. late)
@@ -890,7 +890,7 @@ tmp = ens_update0_loc(perm.Prior, **kwargs0, domains=[...], taper=no_localizatio
 print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
 
 # *PS: with no localization, it should not matter how the domain is partitioned.
-# For example, try `domains=np.arange(model.M).reshape(some_integer, -1)`.*
+# For example, try `domains=np.arange(model.Nxy).reshape(some_integer, -1)`.*
 
 # #### Configuration for the history matching problem
 

@@ -145,7 +145,7 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def ens_run(fun, *inputs, leave=True):
+def ens_run(fun, *inputs, pbar=True, leave=True):
     """Apply `fun` to *ensembles* (2D arrays) of `inputs`.
 
     This is mainly a wrapper around `multiprocessing`.
@@ -170,11 +170,17 @@ def ens_run(fun, *inputs, leave=True):
     if not is_int and nCPU in [True, None, "auto"]:
         nCPU = 999
 
-    tqdm_kws = dict(
-        desc=f"{fun.__name__} on ens",
-        total=len(inputs[0]),
-        leave=leave,
-    )
+    if pbar:
+        tqdm_kws = dict(
+            desc=f"{fun.__name__} on ens",
+            total=len(inputs[0]),
+            leave=leave,
+        )
+    else:
+        tqdm_kws = dict(
+            # passthrough
+            tqdm=(lambda x, **_: x)
+        )
 
     if len(inputs) > 1:
         # Tranpose such that "member index" is on axis 0.
@@ -193,6 +199,7 @@ def ens_run(fun, *inputs, leave=True):
 
     else:
         from tqdm.auto import tqdm
+        tqdm = tqdm_kws.pop('tqdm', tqdm)
         # yy = tqdm(map(fun, xx), **tqdm_kws)
         yy = []
         for x in tqdm(xx, **tqdm_kws):

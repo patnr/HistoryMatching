@@ -205,22 +205,23 @@ set_perm(model, perm.Truth)
 # In this model, wells are represented simply by point **sources** and **sinks**.
 # This is of course incredibly basic and not realistic, but works for our purposes.
 # So all we need to specify is their placement and flux (which we will not vary in time).
-# The code below places 4 production wells on a grid,
-# and specifies the same (and constant in time) production **rate** for each.
+# The code below generates the coordinates of the 4 corners.
 
-grid1 = np.array([.12, .87])
-grid2 = np.dstack(np.meshgrid(grid1*model.Lx, grid1*model.Ly)).reshape((-1, 2))
-rates = np.ones((len(grid2), 1))
-prods = np.hstack((grid2, rates))
+prod_xy = np.dstack(np.meshgrid(
+    np.array([.12, .87]) * model.Lx,
+    np.array([.12, .87]) * model.Ly
+)).reshape((-1, 2))
 
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
 # is incompressible, the total of the source terms must equal that of the sinks. This is
-# ensured by the `config_wells` function used below.
+# ensured by the `config_wells` function used below. We will not vary the rates in time.
 
+nProd = len(prod_xy)
 model.config_wells(
-    # Each row should be a tuple: (x, y, |rate|)
-    inj  = [[0.50*model.Lx, 0.50*model.Ly, 1.00]],
-    prod = prods,
+    inj_xy = [[0.50*model.Lx, 0.50*model.Ly]],
+    inj_rates = [[1]],
+    prod_xy = prod_xy,
+    prod_rates = np.ones((nProd, 1)) / nProd,
 );
 
 # #### Plot
@@ -242,7 +243,7 @@ fig.tight_layout()
 # non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the
 # observation model.
 
-obs_inds = [model.xy2ind(x, y) for (x, y, _) in model.producers]
+obs_inds = model.xy2ind(*model.prod_xy.T)
 def obs_model(water_sat):
     return water_sat[obs_inds]
 
@@ -272,7 +273,6 @@ animation
 # In reality, observations are never perfect. To emulate this, we corrupt the
 # observations by adding a bit of noise.
 
-nProd = len(model.producers)
 prod.past.Noisy = prod.past.Truth.copy()
 R = 1e-3 * np.eye(nProd)
 for iT in range(nTime):
@@ -623,25 +623,29 @@ ax.set_xlabel("Distance")
 fig.tight_layout()
 
 # We will also need the distances, which we can pre-compute.
-# We could start by computing the location of observation and each unknown parameter.
+# As seen from `distances_to_obs` below, we will need the
+# locations of each observation and each unknown parameter.
 
-xy_obs = model.ind2xy(obs_inds*nTime)
+xy_obs = model.ind2xy(obs_inds)
 xy_prm = model.ind2xy(np.arange(model.M))
 
 # However, as we saw from the correlation dashboard, the localization should be
-# time dependent.  It is tempting to say that remote-in-time (i.e. late)
-# observations should have a larger area of impact than earlier observations,
-# since they are integro-spatio-temperal functions (to use a fancy word).
-# We could achieve that by adding a column to `xy_obs` to represent a time
-# coordinate (and a column of zeros to `xy_prm`).
+# time dependent. For example, it is tempting to say that remote-in-time (i.e. late)
+# observations should have a larger area of impact,
+# since they are integro-spatio-temperal functions (to use a fancy word) of the perm fields.
+# We could achieve that by adding a time coordinate to `xy_obs` (setting it to 0 for `xy_prm`).
 # However, the correlation dashboard does not really support this "dilation" theory,
 # and we should be careful about growing the tapering mask.
-#
-# On the other hand, there was clear movement in the locations of the correlation fields.
-# In fact, the maximum of the correlation to an observation was never even at the
-# location of the well. Therefore, we will co-locate the correlation mask with these
-# maxima, which we can achieve by computing distances to the maxima rather than to the
-# wells.
+# So instead, we simply replicate the same locations for each time instance.
+
+xy_obs = np.tile(xy_obs, nTime)
+
+# Actually, we can probably do a little better.  Recall from the correlation
+# dashboard that the the correlation fields were clearly moving in time.
+# Indeed, the maximum of the correlation to an observation was never even at
+# the location of the well. Therefore, we will co-locate the correlation mask
+# with these maxima, which we can achieve by computing distances to the maxima
+# rather than to the wells.
 
 xy_obs = vect(xy_max_corr.T)
 
@@ -649,7 +653,6 @@ xy_obs = vect(xy_max_corr.T)
 # correlations with the) observations.
 
 distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
-
 
 # The tapering function is similar to the covariance functions used in
 # geostatistics (see Kriging, variograms), and indeed localization can be

@@ -27,7 +27,7 @@ from struct_tools import DotDict as Dict
 from TPFA_ResSim.plotting import field, styles
 
 # Colormap for correlations
-cmap_corr = plt.cm.get_cmap("bwr")
+cmap_corr = plt.get_cmap("bwr")
 # Set out-of-bounds colors for correlation plot
 cmap_corr = copy.copy(cmap_corr)  # avoid warning
 cmap_corr.set_under("green")
@@ -44,6 +44,10 @@ styles["corr"] = dict(
     cmap   = cmap_corr,
     levels = np.linspace(-1.00001, 1.00001, 20),
     cticks = np.linspace(-1, 1, 6),
+)
+styles["obj"] = dict(
+    title  = "NPV",
+    cmap   = plt.get_cmap("inferno"),
 )
 
 

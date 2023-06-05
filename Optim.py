@@ -12,21 +12,13 @@
 # you can skip/delete this cell.
 
 ## TODO:
-# - Optimize rate (target = infty)
-# - Water prod cost
-# - Injection cost
-# - Don't use penalisation (hard to find optima near border, requires small L)
-# - 1D: Plot ensmeble of npv curves
-# - Compare with FD (small sdev)
-# - Optimize production rates (plot argmin as 4 line plots)
 # - Use Bezier curves to parametrize well rates ?
+# - Make user widget for manual optimisation
+# - 1D: Plot ensemble of npv curves
 # - Plot ensemble of pdfs of npvs, including
 #   strategies: reactive control, nominal optimization, robust optimization
-# - Also plot final saturations for these strategies
-# - Make user widget for manual optimisation
 # - Use model with many injectors, producers ? jansen2010closed_prez
 # - Cite essen, jansen, chen, fonseca, stordal, raanes
-# - Fix progbar desc "Ens on obj_inj" --> "My description"
 
 ## Imports
 remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
@@ -129,6 +121,13 @@ def plot_path(ax1, ax2, ax3, path, objs=None, color=None):
         ax3.set_ylabel('|Step|')
         ax3.grid()
         ax3.set(xlabel="itr")
+
+
+def atleast_2d(x):
+    """Ensure has ens axis."""
+    singleton = np.ndim(x) == 1
+    x = np.atleast_2d(x)
+    return x, singleton
 
 
 # Could put this in npv() rather than copying the base model
@@ -328,45 +327,50 @@ def sim(model, wsat, pbar=False, leave=False):
 
 ## Objectives
 def npv(**kwargs):
-    """Compute net present value (NPV), a discounted measure of total oil production."""
-    # Don't bother with cost of water production, since it is implicitly approximated
-    # by the reduction in oil production.
+    """Net present value (NPV, i.e. discounted, total oil production) of model config."""
+    # Config
     try:
         model = model_setup(**kwargs)
+        # Simulate
+        wsats, prods = sim(model, wsat0)
     except Exception:
-        return 0  # Invalid model params. Penalize
-    # Simulate
-    wsats, prods = sim(model, wsat0)
-    # Compute monetary value
+        return 0  # Invalid model params. Penalize. Use `raise` for debugging.
+    # Compute "monetary" value
     discounts = .99 ** np.arange(nTime + 1)
     prods = 1 - prods                  # water --> oil
     prods = prods * model.prod_rates.T # volume = saturation * rate
     prods = np.sum(prods, -1)          # sum over wells
     value = prods @ discounts          # sum in time, incld. discount factors
-    return value
+    # Compute cost of water injection
+    # PS: We don't bother with cost of water production,
+    # since it is implicitly approximated by reduction in oil production.
+    inj_rates = model.inj_rates
+    if inj_rates.shape[1] == 1:
+        inj_rates = np.tile(inj_rates, (1, nTime))
+    cost = np.sum(inj_rates, 0)
+    cost = cost @ discounts[:-1]
+    return value - .4*cost
 
+
+def npv_in_rates(inj_rates):
+    """`npv(inj_rates)`. Input shape `(nEns, nInj)`."""
+    inj_rates, singleton = atleast_2d(inj_rates)
+    inj_rates = inj_rates.reshape((len(inj_rates), -1, 1))  # (nEns, nInj) --> (nEns, nInj, 1)
+    total_rate = np.sum(inj_rates, axis=1).squeeze() # (nEns,)
+    prod_rates = 1/4 * (np.ones((1, 4, len(inj_rates))) * total_rate).T
+    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, unzip=False)
+    return Js[0] if singleton else Js
 
 def npv_in_injectors(xys):
-    """NPV as a function of (x,y) of injectors ⇒ shape `(nEns, 2*nInj)`."""
-    xys = np.array(xys)
-
-    # Ensure has ens axis
-    singleton = xys.ndim == 1
-    if singleton:
-        xys = xys[None, :]
-    nEns = len(xys)
-
-    # Reshape (each ens member) from (2*nInj) to (nInj, 2)
-    xys = xys.reshape((nEns, -1, 2))
-
+    """`npv(inj_xy)`. Input shape `(nEns, 2*nInj)`."""
+    xys, singleton = atleast_2d(xys)
+    xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
     Js = apply(npv, inj_xy=xys, unzip=False)
-    if singleton:
-        Js = Js[0]
-    return Js
+    return Js[0] if singleton else Js
 
 
 def npv_in_x_of_inj0_with_fixed_y(x):
-    """Call `npv_in_injectors` with a fixed y. Shape `(nEns, 1)` or `(1, )`."""
+    """Like `npv_in_injectors` but with `y` fixed. Input shape `(nEns, 1)` or `(1,)`."""
     xs = x
     ys = y * np.ones_like(xs)
     xys = np.hstack([xs, ys])
@@ -374,12 +378,13 @@ def npv_in_x_of_inj0_with_fixed_y(x):
     return Js
 
 def npv_in_injectors_transformed(xys):
+    """Like `npv_in_injectors` but with transformation of (x, y)."""
     xys = transform_xys(xys)
     Js = npv_in_injectors(xys)
     return Js
 
 def transform_xys(xys):
-    """Transform infinite plane to `[[0, Lx], [0, Ly]]`."""
+    """Transform infinite plane to `(0, Lx) x (0, Ly)`."""
     xys = np.array(xys, dtype=float)
 
     def realline_to_0L(x, L, compress=1):
@@ -400,9 +405,8 @@ xSteps = [.4 * 1/2**i for i in range(8)]
 utils.nCPU = True
 
 
-if True:
+if False:
     ## Plot obj_inj_x
-
     # Make pairs of x-values slightly on each side of cell borders
     d2 = model.hx/2 - 1e-8
     xx = model.mesh[0][:, 0]
@@ -425,7 +429,7 @@ if True:
         ax.plot(path, objs + shift, '-o', c=f'C{i+1}')
 
 
-if True:
+if False:
     ## Compute obj_inj
     X, Y = model.mesh
     XY = np.vstack([X.ravel(), Y.ravel()]).T
@@ -451,7 +455,7 @@ if True:
     final_sweep("npv_in_injectors", inj_xy=path[-1].reshape((-1, 2)))
 
 
-if True:
+if False:
     ## Optimize 2 inj_xy
     u0 = np.array([0, 0] + [2, 0])
     model = model_setup(
@@ -465,7 +469,6 @@ if True:
     plotting.field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
     L = .1 * np.eye(len(u0))
-    N = 10
     path, objs, info = EnOpt(npv_in_injectors_transformed, u0, L,
                              regulator=Momentum(.1), xSteps=xSteps, precond=False, rtol=1e-8)
     path = transform_xys(path)
@@ -475,3 +478,25 @@ if True:
     fig.tight_layout()
 
     final_sweep("npv_in_injectors_transformed", inj_xy=path[-1].reshape((-1, 2)))
+
+if True:
+    # Restore default well config
+    model = model_setup(
+        inj_xy = np.array([model.domain[1]]) / 2,
+        inj_rates = r0 * np.ones((1, 1)) / 1,
+        prod_rates = r0 * np.ones((4, 1)) / 4,
+        prod_xy = xy_4corners,
+    )
+    plotting.single.model = model
+
+    xx = np.linspace(0.1, 5, 21)
+    objs = npv_in_rates(xx[:, None])
+    fig, ax = freshfig("npv_in_rates")
+    ax.plot(xx, objs, "slategrey")
+    ax.grid()
+    ax.set(xlabel="rate", ylabel="NPV")
+
+    for i, u0 in enumerate(np.array([[.1, 5]]).T):
+        L = .1 * np.eye(len(u0))
+        path, objs, info = EnOpt(npv_in_rates, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
+        ax.plot(path, objs, '-o', color=f'C{i+1}')

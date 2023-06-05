@@ -116,7 +116,7 @@ def plot_path(ax1, ax2, ax3, path, objs=None, color=None):
         # Objective values
         ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax2.set_ylabel('Obj')
-        ax2.plot(-objs, color=color or 'C0', marker='.', ms=3**2)
+        ax2.plot(objs, color=color or 'C0', marker='.', ms=3**2)
         # ax2.set_ylim(-objs.max(), -objs.min())
         ax2.grid()
 
@@ -213,7 +213,7 @@ def EnGrad(obj, u, chol, precond=False):
 
 
 ## EnOpt
-def EnOpt(obj, u, chol,
+def EnOpt(obj, u, chol, sign=+1,
     # Step modifiers:
     regulator=None, xSteps=(1,), normed=True, precond=True,
     # Stopping criteria:
@@ -230,9 +230,9 @@ def EnOpt(obj, u, chol,
     def backtrack(base_step):
         """Line search by bisection."""
         for i, xStep in enumerate(xSteps):
-            x = path[-1] - xStep * base_step
+            x = path[-1] + sign * xStep * base_step
             J = obj(x)
-            if J <= objs[-1] - atol:
+            if (J - objs[-1]) > sign*atol:
                 return x, J, i
 
     # Init
@@ -309,12 +309,11 @@ plotting.single.model = model
 plotting.single.coord_type = "absolute"
 
 
-## Simulation
+# Simulation
 wsat0 = np.zeros(model.Nxy)
 T = 1
 dt = 0.025
 nTime = round(T/dt)
-
 
 # Like `forward_model`, but w/o setting params
 def sim(model, wsat, pbar=False, leave=False):
@@ -327,8 +326,11 @@ def sim(model, wsat, pbar=False, leave=False):
     return wsats, prods
 
 
+## Objectives
 def npv(**kwargs):
     """Compute net present value (NPV), a discounted measure of total oil production."""
+    # Don't bother with cost of water production, since it is implicitly approximated
+    # by the reduction in oil production.
     try:
         model = model_setup(**kwargs)
     except Exception:
@@ -336,21 +338,14 @@ def npv(**kwargs):
     # Simulate
     wsats, prods = sim(model, wsat0)
     # Compute monetary value
-    prods = 1 - prods                  # water --> oil
-    prods = prods * model.prod_rates.T # multiply by rate
-    prods = np.sum(prods, -1)          # sum over wells
     discounts = .99 ** np.arange(nTime + 1)
-    value = prods @ discounts
-    return - value
+    prods = 1 - prods                  # water --> oil
+    prods = prods * model.prod_rates.T # volume = saturation * rate
+    prods = np.sum(prods, -1)          # sum over wells
+    value = prods @ discounts          # sum in time, incld. discount factors
+    return value
 
 
-## Optim params
-N = 10
-xSteps = [.4 * 1/2**i for i in range(8)]
-utils.nCPU = True
-
-
-## Objectives
 def npv_in_injectors(xys):
     """NPV as a function of (x,y) of injectors ⇒ shape `(nEns, 2*nInj)`."""
     xys = np.array(xys)
@@ -398,6 +393,13 @@ def transform_xys(xys):
         xys[..., ii] = realline_to_0L(xys[..., ii], L, 1)
     return xys
 
+
+## Optim params
+N = 10
+xSteps = [.4 * 1/2**i for i in range(8)]
+utils.nCPU = True
+
+
 if True:
     ## Plot obj_inj_x
 
@@ -410,6 +412,8 @@ if True:
     npvs = npv_in_x_of_inj0_with_fixed_y(xx[:, None])
     fig, ax = freshfig(f"npv_in_x_of_inj0_with_fixed_y ({y})", figsize=(7, 3))
     ax.plot(xx, npvs, "slategrey", lw=3)
+    ax.set(xlabel="x", ylabel="NPV")
+    fig.tight_layout()
 
     ## Optimize obj_inj_x
     L = .3 * np.eye(1)
@@ -417,7 +421,7 @@ if True:
     for i, u0 in enumerate(model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T):
         path, objs, info = EnOpt(npv_in_x_of_inj0_with_fixed_y, u0, L,
                                  regulator=Momentum(0), xSteps=xSteps)
-        shift = .3*i  # for visual distinction
+        shift = -.3*i  # for visual distinction
         ax.plot(path, objs + shift, '-o', c=f'C{i+1}')
 
 
@@ -429,7 +433,7 @@ if True:
     npvs.reshape(model.shape)
 
     fig, axs = fig3("npv_in_injectors")
-    plotting.field(axs[0], -npvs, "obj", wells=True, argmax=True, colorbar=True)
+    plotting.field(axs[0], npvs, "obj", wells=True, argmax=True, colorbar=True)
 
     ### Optimize obj_inj
     # - Some get stuck in local minima

@@ -108,7 +108,7 @@ import TPFA_ResSim as simulator
 import tools.plotting as plotting
 import tools.localization as loc
 from tools import geostat, utils
-from tools.utils import center, ens_run
+from tools.utils import center, apply
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
@@ -207,7 +207,7 @@ set_perm(model, perm.Truth)
 # So all we need to specify is their placement and flux (which we will not vary in time).
 # The code below generates the coordinates of the 4 corners.
 
-prod_xy = np.dstack(np.meshgrid(
+xy_4corners = np.dstack(np.meshgrid(
     np.array([.12, .87]) * model.Lx,
     np.array([.12, .87]) * model.Ly
 )).reshape((-1, 2))
@@ -216,11 +216,11 @@ prod_xy = np.dstack(np.meshgrid(
 # is incompressible, the total of the source terms must equal that of the sinks. This is
 # ensured by the `config_wells` function used below. We will not vary the rates in time.
 
-nProd = len(prod_xy)
+nProd = len(xy_4corners)
 model.config_wells(
     inj_xy = [[0.50*model.Lx, 0.50*model.Ly]],
     inj_rates = [[1]],
-    prod_xy = prod_xy,
+    prod_xy = xy_4corners,
     prod_rates = np.ones((nProd, 1)) / nProd,
 );
 
@@ -367,10 +367,8 @@ plotting.spectrum(svals, "Prior cov.");
 # This all has to be stitched together; this is not usually a pleasant task, though some
 # tools like [ERT](https://github.com/equinor/ert) have made it a little easier.
 
-def forward_model(parameters):
+def forward_model(wsat0, perm):
     """Forecast (composite) model for a *single* member (realisation)."""
-    wsat0, perm = parameters
-
     # Set attribute params, w/o overwriting truth model
     model_n = copy.deepcopy(model)
     set_perm(model_n, perm)
@@ -402,7 +400,7 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 # A huge technical advantage of ensembel methods is that they are
 # "embarrasingly parallelizable", because each member simulation
 # is completely independent (requires no communication) from the others.
-# Configure the number of CPUs to use in `ens_run`. Can set to an `int` or False.
+# Configure the number of CPUs to use in `apply`. Can set to an `int` or False.
 
 utils.nCPU = "auto"
 
@@ -411,7 +409,7 @@ utils.nCPU = "auto"
 # later, is part of the assimilation process.
 
 (wsat.past.Prior,
- prod.past.Prior) = ens_run(forward_model, wsat.init.Prior, perm.Prior)
+ prod.past.Prior) = apply(forward_model, wsat.init.Prior, perm.Prior)
 
 # #### Flattening the time dimension
 
@@ -992,7 +990,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         stat.rmse += [utils.norm(E.mean(0) - perm.Truth)]
 
         # Forecast.
-        _, Eo = ens_run(forward_model, wsat.init.Prior, E, leave=False)
+        _, Eo = apply(forward_model, wsat.init.Prior, E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.
@@ -1120,7 +1118,7 @@ plotting.fields(perm_means, "pperm", "Means");
 for methd in perm:
     if methd not in prod.past:
         print(methd, ":")
-        s, p = ens_run(forward_model, wsat.init.Prior, perm[methd])
+        s, p = apply(forward_model, wsat.init.Prior, perm[methd])
         wsat.past[methd], prod.past[methd] = s, p
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
@@ -1201,7 +1199,7 @@ prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
 for methd in perm:
     if methd not in prod.futr:
         print(methd, ":")
-        s, p = ens_run(forward_model, wsat.curnt[methd], perm[methd])
+        s, p = apply(forward_model, wsat.curnt[methd], perm[methd])
         wsat.futr[methd], prod.futr[methd] = s, p
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)

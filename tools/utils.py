@@ -145,35 +145,56 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def ens_run(fun, *inputs, pbar=True, leave=True):
-    """Apply `fun` to *ensembles* (2D arrays) of `inputs`.
+def apply(fun, *args, unzip=True, pbar=True, leave=True, **kwargs):
+    """Apply `fun` along 0th axis of (zipped) `args` and `kwargs`.
 
-    This is mainly a wrapper around `multiprocessing`.
+    Only (but always) axis 0 is treated special (and requires length conformity).
 
+    Provides
+
+    - Multiprocessing.
+    - Alternative for-loop implementation for easier debugging.
+    - Zipping and unpacking `inputs`. NB: all of `inputs` must be iterable.
+    - If `unzip`: unpack output. NB: `fun` must output a *doubly* iterable.
+    - Robust interpretation of `nCPU`.
     - Emits progressbar.
-    - Contains alternative for-loop implementation through equal interface.
-    - Takes care of transpose and un-transpose vars.
-    - `nCPU` specification shenanigans.
 
-    >>> xx = [1, 2, 3]
-    >>> yy = [10, 20, 30]
-    >>> ens_run(lambda x: x, xx)
-    [1, 2, 3]
-    >>> ens_run(lambda xy: xy[0] + xy[1], xx, yy)
-    [11, 22, 33]
-    >>> ens_run(lambda xy: (xy[0], xy[1]), xx, yy)
-    [array([1, 2, 3]), array([10, 20, 30])]
+    Note: Implementing conditional treatment for input/output depending
+    on whether they are iterable (or tuple) or scalar is perhaps impossible
+    without producing *surprises*. I really, really tried, and do not recommend it.
+    This must therefore be done by the caller, which will know more particulars.
     """
-
+    # Set nCPU
     global nCPU
     is_int = type(nCPU) == int  # `isinstance(True, int)` is True
     if not is_int and nCPU in [True, None, "auto"]:
         nCPU = 999
 
+    # Convert kwargs to positional
+    nPositional = len(args)
+    args = list(args) + list(kwargs.values())
+
+    def ensure_equal_lengths(xx):
+        """Prevent losing data via `zip`."""
+        L = len(xx[0])
+        assert all(len(x) == L for x in xx)
+        return L
+
+    # Pack ("transpose") and atleast_2d (using lists, not np, for objs of any len).
+    ensure_equal_lengths(args)
+    xx = list(zip(*args))
+
+    # Unpacker for arg
+    def function_with_unpacking(x):
+        positional, named_vals = x[:nPositional], x[nPositional:]
+        kws = {key: val for (key, val) in zip(kwargs, named_vals)}
+        return fun(*positional, **kws)
+
+    # Setup or disable (be it with or w/o multiprocessing) tqdm.
     if pbar:
         tqdm_kws = dict(
-            desc=f"{fun.__name__} on ens",
-            total=len(inputs[0]),
+            desc=f"{fun.__name__} of ens",
+            total=len(xx),
             leave=leave,
         )
     else:
@@ -182,20 +203,14 @@ def ens_run(fun, *inputs, pbar=True, leave=True):
             tqdm=(lambda x, **_: x)
         )
 
-    if len(inputs) > 1:
-        # Tranpose such that "member index" is on axis 0.
-        xx = zip(*inputs)
-    else:
-        # Squeeze
-        xx = inputs[0]
-
+    # Apply
     if nCPU > 1:
         import multiprocessing
         import threadpoolctl
         from p_tqdm import p_map
         nCPU = min(multiprocessing.cpu_count(), nCPU)
         threadpoolctl.threadpool_limits(1)  # make np use only 1 core
-        yy = p_map(fun, list(xx), num_cpus=nCPU, **tqdm_kws)
+        yy = p_map(function_with_unpacking, xx, num_cpus=nCPU, **tqdm_kws)
 
     else:
         from tqdm.auto import tqdm
@@ -203,12 +218,14 @@ def ens_run(fun, *inputs, pbar=True, leave=True):
         # yy = tqdm(map(fun, xx), **tqdm_kws)
         yy = []
         for x in tqdm(xx, **tqdm_kws):
-            yy.append(fun(x))
+            yy.append(function_with_unpacking(x))
 
-    try:
-        # Un-transpose
-        yy = [np.array(y) for y in zip(*yy)]
-    except TypeError:
-        pass
+
+    if unzip:
+        ensure_equal_lengths(yy)
+        yy = list(zip(*yy))
+        yy = [np.asarray(y) for y in yy]
+    else:
+        yy = np.asarray(yy)
 
     return yy

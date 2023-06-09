@@ -231,7 +231,7 @@ def EnOpt(obj, u, chol, sign=+1,
         for i, xStep in enumerate(xSteps):
             x = path[-1] + sign * xStep * base_step
             J = obj(x)
-            if (J - objs[-1]) > sign*atol:
+            if sign*(J - objs[-1]) > atol:
                 return x, J, i
 
     # Init

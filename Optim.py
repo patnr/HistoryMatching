@@ -30,7 +30,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 # from tools import mpl_setup
 # mpl_setup.init()
-# from tqdm.auto import tqdm
+from tqdm.auto import tqdm
 plt.ion()
 np.set_printoptions(precision=6)
 
@@ -43,7 +43,6 @@ from matplotlib.gridspec import GridSpec
 from mpl_tools.place import freshfig
 # from numpy import sqrt
 from struct_tools import DotDict as Dict
-# from tqdm.auto import tqdm as progbar
 
 import TPFA_ResSim as simulator
 import tools.plotting as plotting
@@ -228,7 +227,7 @@ def EnOpt(obj, u, chol, sign=+1,
 
     def backtrack(base_step):
         """Line search by bisection."""
-        for i, xStep in enumerate(xSteps):
+        for i, xStep in enumerate(tqdm(xSteps, desc="Backtrack", leave=False)):
             x = path[-1] + sign * xStep * base_step
             J = obj(x)
             if sign*(J - objs[-1]) > atol:
@@ -358,14 +357,14 @@ def npv_in_rates(inj_rates):
     inj_rates = inj_rates.reshape((len(inj_rates), -1, 1))  # (nEns, nInj) --> (nEns, nInj, 1)
     total_rate = np.sum(inj_rates, axis=1).squeeze() # (nEns,)
     prod_rates = 1/4 * (np.ones((1, 4, len(inj_rates))) * total_rate).T
-    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, unzip=False)
+    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, unzip=False, pbar=not singleton)
     return Js[0] if singleton else Js
 
 def npv_in_injectors(xys):
     """`npv(inj_xy)`. Input shape `(nEns, 2*nInj)`."""
     xys, singleton = atleast_2d(xys)
     xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
-    Js = apply(npv, inj_xy=xys, unzip=False)
+    Js = apply(npv, inj_xy=xys, unzip=False, pbar=not singleton)
     return Js[0] if singleton else Js
 
 

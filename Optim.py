@@ -11,7 +11,7 @@
 # Otherwise (and assuming you have done the installation described in the README),
 # you can skip/delete this cell.
 
-## TODO:
+# # TODO:
 # - Use Bezier curves to parametrize well rates ?
 # - Make user widget for manual optimisation
 # - 1D: Plot ensemble of npv curves
@@ -28,53 +28,35 @@ from dataclasses import dataclass
 
 import numpy as np
 from matplotlib import pyplot as plt
-# from tools import mpl_setup
-# mpl_setup.init()
+
+from tools import mpl_setup
+
+mpl_setup.init()
 from tqdm.auto import tqdm
+
 plt.ion()
 np.set_printoptions(precision=6)
 
+# %matplotlib inline
+
 import copy
+
 import numpy.random as rnd
-import scipy.linalg as sla
-from matplotlib.ticker import MaxNLocator
-from matplotlib.gridspec import GridSpec
+import TPFA_ResSim as simulator
 # from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
 # from numpy import sqrt
 from struct_tools import DotDict as Dict
 
-import TPFA_ResSim as simulator
 import tools.plotting as plotting
 # import tools.localization as loc
 from tools import geostat, utils
 from tools.utils import apply
+
 # from tools.utils import center
 
 
 ## Aux
-def ticklabels_inside(ax, axis='y', al=None, **kwargs):
-    """Move ticks -- and their labels -- inside panel. `kwargs` could be e.g. `labelsize`."""
-    ax.tick_params(axis=axis, which='both', direction='in', pad=-4, **kwargs)
-    if axis == 'y':
-        plt.setp(ax.get_yticklabels(), ha=(al or "left"))
-    else:
-        plt.setp(ax.get_xticklabels(), ha="right", va=(al or "bottom"))
-
-
-def fig3(*args, figsize=(11, 3), **kwargs):
-    fig, _ax = freshfig(*args, figsize=figsize, **kwargs)
-    _ax.remove()
-    gs = GridSpec(2, 2)
-    ax0 = fig.add_subplot(gs[:, 0])
-    ax1 = fig.add_subplot(gs[0, 1])
-    ax2 = fig.add_subplot(gs[1, 1])
-    for ax in (ax1, ax2):
-        ax.yaxis.set_label_position("right")
-        ax.yaxis.tick_right()
-    return fig, (ax0, ax1, ax2)
-
-
 def final_sweep(title="", **kwargs):
     model = model_setup(**kwargs)
     wsats, prods = sim(model, wsat0)
@@ -82,51 +64,6 @@ def final_sweep(title="", **kwargs):
     fig, ax = freshfig(f"Final sweep {title}", figsize=(1, .6), rel=True)
     plotting.single.field(ax, wsats[-1], "oil", wells=True, colorbar=True)
     fig.tight_layout()
-
-
-def plot_path(ax1, ax2, ax3, path, objs=None, color=None):
-    # Plot x0
-    ax1.plot(*path[0, :2], c=color or 'g', ms=3**2, marker='o')
-    # Path line
-    ax1.plot(*path.T[:2], c=color or "g")
-    # Path scatter and text
-    if len(path) >= 2:
-        ii = np.logspace(0, np.log10(len(path) - 1),
-                         15, endpoint=True, dtype=int)
-    else:
-        ii = [0]
-    cm = plt.get_cmap('viridis_r')(np.linspace(0.0, 1, len(ii)))
-    for k, c in zip(ii, cm):
-        if color:
-            c = color
-        x = path[k][:2]
-        ax1.text(*x, k, c=c)
-        ax1.scatter(*x, s=4**2, color=c, zorder=5)
-
-    if objs is not None:
-        # Objective values
-        ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-        ax2.set_ylabel('Obj')
-        ax2.plot(objs, color=color or 'C0', marker='.', ms=3**2)
-        # ax2.set_ylim(-objs.max(), -objs.min())
-        ax2.grid()
-
-        # Step magnitudes
-        ax3.sharex(ax2)
-        ax2.tick_params(labelbottom=False)
-        xx = np.arange(len(path)-1) + .5
-        yy = nnorm(np.diff(path, axis=0), -1)
-        ax3.plot(xx, yy, color=color or "C1", marker='.', ms=3**2)
-        ax3.set_ylabel('|Step|')
-        ax3.grid()
-        ax3.set(xlabel="itr")
-
-
-def atleast_2d(x):
-    """Ensure has ens axis."""
-    singleton = np.ndim(x) == 1
-    x = np.atleast_2d(x)
-    return x, singleton
 
 
 # Could put this in npv() rather than copying the base model
@@ -151,41 +88,10 @@ def set_perm(model, log_perm_array):
     model.Gridded.K = np.stack([p, p])
 
 
-def nnorm(x, axis=0):
-    """L2 norm. Uses `mean` -- not `sum` (as in `nla.norm`)."""
-    return np.sqrt(np.mean(x*x, axis))
-
-
-def cntr(xx):
-    return xx - xx.mean(0)
-
-
-def rinv(A, reg, tikh=True, nMax=None):
-    """Reproduces `sla.pinv(..., rtol=reg)` for `tikh=False`."""
-    # Decompose
-    U, s, VT = sla.svd(A, full_matrices=False)
-
-    # "Relativize" the regularisation param
-    reg = reg * s[0]
-
-    # Compute inverse (regularized or truncated)
-    if tikh:
-        s1 = s / (s**2 + reg**2)
-    else:
-        s0 = s >= reg
-        s1 = np.zeros_like(s)
-        s1[s0] = 1/s[s0]
-
-    if nMax:
-        s1[nMax:] = 0
-
-    # Re-compose
-    return (VT.T * s1) @ U.T
-
-
 @dataclass
 class Momentum:
     """Gradient momentum (provides history memorisation)."""
+
     # Note: I also tried rolling average with a maxlen deque
     #       but the results of cursory testing were slightly worse.
     b: float = 0.9
@@ -201,21 +107,21 @@ class Momentum:
 
 
 def EnGrad(obj, u, chol, precond=False):
-    U = cntr(rnd.randn(N, len(u)) @ chol.T)
-    J = cntr(obj(u + U))
+    U, _ = utils.center(rnd.randn(N, len(u)) @ chol.T)
+    J, _ = utils.center(obj(u + U))
     if precond:
         g = U.T @ J / (N-1)
     else:
-        g = rinv(U, reg=.1, tikh=True) @ J
+        g = utils.rinv(U, reg=.1, tikh=True) @ J
     return g
 
 
 ## EnOpt
 def EnOpt(obj, u, chol, sign=+1,
-    # Step modifiers:
-    regulator=None, xSteps=(1,), normed=True, precond=True,
-    # Stopping criteria:
-    nIter=100, rtol=1e-4):
+          # Step modifiers:
+          regulator=None, xSteps=(1,), normed=True, precond=True,
+          # Stopping criteria:
+          nIter=100, rtol=1e-4):
     """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking.
 
     - `rtol` specified how large an improvement is required to update the iterate.
@@ -227,11 +133,14 @@ def EnOpt(obj, u, chol, sign=+1,
 
     def backtrack(base_step):
         """Line search by bisection."""
-        for i, xStep in enumerate(tqdm(xSteps, desc="Backtrack", leave=False)):
-            x = path[-1] + sign * xStep * base_step
-            J = obj(x)
-            if sign*(J - objs[-1]) > atol:
-                return x, J, i
+        with tqdm(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
+            for i, xStep in enumerate(xSteps):
+                pbar.update(1)
+                x = path[-1] + sign * xStep * base_step
+                J = obj(x)
+                if sign*(J - objs[-1]) > atol:
+                    pbar.update(len(xSteps))  # needed in Jupyter
+                    return x, J, i
 
     # Init
     if regulator:
@@ -247,7 +156,7 @@ def EnOpt(obj, u, chol, sign=+1,
         # Compute search direction
         grad = EnGrad(obj, u, chol, precond=precond)
         if normed:
-            grad /= nnorm(grad)
+            grad /= utils.mnorm(grad)
         if regulator:
             regulator.update(grad)
 
@@ -293,7 +202,7 @@ pperm = sample_prior_perm(1)
 
 xy_4corners = np.dstack(np.meshgrid(
     np.array([.12, .87]) * model.Lx,
-    np.array([.12, .87]) * model.Ly
+    np.array([.12, .87]) * model.Ly,
 )).reshape((-1, 2))
 
 r0 = 1.5
@@ -325,21 +234,13 @@ def sim(model, wsat, pbar=False, leave=False):
 
 
 ## Objectives
-def npv(**kwargs):
-    """Net present value (NPV, i.e. discounted, total oil production) of model config."""
-    # Config
-    try:
-        model = model_setup(**kwargs)
-        # Simulate
-        wsats, prods = sim(model, wsat0)
-    except Exception:
-        return 0  # Invalid model params. Penalize. Use `raise` for debugging.
-    # Compute "monetary" value
+def prod2npv(model, prods):
+    """Net present value (NPV), i.e. monetarily discounted, total oil production."""
     discounts = .99 ** np.arange(nTime + 1)
-    prods = 1 - prods                  # water --> oil
-    prods = prods * model.prod_rates.T # volume = saturation * rate
-    prods = np.sum(prods, -1)          # sum over wells
-    value = prods @ discounts          # sum in time, incld. discount factors
+    prods = 1 - prods                   # water --> oil
+    prods = prods * model.prod_rates.T  # volume = saturation * rate
+    prods = np.sum(prods, -1)           # sum over wells
+    value = prods @ discounts           # sum in time, incld. discount factors
     # Compute cost of water injection
     # PS: We don't bother with cost of water production,
     # since it is implicitly approximated by reduction in oil production.
@@ -348,26 +249,30 @@ def npv(**kwargs):
         inj_rates = np.tile(inj_rates, (1, nTime))
     cost = np.sum(inj_rates, 0)
     cost = cost @ discounts[:-1]
-    return value - .4*cost
+    return value - .5*cost
 
+def npv(**kwargs):
+    """NPV from model config."""
+    # Config
+    try:
+        model = model_setup(**kwargs)
+        # Simulate
+        wsats, prods = sim(model, wsat0)
+    except Exception:
+        return 0  # Invalid model params. Penalize. Use `raise` for debugging.
+    return prod2npv(model, prods)
 
-def npv_in_rates(inj_rates):
-    """`npv(inj_rates)`. Input shape `(nEns, nInj)`."""
-    inj_rates, singleton = atleast_2d(inj_rates)
-    inj_rates = inj_rates.reshape((len(inj_rates), -1, 1))  # (nEns, nInj) --> (nEns, nInj, 1)
-    total_rate = np.sum(inj_rates, axis=1).squeeze() # (nEns,)
-    prod_rates = 1/4 * (np.ones((1, 4, len(inj_rates))) * total_rate).T
-    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, unzip=False, pbar=not singleton)
-    return Js[0] if singleton else Js
 
 def npv_in_injectors(xys):
     """`npv(inj_xy)`. Input shape `(nEns, 2*nInj)`."""
-    xys, singleton = atleast_2d(xys)
+    xys, singleton = utils.atleast_2d(xys)
     xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
-    Js = apply(npv, inj_xy=xys, unzip=False, pbar=not singleton)
+    Js = apply(npv, inj_xy=xys, unzip=False,
+               pbar=not singleton, leave=False)
     return Js[0] if singleton else Js
 
 
+# +
 def npv_in_x_of_inj0_with_fixed_y(x):
     """Like `npv_in_injectors` but with `y` fixed. Input shape `(nEns, 1)` or `(1,)`."""
     xs = x
@@ -376,18 +281,66 @@ def npv_in_x_of_inj0_with_fixed_y(x):
     Js = npv_in_injectors(xys)
     return Js
 
-def npv_in_injectors_transformed(xys):
-    """Like `npv_in_injectors` but with transformation of (x, y)."""
-    xys = transform_xys(xys)
-    Js = npv_in_injectors(xys)
-    return Js
+obj = npv_in_x_of_inj0_with_fixed_y
+y = model.Ly/2
+# -
+
+## Optim params
+N = 10
+xSteps = [.4 * 1/2**i for i in range(8)]
+utils.nCPU = True
+
+
+# +
+# Plot objective
+fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
+ax.set(xlabel="x", ylabel="NPV")
+xx = np.linspace(0, model.Lx, 201)
+npvs = obj(np.atleast_2d(xx).T)
+ax.plot(xx, npvs, "slategrey", lw=3)
+
+# Optimize
+L = .3 * np.eye(1)
+shifts = {}
+u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
+for i, u0 in enumerate(u0s):
+    path, objs, info = EnOpt(obj, u0, L, regulator=None, xSteps=xSteps)
+    shift = .3*i  # for visual distinction
+    ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
+fig.tight_layout()
+
+# +
+obj = npv_in_injectors
+fig, axs = plotting.figure12(obj.__name__)
+
+# Plot objective
+X, Y = model.mesh
+XY = np.vstack([X.ravel(), Y.ravel()]).T
+npvs = npv_in_injectors(XY)
+plotting.field(axs[0], npvs, "obj", wells=True, argmax=True, colorbar=True);
+
+# Optimize
+# - Some get stuck in local minima
+# - Smaller steps towards end
+# - Notice that discreteness of npv_in_injectors function means that
+#   they dont all CV to exactly the same
+L = .1 * np.eye(2)
+for color in ['C0', 'C2', 'C6', 'C7', 'C8', 'C9']:
+    u0 = rnd.rand(2) * model.domain[1]
+    path, objs, info = EnOpt(obj, u0, L, regulator=Momentum(0.3), xSteps=xSteps, precond=False)
+    plotting.add_path12(*axs, path, objs, color=color)
+fig.tight_layout()
+# -
+
+final_sweep("npv_in_injectors", inj_xy=path[-1].reshape((-1, 2)))
+
 
 def transform_xys(xys):
     """Transform infinite plane to `(0, Lx) x (0, Ly)`."""
     xys = np.array(xys, dtype=float)
 
     def realline_to_0L(x, L, compress=1):
-        sigmoid = lambda z: 1/(1 + np.exp(-z))
+        sigmoid = lambda z: 1/(1 + np.exp(-z))  # noqa
         x = (x - L/2) * L * compress
         return L * sigmoid(x)
 
@@ -398,104 +351,122 @@ def transform_xys(xys):
     return xys
 
 
-## Optim params
-N = 10
-xSteps = [.4 * 1/2**i for i in range(8)]
-utils.nCPU = True
+def npv_in_injectors_transformed(xys):
+    """Like `npv_in_injectors` but with transformation of (x, y)."""
+    xys = transform_xys(xys)
+    Js = npv_in_injectors(xys)
+    return Js
+
+# +
+## Optimize 2 inj_xy
+u0 = np.array([0, 0] + [2, 0])
+model = model_setup(
+    prod_xy = xy_4corners[:2],
+    inj_xy = transform_xys(u0).reshape((2, 2)),
+    prod_rates = r0 * np.ones((2, 1)) / 2,
+    inj_rates = r0 * np.ones((2, 1)) / 2,
+)
+plotting.single.model = model
+fig, axs = plotting.figure12("npv_in_injectors_transformed")
+plotting.field(axs[0], pperm, "pperm", wells=True, colorbar=True)
+
+L = .1 * np.eye(len(u0))
+path, objs, info = EnOpt(npv_in_injectors_transformed, u0, L,
+                         regulator=Momentum(.1), xSteps=xSteps, precond=False, rtol=1e-8)
+path = transform_xys(path)
+
+plotting.add_path12(*axs, path[:, :2], objs, color='C0')
+plotting.add_path12(*axs, path[:, 2:], color='C5')
+fig.tight_layout()
+# -
+
+final_sweep("npv_in_injectors_transformed", inj_xy=path[-1].reshape((-1, 2)))
 
 
-if False:
-    ## Plot obj_inj_x
-    # Make pairs of x-values slightly on each side of cell borders
-    d2 = model.hx/2 - 1e-8
-    xx = model.mesh[0][:, 0]
-    xx = np.ravel((xx - d2, xx + d2), order='F')
+## Rates
+def npv_in_rates(inj_rates):
+    """`npv(inj_rates)`. Input shape `(nEns, nInj)`."""
+    inj_rates, singleton = utils.atleast_2d(inj_rates)
+    nEns = len(inj_rates)
+    inj_rates = inj_rates.reshape((nEns, -1, 1))  # (nEns, nInj) --> (nEns, nInj, 1)
+    total_rate = np.sum(inj_rates, axis=1).squeeze()  # (nEns,)
+    nProd = len(model.prod_rates)
+    prod_rates = (np.ones((1, nProd, nEns)) * total_rate/nProd).T
+    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, unzip=False,
+               pbar=not singleton, leave=False)
+    return Js[0] if singleton else Js
 
-    y = model.Ly/2
-    npvs = npv_in_x_of_inj0_with_fixed_y(xx[:, None])
-    fig, ax = freshfig(f"npv_in_x_of_inj0_with_fixed_y ({y})", figsize=(7, 3))
-    ax.plot(xx, npvs, "slategrey", lw=3)
-    ax.set(xlabel="x", ylabel="NPV")
-    fig.tight_layout()
+# Restore default well config
+model = model_setup(
+    inj_xy = np.array([model.domain[1]]) / 2,
+    inj_rates = r0 * np.ones((1, 1)) / 1,
+    prod_rates = r0 * np.ones((4, 1)) / 4,
+    prod_xy = xy_4corners,
+)
+plotting.single.model = model
 
-    ## Optimize obj_inj_x
-    L = .3 * np.eye(1)
-    shifts = {}
-    for i, u0 in enumerate(model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T):
-        path, objs, info = EnOpt(npv_in_x_of_inj0_with_fixed_y, u0, L,
-                                 regulator=Momentum(0), xSteps=xSteps)
-        shift = -.3*i  # for visual distinction
-        ax.plot(path, objs + shift, '-o', c=f'C{i+1}')
+# +
+obj = npv_in_rates
 
+xx = np.linspace(0.1, 5, 21)
+npvs = obj(np.atleast_2d(xx).T)
 
-if False:
-    ## Compute obj_inj
-    X, Y = model.mesh
-    XY = np.vstack([X.ravel(), Y.ravel()]).T
-    npvs = npv_in_injectors(XY)
-    npvs.reshape(model.shape)
+fig, ax = freshfig(obj.__name__)
+ax.grid()
+ax.set(xlabel="rate", ylabel="NPV")
+ax.plot(xx, npvs, "slategrey")
 
-    fig, axs = fig3("npv_in_injectors")
-    plotting.field(axs[0], npvs, "obj", wells=True, argmax=True, colorbar=True)
-
-    ### Optimize obj_inj
-    # - Some get stuck in local minima
-    # - Smaller steps towards end
-    # - Notice that discreteness of npv_in_injectors function means that
-    #   they dont all CV to exactly the same
-    L = .1 * np.eye(2)
-    for i, color in zip(range(3), ['C0', 'C2', 'C6', 'C7', 'C8', 'C9']):
-        u0 = rnd.rand(2) * model.domain[1]
-        path, objs, info = EnOpt(lambda u: npv_in_injectors(u), u0, L,
-                                 regulator=Momentum(0.3), xSteps=xSteps, precond=False)
-        plot_path(*axs, path, objs, color=color)
-    fig.tight_layout()
-
-    final_sweep("npv_in_injectors", inj_xy=path[-1].reshape((-1, 2)))
-
-
-if False:
-    ## Optimize 2 inj_xy
-    u0 = np.array([0, 0] + [2, 0])
-    model = model_setup(
-        prod_xy = xy_4corners[:2],
-        inj_xy = transform_xys(u0).reshape((2, 2)),
-        prod_rates = r0 * np.ones((2, 1)) / 2,
-        inj_rates = r0 * np.ones((2, 1)) / 2,
-    )
-    plotting.single.model = model
-    fig, axs = fig3("npv_in_injectors_transformed")
-    plotting.field(axs[0], pperm, "pperm", wells=True, colorbar=True)
-
+for i, u0 in enumerate(np.array([[.1, 5]]).T):
     L = .1 * np.eye(len(u0))
-    path, objs, info = EnOpt(npv_in_injectors_transformed, u0, L,
-                             regulator=Momentum(.1), xSteps=xSteps, precond=False, rtol=1e-8)
-    path = transform_xys(path)
+    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
+    shift = i+1  # for visual distinction
+    ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 
-    plot_path(*axs, path[:, :2], objs, color='C0')
-    plot_path(*axs, path[:, 2:], color='C5')
-    fig.tight_layout()
 
-    final_sweep("npv_in_injectors_transformed", inj_xy=path[-1].reshape((-1, 2)))
+# -
 
-if True:
-    # Restore default well config
-    model = model_setup(
-        inj_xy = np.array([model.domain[1]]) / 2,
-        inj_rates = r0 * np.ones((1, 1)) / 1,
-        prod_rates = r0 * np.ones((4, 1)) / 4,
-        prod_xy = xy_4corners,
-    )
+# # Triangles
+
+# +
+triangle = [0, 135, -135]
+wells = dict(
+    inj_xy = ([[model.Lx/2, model.Ly/2]] +
+              [utils.xy_p_normed(th, *model.domain[1]) for th in +90 + triangle]),
+    prod_xy = [utils.xy_p_normed(th, *model.domain[1]) for th in -90 + triangle],
+    inj_rates = r0 * np.ones((4, 1)) / 4,
+    prod_rates = r0 * np.ones((3, 1)) / 3,
+)
+
+# fig, ax = freshfig("Triangles")
+model = model_setup(**wells)
+plotting.single.model = model
+# plotting.field(ax, pperm, "pperm", wells=True, colorbar=True)
+# -
+
+def final_sweep2(i0, i1, i2, i3):
+    inj_rates = np.array([[i0, i1, i2, i3]]).T
+    prod_rates = np.ones((3, 1)) / 3 * np.sum(inj_rates)
+    model = model_setup(inj_rates=inj_rates, prod_rates=prod_rates)
     plotting.single.model = model
+    wsats, prods = sim(model, wsat0)
+    npv = prod2npv(model, prods)
+    print(f"NPV: {npv:.5f}")
+    return wsats[-1]
+    # fig, ax = freshfig(f"Final sweep {title}", figsize=(1, .6), rel=True)
+    # plotting.single.field(ax, wsats[-1], "oil", wells=True, colorbar=True)
+    # fig.tight_layout()
 
-    xx = np.linspace(0.1, 5, 21)
-    objs = npv_in_rates(xx[:, None])
-    fig, ax = freshfig("npv_in_rates")
-    ax.plot(xx, objs, "slategrey")
-    ax.grid()
-    ax.set(xlabel="rate", ylabel="NPV")
+final_sweep2.controls = dict(
+    i0 = (0, 1.9),
+    i1 = (0, 1.9),
+    i2 = (0, 1.9),
+    i3 = (0, 1.9),
+)
 
-    for i, u0 in enumerate(np.array([[.1, 5]]).T):
-        L = .1 * np.eye(len(u0))
-        path, objs, info = EnOpt(npv_in_rates, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
-        ax.plot(path, objs, '-o', color=f'C{i+1}')
+plotting.field_console(final_sweep2, "oil", wells=True)
+
+## Optim triangles
+u0 = .7*np.ones(len(model.inj_rates))
+L = .1 * np.eye(len(u0))
+path, objs, info = EnOpt(npv_in_rates, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
+# final_sweep("Triangles", **wells)

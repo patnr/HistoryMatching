@@ -209,7 +209,7 @@ set_perm(model, perm.Truth)
 
 xy_4corners = np.dstack(np.meshgrid(
     np.array([.12, .87]) * model.Lx,
-    np.array([.12, .87]) * model.Ly
+    np.array([.12, .87]) * model.Ly,
 )).reshape((-1, 2))
 
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
@@ -990,7 +990,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     for itr in progbar(range(nIter), desc="Iter"):
         # Compute rmse (vs. supposedly unknown Truth)
-        stat.rmse += [utils.norm(E.mean(0) - perm.Truth)]
+        stat.rmse += [utils.mnorm(E.mean(0) - perm.Truth)]
 
         # Forecast.
         _, Eo = apply(forward_model, wsat.init.Prior, E, leave=False)

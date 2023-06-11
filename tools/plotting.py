@@ -21,10 +21,14 @@ import struct_tools
 import TPFA_ResSim.plotting as single
 from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
+from matplotlib.ticker import MaxNLocator
 from mpl_tools import place
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
 from TPFA_ResSim.plotting import field, styles
+
+from .utils import mnorm
 
 # Colormap for correlations
 cmap_corr = plt.get_cmap("bwr")
@@ -77,7 +81,7 @@ def fields(ZZ, style, title="", figsize=(1.7, 1),
 
     # Convert (potential) list-like ZZ into dict
     if not isinstance(ZZ, dict):
-        ZZ = {i: Z for (i, Z) in enumerate(ZZ)}
+        ZZ = {i: Z for (i, Z) in enumerate(ZZ)}  # noqa
 
     # Plot
     hh = []
@@ -494,3 +498,56 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                     boxstyle="round,pad=0")
     return ax.text(x, y, txt, c=c, fontsize=fontsize,
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
+
+
+def figure12(*args, figsize=(11, 3), **kwargs):
+    """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
+    fig, _ax = place.freshfig(*args, figsize=figsize, **kwargs)
+    _ax.remove()
+    gs = GridSpec(2, 2)
+    ax0 = fig.add_subplot(gs[:, 0])
+    ax1 = fig.add_subplot(gs[0, 1])
+    ax2 = fig.add_subplot(gs[1, 1])
+    for ax in (ax1, ax2):
+        ax.yaxis.set_label_position("right")
+        ax.yaxis.tick_right()
+    return fig, (ax0, ax1, ax2)
+
+
+def add_path12(ax1, ax2, ax3, path, objs=None, color=None):
+    """Plot 2d path in `ax1`, `objs` in `ax2`, step size magnitude to `ax3`."""
+    # Plot x0
+    ax1.plot(*path[0, :2], c=color or 'g', ms=3**2, marker='o')
+    # Path line
+    ax1.plot(*path.T[:2], c=color or "g")
+    # Path scatter and text
+    if len(path) >= 2:
+        ii = np.logspace(0, np.log10(len(path) - 1),
+                         15, endpoint=True, dtype=int)
+    else:
+        ii = [0]
+    cm = plt.get_cmap('viridis_r')(np.linspace(0.0, 1, len(ii)))
+    for k, c in zip(ii, cm):
+        if color:
+            c = color
+        x = path[k][:2]
+        ax1.text(*x, k, c=c)
+        ax1.scatter(*x, s=4**2, color=c, zorder=5)
+
+    if objs is not None:
+        # Objective values
+        ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax2.set_ylabel('Obj')
+        ax2.plot(objs, color=color or 'C0', marker='.', ms=3**2)
+        # ax2.set_ylim(-objs.max(), -objs.min())
+        ax2.grid()
+
+        # Step magnitudes
+        ax3.sharex(ax2)
+        ax2.tick_params(labelbottom=False)
+        xx = np.arange(len(path)-1) + .5
+        yy = mnorm(np.diff(path, axis=0), -1)
+        ax3.plot(xx, yy, color=color or "C1", marker='.', ms=3**2)
+        ax3.set_ylabel('|Step|')
+        ax3.grid()
+        ax3.set(xlabel="itr")

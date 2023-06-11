@@ -4,9 +4,56 @@ import numpy as np
 import scipy.linalg as sla
 
 
-def norm(xx):
+def atleast_2d(x):
+    """Ensure has ens axis."""
+    singleton = np.ndim(x) == 1
+    x = np.atleast_2d(x)
+    return x, singleton
+
+
+def rinv(A, reg, tikh=True, nMax=None):
+    """Reproduces `sla.pinv(..., rtol=reg)` for `tikh=False`."""
+    # Decompose
+    U, s, VT = sla.svd(A, full_matrices=False)
+
+    # "Relativize" the regularisation param
+    reg = reg * s[0]
+
+    # Compute inverse (regularized or truncated)
+    if tikh:
+        s1 = s / (s**2 + reg**2)
+    else:
+        s0 = s >= reg
+        s1 = np.zeros_like(s)
+        s1[s0] = 1/s[s0]
+
+    if nMax:
+        s1[nMax:] = 0
+
+    # Re-compose
+    return (VT.T * s1) @ U.T
+
+
+def xy_p_normed(degree, Lx, Ly, p=4, norm_val=.87):
+    """Compute `(x, y)` of `degree`, scale so `p-norm = norm_val`."""
+    # Also center in, and scale by, model domain, i.e. `Lx, Ly`
+    radians = 2 * np.pi * degree / 360
+    c = np.cos(radians)
+    s = np.sin(radians)
+    norm = (np.abs(c)**p + np.abs(s)**p)**(1/p)
+    x = norm_val/norm * c
+    y = norm_val/norm * s
+    x = Lx/2 * (1 + x)
+    y = Ly/2 * (1 + y)
+    x = np.round(x, 2)
+    y = np.round(y, 2)
+    return x, y
+
+
+def mnorm(x, axis=0):
+    """L2 norm. Uses `mean` (unlike usual `sum`) for dimension agnosticity."""
     # return numpy.linalg.norm(xx/sqrt(len(xx)), ord=2)
-    return np.sqrt(np.mean(xx * xx))
+    return np.sqrt(np.mean(x*x, axis))
 
 
 def RMSMs(series, ref):
@@ -34,7 +81,7 @@ def RMSMs(series, ref):
 
         err = x - y.mean(0)
         dev = y - y.mean(0)
-        print(f"{k:8}: {norm(err):6.4f}   {norm(dev):6.4f}")
+        print(f"{k:8}: {mnorm(err):6.4f}   {mnorm(dev):6.4f}")
 
 
 def svd0(A):
@@ -78,12 +125,12 @@ def pows(U, sig):
 def center(E, axis=0, rescale=False):
     """Center ensemble, `E`.
 
-    Makes use of np features: keepdims and broadcasting.
+    Makes use of `keepdims` and broadcasting.
 
     If it is known that the true/theoretical mean of (the members of) `E`
     is actually zero, it might be beneficial make it so for `E`, but at the same
     time compensate for the reduction in the (expected) variance this implies.
-    This is done if `rescale` is `True`.
+    This is done if `rescale`.
     """
     x = np.mean(E, axis=axis, keepdims=True)
     X = E - x
@@ -95,23 +142,6 @@ def center(E, axis=0, rescale=False):
     x = x.squeeze()
 
     return X, x
-
-
-def mean0(E, axis=0, rescale=True):
-    """Like `center`, but only return the anomalies (not the mean).
-
-    Uses `rescale=True` by default, which is beneficial
-    when used to center observation perturbations.
-    """
-    return center(E, axis=axis, rescale=rescale)[0]
-
-
-def inflate_ens(E, factor):
-    """Inflate the ensemble (center, inflate, re-combine)."""
-    if factor == 1:
-        return E
-    X, x = center(E)
-    return x + X*factor
 
 
 def cov(a, b):
@@ -187,25 +217,26 @@ def apply(fun, *args, unzip=True, pbar=True, leave=True, **kwargs):
     # Unpacker for arg
     def function_with_unpacking(x):
         positional, named_vals = x[:nPositional], x[nPositional:]
-        kws = {key: val for (key, val) in zip(kwargs, named_vals)}
+        kws = {key: val for (key, val) in zip(kwargs, named_vals)}  # noqa
         return fun(*positional, **kws)
 
     # Setup or disable (be it with or w/o multiprocessing) tqdm.
     if pbar:
         tqdm_kws = dict(
-            desc=f"{fun.__name__} of ens",
+            desc=f"{fun.__name__}'s",
             total=len(xx),
             leave=leave,
         )
     else:
         tqdm_kws = dict(
             # passthrough
-            tqdm=(lambda x, **_: x)
+            tqdm=(lambda x, **_: x),
         )
 
-    # Apply
+    # Main work
     if nCPU > 1:
         import multiprocessing
+
         import threadpoolctl
         from p_tqdm import p_map
         nCPU = min(multiprocessing.cpu_count(), nCPU)
@@ -220,7 +251,7 @@ def apply(fun, *args, unzip=True, pbar=True, leave=True, **kwargs):
         for x in tqdm(xx, **tqdm_kws):
             yy.append(function_with_unpacking(x))
 
-
+    # Unpack
     if unzip:
         ensure_equal_lengths(yy)
         yy = list(zip(*yy))

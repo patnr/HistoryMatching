@@ -81,7 +81,7 @@ def fields(ZZ, style, title="", figsize=(1.7, 1),
 
     # Convert (potential) list-like ZZ into dict
     if not isinstance(ZZ, dict):
-        ZZ = {i: Z for (i, Z) in enumerate(ZZ)}  # noqa
+        ZZ = dict(enumerate(ZZ))
 
     # Plot
     hh = []

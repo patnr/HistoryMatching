@@ -217,7 +217,7 @@ def apply(fun, *args, unzip=True, pbar=True, leave=True, **kwargs):
     # Unpacker for arg
     def function_with_unpacking(x):
         positional, named_vals = x[:nPositional], x[nPositional:]
-        kws = {key: val for (key, val) in zip(kwargs, named_vals)}  # noqa
+        kws = dict(zip(kwargs, named_vals))
         return fun(*positional, **kws)
 
     # Setup or disable (be it with or w/o multiprocessing) tqdm.

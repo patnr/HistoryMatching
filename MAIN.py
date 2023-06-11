@@ -443,25 +443,28 @@ augmented_obs_error_cov = sla.block_diag(*[R]*nTime)
 # "**Kalman gain**" matrix, derived so as to achieve a variety of optimality properties
 # (see e.g. [[Jaz70]](#Jaz70)):
 # - in the linear-Gaussian case, to compute the correct posterior moments;
-# - in the linear (not-necessarily-Gaussian) case, to compute the BLUE,
-#   i.e. to achieve orthogonality of the posterior error and innovation;
-# - in the non-linear, non-Gaussian case, the ensemble version can be derived as
-#   linear regression (with some tweaks) from the perturbed obs. to the unknowns.
+# - in the linear (not-necessarily-Gaussian) case, to compute the [BLUE/MMSE](https://en.wikipedia.org/wiki/Kalman_filter#Kalman_gain_derivation),
+#   which is akin to achieving orthogonality of the posterior error and innovation;
+# - in the non-linear, non-Gaussian case, the *ensemble* Kalman gain can be derived as
+#   linear regression (with some tweaks) from the noisy obs. to the unknowns.
 #
 # Another way to look at it is to ask "what does it do?"
 # Heuristically, this may be answered as follows:
 #
 # - It uses correlation coefficients to establish relationships between
-#   observations and unknowns. For example, if there is no correlation, there will
-#   be no update (even for iterative methods).
+#   observations and unknowns. For example, if there is no correlation,
+#   the unknowns do not get updated.
 # - It takes into account the "intermingling" of correlations. For example, two
-#   measurements/observations that are highly correlated (when including both prior and
-#   observation errors) will barely contribute more than either one alone.
-# - It takes into account the variables' variance (hence why it works with covariances,
-#   and not just correlations), and thereby the their relative uncertainties.
-#   Thus, if two variables have equal correlation with an observation,
+#   measurements/observations that are highly correlated
+#   (when including both prior uncertainty and observation noise)
+#   will barely have more impact than either one alone.
+# - It also takes into account the variables' variance,
+#   and thereby the their relative uncertainties
+#   (in fact linear least-squares regression is a straighforward
+#   combination of variances and correlation coefficients).
+#   For example, if two variables have equal correlation with an observation,
 #   but one is more uncertain, that one will receive a larger update than the other.
-#   Also, an observation with a larger variance will have less impact than an
+#   Conversely, an observation with a larger variance will have less impact than an
 #   observation with a smaller variance. Working with variances also means that
 #   the physical units of the variables are inherently accounted for.
 #

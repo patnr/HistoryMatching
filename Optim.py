@@ -8,6 +8,7 @@
 #   for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
 #
 # TODO:
+# - Handle set_perm so it's not necessary to put into new_mod
 # - 1D: Plot ensemble of npv curves
 # - Plot ensemble of pdfs of npvs, including
 #   strategies: reactive control, nominal optimization, robust optimization
@@ -76,16 +77,14 @@ xy_4corners = np.dstack(np.meshgrid(
 )).reshape((-1, 2))
 
 
-# We'll be altering the model setup quite a lot,
+# We'll be altering the model quite a lot,
 # so let's make a convenient factory function.
 
 def new_mod(**kwargs):
     """Create new model, based on `globals()['model']`."""
     # Init
     new = copy.deepcopy(model)  # dont overwrite
-    # pperm gets special treatment (transformation)
-    set_perm(new, kwargs.pop('perm', pperm))
-    # Set other attrs
+    # Set attrs from kwargs
     for key, val in kwargs.items():
         setattr(new, key, val)
     # Sanitize
@@ -127,6 +126,7 @@ def sim(model, wsat, pbar=False, leave=False):
     wells = model.xy2ind(*model.prod_xy.T)
     prods = np.array([wsat[wells] for wsat in wsats])
     return wsats, prods
+
 
 wsat0 = np.zeros(model.Nxy)
 T = 1

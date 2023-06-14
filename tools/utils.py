@@ -175,7 +175,7 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def apply(fun, *args, unzip=True, pbar=True, leave=True, **kwargs):
+def apply(fun, *args, unzip=True, pbar=True, leave=True, desc=None, **kwargs):
     """Apply `fun` along 0th axis of (zipped) `args` and `kwargs`.
 
     Only (but always) axis 0 is treated special (and requires length conformity).
@@ -223,7 +223,7 @@ def apply(fun, *args, unzip=True, pbar=True, leave=True, **kwargs):
     # Setup or disable (be it with or w/o multiprocessing) tqdm.
     if pbar:
         tqdm_kws = dict(
-            desc=f"{fun.__name__}'s",
+            desc=desc or f"{fun.__name__}'s",
             total=len(xx),
             leave=leave,
         )

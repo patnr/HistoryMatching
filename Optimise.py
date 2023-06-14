@@ -37,7 +37,6 @@ from struct_tools import DotDict as Dict
 
 import tools.plotting as plotting
 from tools import geostat, utils, mpl_setup
-from tools.utils import apply
 
 mpl_setup.init()
 np.set_printoptions(precision=6)
@@ -125,9 +124,12 @@ T = 1
 dt = 0.025
 nTime = round(T/dt)
 
-# Multiprocessing. Only used in ensemble runs (ref. `apply`)
+# Multiprocessing. Only used in ensemble runs
 
 utils.nCPU = True
+
+def apply(*args, **kwargs):
+    return utils.apply(*args, **kwargs, unzip=False, leave=False)
 
 
 # Like `forward_model` of the previous (history matching) tutorial, but w/o setting params
@@ -160,8 +162,10 @@ plot_final_sweep(model)
 
 def EnGrad(obj, u, chol, nEns, precond=False):
     """Compute ensemble gradient for `obj` centered on `u`."""
-    U, _ = utils.center(rnd.randn(nEns, len(u)) @ chol.T)
-    J, _ = utils.center(obj(u + U))
+    U = rnd.randn(nEns, len(u)) @ chol.T
+    U, _ = utils.center(U)
+    J = obj(u + U, desc=f"EnGrad of {obj.__name__}'s")
+    J, _ = utils.center(J)
     if precond:
         g = U.T @ J / (nEns-1)
     else:
@@ -268,13 +272,12 @@ def npv(**kwargs):
 # Let's try it out with a 1D optimisation case
 # Input shape `(nEns, 1)` or `(1,)`.
 
-def npv_in_x_of_inj0_with_fixed_y(x):
+def npv_in_x_of_inj0_with_fixed_y(x, **kws):
     """Optimize x coordinate of injector."""
     xs, singleton = utils.atleast_2d(x)
     ys = np.full_like(xs, y)
     xys = np.dstack([xs, ys])
-    Js = apply(npv, inj_xy=xys, unzip=False,
-               pbar=not singleton, leave=False)
+    Js = apply(npv, inj_xy=xys, pbar=not singleton, **kws)
     return Js[0] if singleton else Js
 
 y = model.Ly/2
@@ -283,7 +286,7 @@ obj = npv_in_x_of_inj0_with_fixed_y
 # Compute entire objective
 
 xx = np.linspace(0, model.Lx, 201)
-npvs = obj(np.atleast_2d(xx).T)
+npvs = obj(np.atleast_2d(xx).T, desc=f"Plot pts. of {obj.__name__}")
 
 # +
 # Plot objective
@@ -306,12 +309,11 @@ fig.tight_layout()
 # ## Optimize both coordinates
 # Input shape `(nEns, 2*nInj)`.
 
-def npv_in_injectors(xys):
+def npv_in_injectors(xys, **kws):
     """`npv(inj_xy)`."""
     xys, singleton = utils.atleast_2d(xys)
     xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
-    Js = apply(npv, inj_xy=xys, unzip=False,
-               pbar=not singleton, leave=False)
+    Js = apply(npv, inj_xy=xys, pbar=not singleton, **kws)
     return Js[0] if singleton else Js
 
 
@@ -320,7 +322,7 @@ def npv_in_injectors(xys):
 obj = npv_in_injectors
 X, Y = model.mesh
 XY = np.vstack([X.ravel(), Y.ravel()]).T
-npvs = obj(XY)
+npvs = obj(XY, desc=f"Plot pts. of {obj.__name__}")
 
 # +
 # Plot objective
@@ -400,8 +402,8 @@ def transform_xys(xys):
 
 
 # +
-def npv_in_injectors_transformed(xys):
-    return npv_in_injectors(transform_xys(xys))
+def npv_in_injectors_transformed(xys, **kws):
+    return npv_in_injectors(transform_xys(xys), **kws)
 
 obj = npv_in_injectors_transformed
 
@@ -436,7 +438,7 @@ plot_final_sweep(model)
 # differently across the wells (somehow, our choice),
 # but here we all set them all to be equal.
 
-def npv_in_rates(inj_rates):
+def npv_in_rates(inj_rates, **kws):
     """`npv(inj_rates)`."""
     inj_rates, singleton = utils.atleast_2d(inj_rates)
     nEns = len(inj_rates)
@@ -444,8 +446,7 @@ def npv_in_rates(inj_rates):
     total_rate = np.sum(inj_rates, axis=1).squeeze()  # (nEns,)
     nProd = len(model.prod_rates)
     prod_rates = (np.ones((1, nProd, nEns)) * total_rate/nProd).T
-    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, unzip=False,
-               pbar=not singleton, leave=False)
+    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, pbar=not singleton, **kws)
     return Js[0] if singleton else Js
 
 obj = npv_in_rates

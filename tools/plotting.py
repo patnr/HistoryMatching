@@ -274,7 +274,8 @@ def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, *
         layout = layout1(ww, output)
     except (ValueError, IndexError):
         # Fallback
-        cpanel = wg.VBox(ww, layout=dict(align_items='center'))
+        cpanel = wg.VBox(ww, layout=dict(align_items='center',
+                                         justify_content='center'))
         layout = wg.HBox([output, cpanel])
 
     # Display

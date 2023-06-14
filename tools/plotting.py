@@ -490,9 +490,10 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
-def figure12(*args, figsize=(11, 3), **kwargs):
+def figure12(title="", *args, figsize=(11, 3), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
-    fig, _ax = place.freshfig(*args, figsize=figsize, **kwargs)
+    title = dash_join("Optim. trajectories", title)
+    fig, _ax = place.freshfig(title, *args, figsize=figsize, **kwargs)
     _ax.remove()
     gs = GridSpec(2, 2)
     ax0 = fig.add_subplot(gs[:, 0])

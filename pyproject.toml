@@ -50,7 +50,7 @@ flake8-docstrings = ["+*", "-D105",
 pycodestyle = ["-E402", "-E501", "-E703", "-E302", "-E305"]
 flake8-docstrings = ["-D100"]
 
-[tool.flakeheaven.exceptions."Optim.py"]
+[tool.flakeheaven.exceptions."Optimisation.py"]
 pycodestyle = ["-E402", "-E501", "-E703", "-E302", "-E305"]
 flake8-docstrings = ["-D100"]
 

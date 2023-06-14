@@ -133,7 +133,6 @@ def plot_final_sweep(model):
 
 # Let us plot the final sweep given these well settings
 
-wsats, prods = sim(model, wsat0)
 plot_final_sweep(model)
 
 # ## EnOpt

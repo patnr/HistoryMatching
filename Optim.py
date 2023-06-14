@@ -170,15 +170,20 @@ def EnGrad(obj, u, chol, nEns, precond=False):
 #   Setting to 0 is not recommended, because if the objective function is flat
 #   in the neighborhood, then the path could just go in circles on that flat.
 
-def EnOpt(obj, u, chol, sign=+1,
-          # Ensemble size
-          nEns=10,
-          # Step modifiers:
-          normed=True, precond=False,
-          # Backtracking (step lenghts):
-          xSteps=tuple(.4 * 1/2**i for i in range(8)),
-          # Stopping criteria:
-          nIter=100, rtol=1e-8):
+def EnOpt(
+    # Objective function, initial guess, cholesky factor for sampling ens:
+    obj, u, chol,
+    # Minimize or maximize:
+    sign=+1,
+    # Ensemble size
+    nEns=10,
+    # Step modifiers:
+    normed=True, precond=False,
+    # Backtracking (step lenghts):
+    xSteps=tuple(.4 * 1/2**i for i in range(8)),
+    # Stopping criteria:
+    nIter=100, rtol=1e-8
+):
     """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking."""
 
     def backtrack(base_step):
@@ -254,7 +259,6 @@ def npv(**kwargs):
 # #### Optimize x-coordinate
 # Let's try it out with a 1D optimisation case
 # Input shape `(nEns, 1)` or `(1,)`.
-
 
 def npv_in_x_of_inj0_with_fixed_y(x):
     """Optimize x coordinate of injector."""

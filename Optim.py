@@ -285,7 +285,6 @@ obj = npv_in_x_of_inj0_with_fixed_y
 xx = np.linspace(0, model.Lx, 201)
 npvs = obj(np.atleast_2d(xx).T)
 
-# +
 # Plot objective
 fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
@@ -301,8 +300,6 @@ for i, u0 in enumerate(u0s):
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
 
-
-# -
 
 # ## Optimize both coordinates
 # Input shape `(nEns, 2*nInj)`.
@@ -323,7 +320,6 @@ X, Y = model.mesh
 XY = np.vstack([X.ravel(), Y.ravel()]).T
 npvs = obj(XY)
 
-# +
 # Plot objective
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
@@ -335,7 +331,6 @@ for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = EnOpt(obj, u0, chol)
     plotting.add_path12(*axs, path, objs, color=color)
-# -
 
 # ##### Comments
 # - Given the zig-zag optimization trajectories we see, it would appear
@@ -400,13 +395,11 @@ def transform_xys(xys):
     return xys
 
 
-# +
 def npv_in_injectors_transformed(xys):
     return npv_in_injectors(transform_xys(xys))
 
 obj = npv_in_injectors_transformed
 
-# +
 # Plot perm field
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
@@ -421,7 +414,6 @@ path = transform_xys(path)
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
 plotting.add_path12(*axs, path[:, 2:], color='C5')
 fig.tight_layout()
-# -
 
 # Let's plot the final sweep
 
@@ -437,7 +429,6 @@ plot_final_sweep(model)
 # differently across the wells (somehow, our choice),
 # but here we all set them all to be equal.
 
-# +
 def npv_in_rates(inj_rates):
     """`npv(inj_rates)`."""
     inj_rates, singleton = utils.atleast_2d(inj_rates)
@@ -451,7 +442,6 @@ def npv_in_rates(inj_rates):
     return Js[0] if singleton else Js
 
 obj = npv_in_rates
-# -
 
 # Note: input shape `(nEns, nInj)`.
 #
@@ -461,7 +451,6 @@ model = model0
 
 # Optimize
 
-# +
 xx = np.linspace(0.1, 5, 21)
 npvs = obj(np.atleast_2d(xx).T)
 
@@ -476,7 +465,6 @@ for i, u0 in enumerate(np.array([[.1, 5]]).T):
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
-# -
 
 # ## Interactive (manual) optimisation of multiple rates
 

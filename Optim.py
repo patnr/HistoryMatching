@@ -149,7 +149,7 @@ def EnGrad(obj, u, chol, precond=False):
 
 def EnOpt(obj, u, chol, sign=+1,
           # Step modifiers:
-          xSteps=(1,), normed=True, precond=True,
+          xSteps=(1,), normed=True, precond=False,
           # Stopping criteria:
           nIter=100, rtol=1e-4):
     """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking.
@@ -273,7 +273,7 @@ L = .3 * np.eye(1)
 shifts = {}
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
 for i, u0 in enumerate(u0s):
-    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False)
+    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps)
     shift = .3*i  # for visual distinction
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
@@ -295,7 +295,7 @@ fig.tight_layout()
 L = .1 * np.eye(2)
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False)
+    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps)
     plotting.add_path12(*axs, path, objs, color=color)
 # -
 
@@ -348,7 +348,7 @@ fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
 L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
+path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, rtol=1e-8)
 path = transform_xys(path)
 
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
@@ -399,7 +399,7 @@ ax.plot(xx, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
     L = .1 * np.eye(len(u0))
-    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
+    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, rtol=1e-8)
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
@@ -447,6 +447,6 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 
 u0 = .7*np.ones(len(model.inj_rates))
 L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(npv_in_rates, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
+path, objs, info = EnOpt(npv_in_rates, u0, L, xSteps=xSteps, rtol=1e-8)
 
 # Now try setting these values in the interactive widget above.

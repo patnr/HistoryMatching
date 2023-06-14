@@ -187,7 +187,7 @@ def EnOpt(
     # Step modifiers:
     normed=True, precond=False,
     # Backtracking (step lenghts):
-    xSteps=tuple(.4 * 1/2**i for i in range(8)),
+    xSteps=tuple(1/2**(i+1) for i in range(8)),
     # Stopping criteria:
     nIter=100, rtol=1e-8
 ):

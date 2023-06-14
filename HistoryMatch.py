@@ -979,7 +979,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     for itr in progbar(range(nIter), desc="Iter"):
         # Compute rmse (vs. supposedly unknown Truth)
-        stat.rmse += [utils.mnorm(E.mean(0) - perm.Truth)]
+        stat.rmse += [utils.mnorm(E.mean(0) - perm.Truth, None)]
 
         # Forecast.
         _, Eo = apply(forward_model, wsat.init.Prior, E, leave=False)

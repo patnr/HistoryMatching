@@ -1,15 +1,4 @@
-"""Plot functions building on `simulator.plotting`.
-
-Note: before using any function, you must set the `single.model`.
-
-Snippet to reload module:
-
-    >>> import importlib
-    >>> import tools.plotting as m
-    >>> m = importlib.reload(m)
-    >>> plotting.single.model = model
-    >>> plotting.single.coord_type = "absolute"
-"""
+"""Plot functions building on `simulator.plotting`."""
 
 import copy
 import warnings
@@ -18,7 +7,6 @@ import ipywidgets as wg
 import matplotlib as mpl
 import numpy as np
 import struct_tools
-import TPFA_ResSim.plotting as single
 from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -26,7 +14,7 @@ from matplotlib.ticker import MaxNLocator
 from mpl_tools import place
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
-from TPFA_ResSim.plotting import field, styles
+from TPFA_ResSim.plotting import styles
 
 from .utils import mnorm
 
@@ -41,6 +29,8 @@ cmap_corr.set_bad("black")
 # Add some styles
 styles["pperm"] = dict(
     title  = "Pre-Perm",
+    levels = np.linspace(-4, 4, 21),
+    cticks = np.arange(-4, 4+1),
     cmap   = "jet",
 )
 styles["corr"] = dict(
@@ -49,15 +39,15 @@ styles["corr"] = dict(
     levels = np.linspace(-1.00001, 1.00001, 20),
     cticks = np.linspace(-1, 1, 6),
 )
-styles["obj"] = dict(
+styles["NPV"] = dict(
     title  = "NPV",
     cmap   = plt.get_cmap("inferno"),
 )
 
 
-def fields(ZZ, style, title="", figsize=(1.7, 1),
+def fields(model, Zs, style, title="", figsize=(1.7, 1),
            label_color="k", colorbar=True, **kwargs):
-    """Do `field(Z) for Z in ZZ`."""
+    """Do `model.plt_field(Z) for Z in Zs`."""
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
@@ -70,27 +60,27 @@ def fields(ZZ, style, title="", figsize=(1.7, 1),
     fig.clear()
     from mpl_toolkits.axes_grid1 import AxesGrid
     axs = AxesGrid(fig, 111,
-                   nrows_ncols=nRowCol(min(12, len(ZZ))).values(),
+                   nrows_ncols=nRowCol(min(12, len(Zs))).values(),
                    cbar_mode='single', cbar_location='right',
                    share_all=True,
                    axes_pad=0.2,
                    cbar_pad=0.1)
     # Turn off redundant axes
-    for ax in axs[len(ZZ):]:
+    for ax in axs[len(Zs):]:
         ax.set_visible(False)
 
-    # Convert (potential) list-like ZZ into dict
-    if not isinstance(ZZ, dict):
-        ZZ = dict(enumerate(ZZ))
+    # Convert (potential) list-like Zs into dict
+    if not isinstance(Zs, dict):
+        Zs = dict(enumerate(Zs))
 
     # Plot
     hh = []
-    for ax, label in zip(axs, ZZ):
+    for ax, label in zip(axs, Zs):
         label_ax(ax, label, c=label_color)
-        hh.append(field(ax, ZZ[label], style, **kwargs))
+        hh.append(model.plt_field(ax, Zs[label], style, **kwargs))
 
     # Suptitle
-    if len(ZZ) > len(axs):
+    if len(Zs) > len(axs):
         suptitle = dash_join(suptitle, f"First {len(axs)} instances")
     # Re-set suptitle (since it got cleared above)
     if suptitle:
@@ -242,13 +232,13 @@ def captured_fig(output, num, **kwargs):
     return decorator
 
 
-def field_console(compute, style, title="", figsize=(1.5, 1), **kwargs):
+def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
     """Field computed on-the-fly controlled by interactive sliders."""
     title  = dash_join(styles[style]["title"], title)
     ctrls  = compute.controls.copy()  # gets modified
     output = wg.Output()
 
-    @captured_fig(output, title, figsize=figsize, rel=True)
+    @captured_fig(output, title, figsize=figsize, rel=rel)
     def plot(fig, ax, newfig, **kw):
         # Ignore warnings due to computing and plotting contour/nan
         with warnings.catch_warnings(), \
@@ -257,13 +247,13 @@ def field_console(compute, style, title="", figsize=(1.5, 1), **kwargs):
                 "ignore", category=UserWarning, module="matplotlib.contour")
 
             Z = compute(**kw)
-            field(ax, Z, style, colorbar=newfig, **kwargs)
+            model.plt_field(ax, Z, style, colorbar=newfig, **kwargs)
             if newfig:
                 fig.tight_layout()
 
         # Add crosshairs
         if "x" in kw and "y" in kw:
-            x, y = single.model.sub2xy_stretched(kw["x"], kw["y"])
+            x, y = model.sub2xy_stretched(kw["x"], kw["y"])
             d = dict(c="k", ls="--", lw=1)
             ax.axhline(y, **d)
             ax.axvline(x, **d)

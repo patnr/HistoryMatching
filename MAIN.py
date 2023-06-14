@@ -105,8 +105,8 @@ seed = rnd.seed(4)  # very easy
 # matching and optimisation process.
 
 import TPFA_ResSim as simulator
-import tools.plotting as plotting
 import tools.localization as loc
+import tools.plotting as plotting
 from tools import geostat, utils
 from tools.utils import center, apply
 
@@ -114,13 +114,7 @@ from tools.utils import center, apply
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
 # code here http://folk.ntnu.no/andreas/papers/ResSimMatlab.pdf
 
-# +
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
-
-# Also init plotting module
-plotting.single.model = model
-plotting.single.coord_type = "absolute"
-# -
 
 # The following declares some data containers to help us keep organised.
 # The names have all been shortened to 4 characters, but this is just
@@ -177,11 +171,6 @@ def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
 
-# Also configure plot parameters suitable for pre-perm
-
-plotting.styles["pperm"]["levels"] = np.linspace(-4, 4, 21)
-plotting.styles["pperm"]["cticks"] = np.arange(-4, 4+1)
-
 # For any type of parameter, one typically has to write a "setter" function that takes
 # the vector of parameter parameter values, and applies it to the specific model
 # implementation. We could merge this functionality with `perm_transf` (and indeed the
@@ -229,9 +218,9 @@ model.config_wells(
 # and the well locations.
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
-# plotting.field(ax, perm.Truth, "pperm")
-plotting.field(ax, perm_transf(perm.Truth),
-               locator=LogLocator(), wells=True, colorbar=True)
+# model.plt_field(ax, perm.Truth, "pperm")
+model.plt_field(ax, perm_transf(perm.Truth),
+                locator=LogLocator(), wells=True, colorbar=True)
 fig.tight_layout()
 
 
@@ -264,7 +253,7 @@ prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = plotting.single.anim(None, wsat.past.Truth, prod.past.Truth);
+animation = model.anim(None, wsat.past.Truth, prod.past.Truth);
 
 # Note: can take up to a minute to appear
 animation
@@ -282,7 +271,7 @@ for iT in range(nTime):
 # Plot of observations (and their noise):
 
 fig, ax = freshfig("Observations", figsize=(2, .7), rel=True)
-plotting.single.production(ax, prod.past.Truth, prod.past.Noisy);
+model.plt_production(ax, prod.past.Truth, prod.past.Noisy);
 
 # Note that several observations are above 1,
 # which is "unphysical" or not physically "realisable".
@@ -332,7 +321,7 @@ fig.tight_layout()
 # #### Field plots
 # Below we can see some (pre-perm) realizations (members) from the ensemble.
 
-plotting.fields(perm.Prior, "pperm", "Prior");
+plotting.fields(model, perm.Prior, "pperm", "Prior");
 
 # #### Variance/Spectrum
 # In practice, of course, we would not be using an explicit `Cov` matrix when generating
@@ -505,7 +494,7 @@ corr_comp.controls = dict(
 )
 # -
 
-plotting.field_console(corr_comp, "corr", argmax=True, wells=True)
+plotting.field_console(model, corr_comp, "corr", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
@@ -581,7 +570,7 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 # Here is a plot of the paths.
 
 fig, ax = freshfig("Trajectories of maxima of corr. fields", figsize=(1.5, 1), rel=1)
-plotting.field(ax, np.zeros(model.shape), "corr", wells=True)
+model.plt_field(ax, np.zeros(model.shape), "corr", wells=True)
 for i, xy_path in enumerate(xy_max_corr):
     color = dict(color=f"C{i}")
     ax.plot(*xy_path.T, **color)
@@ -695,7 +684,7 @@ corr_wells.controls = dict(
 )
 
 
-plotting.field_console(corr_wells, "corr", "Pre-perm vs well observation", wells=True)
+plotting.field_console(model, corr_wells, "corr", "Pre-perm vs well observation", wells=True)
 
 
 # - Note that the `N` slider is only active when `localize` is *enabled*.
@@ -813,7 +802,7 @@ perm.ES = ens_update0(perm.Prior, **kwargs0)
 
 # Let's plot the updated ensemble.
 
-plotting.fields(perm.ES, "pperm", "ES (posterior)");
+plotting.fields(model, perm.ES, "pperm", "ES (posterior)");
 
 # We will see some more diagnostics later.
 
@@ -926,7 +915,7 @@ perm.LES = ens_update0_loc(perm.Prior, **kwargs0,
 
 # Again, we plot some updated/posterior fields
 
-plotting.fields(perm.LES, "pperm", "LES (posterior)");
+plotting.fields(model, perm.LES, "pperm", "LES (posterior)");
 
 # ### Iterative ensemble smoother
 
@@ -1048,7 +1037,7 @@ perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
 # #### Field plots
 # Let's plot the updated, initial ensemble.
 
-plotting.fields(perm.IES, "pperm", "IES (posterior)");
+plotting.fields(model, perm.IES, "pperm", "IES (posterior)");
 
 # The following plots the cost function(s) together with the error compared to the true
 # (pre-)perm field as a function of the iteration number. Note that the relationship
@@ -1105,7 +1094,7 @@ utils.RMSMs(perm, ref="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plotting.fields(perm_means, "pperm", "Means");
+plotting.fields(model, perm_means, "pperm", "Means");
 
 # ### Means vs. Data mismatch (past production)
 # In synthetic experiments such as this one, is is instructive to computing the "error":
@@ -1189,7 +1178,7 @@ utils.RMSMs(prod.past, ref="Noisy")
 
 wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
-plotting.fields(wsat_means, "oil", "Means");
+plotting.fields(model, wsat_means, "oil", "Means");
 
 # #### Run
 # Now we predict.

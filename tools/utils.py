@@ -81,7 +81,7 @@ def RMSMs(series, ref):
 
         err = x - y.mean(0)
         dev = y - y.mean(0)
-        print(f"{k:8}: {mnorm(err):6.4f}   {mnorm(dev):6.4f}")
+        print(f"{k:8}: {mnorm(err, None):6.4f}   {mnorm(dev, None):6.4f}")
 
 
 def svd0(A):

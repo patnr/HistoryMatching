@@ -61,32 +61,40 @@ def set_perm(model, log_perm_array):
 
 # ## Model case
 
-def new_mod(**kwargs):
-    """Create new model, based on `globals()['model']`."""
-    # Init
-    modln = copy.deepcopy(model)  # dont overwrite
-    # pperm gets special treatment (transformation)
-    set_perm(modln, kwargs.pop('perm', pperm))
-    # Set other attrs
-    for key, val in kwargs.items():
-        setattr(modln, key, val)
-    # Sanitize
-    modln.config_wells(modln.inj_xy, modln.inj_rates,
-                       modln.prod_xy, modln.prod_rates)
-    return modln
-
-
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 seed = rnd.seed(3)
 pperm = sample_prior_perm(1)
+set_perm(model, pperm)
 
+# Suggested total rate
+rate0 = 1.5
+
+# List of coordinates (x, y) of the 4 cornerns of the rectangular domain
 xy_4corners = np.dstack(np.meshgrid(
     np.array([.12, .87]) * model.Lx,
     np.array([.12, .87]) * model.Ly,
 )).reshape((-1, 2))
 
-# +
-rate0 = 1.5
+
+# We'll be altering the model setup quite a lot,
+# so let's make a convenient factory function.
+
+def new_mod(**kwargs):
+    """Create new model, based on `globals()['model']`."""
+    # Init
+    new = copy.deepcopy(model)  # dont overwrite
+    # pperm gets special treatment (transformation)
+    set_perm(new, kwargs.pop('perm', pperm))
+    # Set other attrs
+    for key, val in kwargs.items():
+        setattr(new, key, val)
+    # Sanitize
+    new.config_wells(new.inj_xy, new.inj_rates,
+                     new.prod_xy, new.prod_rates)
+    return new
+
+# This will serve as our default model
+
 model = new_mod(
     name = "Base model",
     inj_xy  = [[model.Lx/2, model.Ly/2]],
@@ -95,12 +103,16 @@ model = new_mod(
     prod_rates = rate0 * np.ones((4, 1)) / 4,
 )
 
+# The global `model` is used by `new_mod` for defaults.
+# Let's store its current state
+
+model0 = new_mod()
+
+# Plot
+
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, pperm, "pperm", wells=True, colorbar=True);
 fig.tight_layout()
-
-
-# -
 
 
 # #### Simulation
@@ -380,15 +392,9 @@ def npv_in_rates(inj_rates):
     return Js[0] if singleton else Js
 
 # Restore default well config
-model = new_mod(
-    name = "Base model",
-    inj_xy  = [[model.Lx/2, model.Ly/2]],
-    prod_xy = xy_4corners,
-    inj_rates  = rate0 * np.ones((1, 1)) / 1,
-    prod_rates = rate0 * np.ones((4, 1)) / 4,
-)
 
 # +
+model = model0
 obj = npv_in_rates
 
 xx = np.linspace(0.1, 5, 21)
@@ -416,7 +422,7 @@ wells = dict(
     inj_xy = ([[model.Lx/2, model.Ly/2]] +
               [utils.xy_p_normed(th + 90, *model.domain[1]) for th in triangle]),
     prod_xy = [utils.xy_p_normed(th - 90, *model.domain[1]) for th in triangle],
-    inj_rates = rate0 * np.ones((4, 1)) / 4,
+    inj_rates  = rate0 * np.ones((4, 1)) / 4,
     prod_rates = rate0 * np.ones((3, 1)) / 3,
 )
 model = new_mod(**wells)

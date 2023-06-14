@@ -26,14 +26,12 @@ remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 # ## Imports
 
 import copy
-from dataclasses import dataclass
 
 import numpy as np
 from tqdm.auto import tqdm
 import numpy.random as rnd
 import TPFA_ResSim as simulator
 from mpl_tools.place import freshfig
-from struct_tools import DotDict as Dict
 
 import tools.plotting as plotting
 from tools import geostat, utils, mpl_setup

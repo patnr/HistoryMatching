@@ -56,5 +56,5 @@ repos:
     -   id: isort
         exclude: |
             (?x)^(
-                MAIN\.py
+                HistoryMatch\.py
             )$

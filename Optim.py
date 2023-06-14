@@ -4,7 +4,7 @@
 # Copyright Patrick N. Raanes, NORCE, 2023.
 #
 # This is a self-contained tutorial on production optimisation using ensemble methods.
-# - Please have a look at the [history matching (HM) tutorial](MAIN.ipynb)
+# - Please have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
 #   for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
 #
 # TODO:

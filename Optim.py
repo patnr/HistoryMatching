@@ -121,6 +121,9 @@ T = 1
 dt = 0.025
 nTime = round(T/dt)
 
+# Multiprocessing. Only used in ensemble runs (ref. `apply`)
+utils.nCPU = True
+
 
 def plot_final_sweep(model):
     """Simulate reservoir, plot final oil saturation."""
@@ -137,17 +140,19 @@ plot_final_sweep(model)
 
 # ## EnOpt
 
-def EnGrad(obj, u, chol, precond=False):
-    U, _ = utils.center(rnd.randn(N, len(u)) @ chol.T)
+def EnGrad(obj, u, chol, nEns, precond=False):
+    U, _ = utils.center(rnd.randn(nEns, len(u)) @ chol.T)
     J, _ = utils.center(obj(u + U))
     if precond:
-        g = U.T @ J / (N-1)
+        g = U.T @ J / (nEns-1)
     else:
         g = utils.rinv(U, reg=.1, tikh=True) @ J
     return g
 
 
 def EnOpt(obj, u, chol, sign=+1,
+          # Ensemble size
+          nEns=10,
           # Step modifiers:
           normed=True, precond=False,
           # Backtracking (step lenghts):
@@ -184,7 +189,7 @@ def EnOpt(obj, u, chol, sign=+1,
         objs.append(J)
 
         # Compute search direction
-        grad = EnGrad(obj, u, chol, precond=precond)
+        grad = EnGrad(obj, u, chol, nEns, precond=precond)
         if normed:
             grad /= utils.mnorm(grad)
 
@@ -201,10 +206,6 @@ def EnOpt(obj, u, chol, sign=+1,
 
     print(f"{status:<9} {itr=:<5}  {path[-1]=}  {objs[-1]=:.2f}")
     return np.array(path), np.array(objs), info
-
-
-N = 10
-utils.nCPU = True
 
 
 # ## NPV objective functions

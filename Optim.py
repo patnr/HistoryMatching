@@ -23,7 +23,7 @@
 remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 # !wget -qO- {remote}/master/colab_bootstrap.sh | bash -s
 
-# # Imports
+# ## Imports
 
 import copy
 from dataclasses import dataclass
@@ -46,6 +46,12 @@ np.set_printoptions(precision=6)
 # but it's useful to have a base model in the global namespace
 # for plotting purposes.
 
+# ## Define model
+# We start with the same settings as in the previous tutorial (on history matching).
+
+model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
+
+
 def sample_prior_perm(N):
     lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
     return lperms
@@ -60,17 +66,16 @@ def set_perm(model, log_perm_array):
     model.Gridded.K = np.stack([p, p])
 
 
-# ## Model case
-
-model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
 seed = rnd.seed(3)
 pperm = sample_prior_perm(1)
 set_perm(model, pperm)
 
-# Suggested total rate
+# Suggested total rate of production (total rate of injection must be the same).
+
 rate0 = 1.5
 
 # List of coordinates (x, y) of the 4 cornerns of the rectangular domain
+
 xy_4corners = np.dstack(np.meshgrid(
     np.array([.12, .87]) * model.Lx,
     np.array([.12, .87]) * model.Ly,
@@ -113,10 +118,19 @@ fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, pperm, "pperm", wells=True, colorbar=True);
 fig.tight_layout()
 
+# ## Define simulation
 
-# #### Simulation
+wsat0 = np.zeros(model.Nxy)
+T = 1
+dt = 0.025
+nTime = round(T/dt)
 
-# Like `forward_model`, but w/o setting params
+# Multiprocessing. Only used in ensemble runs (ref. `apply`)
+
+utils.nCPU = True
+
+
+# Like `forward_model` of the previous (history matching) tutorial, but w/o setting params
 
 def sim(model, wsat, pbar=False, leave=False):
     """Simulate reservoir."""
@@ -126,15 +140,6 @@ def sim(model, wsat, pbar=False, leave=False):
     wells = model.xy2ind(*model.prod_xy.T)
     prods = np.array([wsat[wells] for wsat in wsats])
     return wsats, prods
-
-
-wsat0 = np.zeros(model.Nxy)
-T = 1
-dt = 0.025
-nTime = round(T/dt)
-
-# Multiprocessing. Only used in ensemble runs (ref. `apply`)
-utils.nCPU = True
 
 
 def plot_final_sweep(model):
@@ -225,10 +230,12 @@ def EnOpt(
     return np.array(path), np.array(objs), info
 
 
-# ## NPV objective functions
+# ## NPV
+
+# Convert production saturations to monetary value.
 
 def prod2npv(model, prods):
-    """Net present value (NPV), i.e. monetarily discounted, total oil production."""
+    """Net present value (NPV), i.e. discounted, total oil production."""
     discounts = .99 ** np.arange(nTime + 1)
     prods = 1 - prods                   # water --> oil
     prods = prods * model.prod_rates.T  # volume = saturation * rate
@@ -244,19 +251,20 @@ def prod2npv(model, prods):
     cost = cost @ discounts[:-1]
     return value - .5*cost
 
+# Objective function consists of model config, simulation, and conversion to money.
+
 def npv(**kwargs):
     """NPV from model config."""
-    # Config
     try:
         model = new_mod(**kwargs)
-        # Simulate
         wsats, prods = sim(model, wsat0)
     except Exception:
-        return 0  # Invalid model params. Penalize. Use `raise` for debugging.
+        return 0  # Invalid model params. Penalize.
+        # Use `raise` for debugging.
     return prod2npv(model, prods)
 
 
-# #### Optimize x-coordinate
+# ## Optimize x-coordinate of single injector
 # Let's try it out with a 1D optimisation case
 # Input shape `(nEns, 1)` or `(1,)`.
 
@@ -272,15 +280,18 @@ def npv_in_x_of_inj0_with_fixed_y(x):
 y = model.Ly/2
 obj = npv_in_x_of_inj0_with_fixed_y
 
-# +
-# Plot entire objective
-fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
-ax.set(xlabel="x", ylabel="NPV")
+# Compute entire objective
+
 xx = np.linspace(0, model.Lx, 201)
 npvs = obj(np.atleast_2d(xx).T)
+
+# +
+# Plot objective
+fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
+ax.set(xlabel="x", ylabel="NPV")
 ax.plot(xx, npvs, "slategrey", lw=3)
 
-# Optimize
+# Optimize, plot
 chol = .3 * np.eye(1)
 shifts = {}
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
@@ -290,7 +301,10 @@ for i, u0 in enumerate(u0s):
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
 
-# #### Optimize both coordinates
+
+# -
+
+# ## Optimize both coordinates
 # Input shape `(nEns, 2*nInj)`.
 
 def npv_in_injectors(xys):
@@ -302,18 +316,20 @@ def npv_in_injectors(xys):
     return Js[0] if singleton else Js
 
 
-# Plot entire objective
+# Compute entire objective
 
 obj = npv_in_injectors
 X, Y = model.mesh
 XY = np.vstack([X.ravel(), Y.ravel()]).T
 npvs = obj(XY)
+
+# +
+# Plot objective
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
 fig.tight_layout()
 
-# Optimize
-
+# Optimize, plot
 chol = .1 * np.eye(2)
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
@@ -321,7 +337,7 @@ for color in ['C0', 'C2', 'C7', 'C9']:
     plotting.add_path12(*axs, path, objs, color=color)
 # -
 
-# #### Comments
+# ##### Comments
 # - Given the zig-zag optimization trajectories we see, it would appear
 #   that the EnOpt gradient descent implementation could well benefit
 #   from using an "acceleration" technique such as "momentum".
@@ -331,10 +347,42 @@ for color in ['C0', 'C2', 'C7', 'C9']:
 # - Notice that discreteness of npv_in_injectors function means that
 #   they dont all CV to exactly the same
 
+# Plot of final sweep
+
 model = new_mod(inj_xy=path[-1].reshape((-1, 2)),
                 name=f"Optimized in {obj.__name__}")
 plot_final_sweep(model)
 
+# ## Optimize coordinates of 2 injectors
+
+# With 2 injectors, it's more interesting (not necessary) to also only have 2 producers. So let's configure our model for that.
+
+model = new_mod(
+    name = "Lower 2 corners",
+    prod_xy = xy_4corners[:2],
+    inj_xy  = model.inj_xy[:2], # dummy
+    prod_rates = rate0 * np.ones((2, 1)) / 2,
+    inj_rates  = rate0 * np.ones((2, 1)) / 2,
+)
+
+
+# As you might imagine, with the 2 producers at the lower corners,
+# the optimal 2 injector positions will be somewhere near the upper edge.
+# But boundaries are a problem for basic EnOpt.
+# Because of its Gaussian character, it will often sample points outside of the domain.
+# This won't crash our optimisation, since the `npv` function penalizes invalid models,
+# but the gradient near the border will seem to indicate that the border is a bad place to be,
+# which is not necessarily the case.
+#
+# - One quickfix to this problem
+# (but more technically challenging that the penalization already in place)
+# is to truncate the ensemble members to the valid domain.
+# - Another alternative (ref. Mathias) is to use a non-Gaussian generalisation of EnOpt that samples
+# from a Beta (e.g.) distribution, and uses a different formula than LLS regression
+# to estimate the average gradient.
+# - Another alternative is to transform the control variables
+# so that the domain is the whole of $\mathcal{R}^d$.
+# This is the approach taken below.
 
 def transform_xys(xys):
     """Transform infinite plane to `(0, Lx) x (0, Ly)`."""
@@ -352,42 +400,44 @@ def transform_xys(xys):
     return xys
 
 
+# +
 def npv_in_injectors_transformed(xys):
     return npv_in_injectors(transform_xys(xys))
 
-# +
 obj = npv_in_injectors_transformed
 
-u0 = np.array([0, 0] + [2, 0])
-model = new_mod(
-    name = "Lower 2 corners",
-    prod_xy = xy_4corners[:2],
-    inj_xy  = transform_xys(u0).reshape((2, 2)),
-    prod_rates = rate0 * np.ones((2, 1)) / 2,
-    inj_rates  = rate0 * np.ones((2, 1)) / 2,
-)
+# +
+# Plot perm field
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
+# Optimize
+u0 = np.array([0, 0] + [2, 0])
 chol = .1 * np.eye(len(u0))
 path, objs, info = EnOpt(obj, u0, chol)
 path = transform_xys(path)
 
+# Plot optimisation trajectory
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
 plotting.add_path12(*axs, path[:, 2:], color='C5')
 fig.tight_layout()
-
 # -
 
-# Let's optimize
+# Let's plot the final sweep
 
 model = new_mod(inj_xy=path[-1].reshape((-1, 2)),
                 name=f"Optimzed in {obj.__name__}")
 plot_final_sweep(model)
 
-# ## Rates
-# Input shape `(nEns, nInj)`.
+# ## Optimize single rate
 
+# When setting the injection rate(s), we must also
+# set the total production rates to be the same (this is a model constraint).
+# When there are multiple producers, we could distribute the production
+# differently across the wells (somehow, our choice),
+# but here we all set them all to be equal.
+
+# +
 def npv_in_rates(inj_rates):
     """`npv(inj_rates)`."""
     inj_rates, singleton = utils.atleast_2d(inj_rates)
@@ -400,12 +450,18 @@ def npv_in_rates(inj_rates):
                pbar=not singleton, leave=False)
     return Js[0] if singleton else Js
 
+obj = npv_in_rates
+# -
+
+# Note: input shape `(nEns, nInj)`.
+#
 # Restore default well config
 
-# +
 model = model0
-obj = npv_in_rates
 
+# Optimize
+
+# +
 xx = np.linspace(0.1, 5, 21)
 npvs = obj(np.atleast_2d(xx).T)
 
@@ -420,11 +476,11 @@ for i, u0 in enumerate(np.array([[.1, 5]]).T):
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
-
-
 # -
 
-# # Triangles
+# ## Interactive (manual) optimisation of multiple rates
+
+# Let's make the flow "less orthogonal" by not placing the wells on a rectilinear grid (i.e. the 4 corners).
 
 triangle = [0, 135, -135]
 wells = dict(
@@ -436,10 +492,14 @@ wells = dict(
 )
 model = new_mod(**wells)
 
+# Show well config
+
 fig, ax = freshfig("Triangle case", figsize=(1, .6), rel=True)
 model.plt_field(ax, pperm, "pperm", wells=True, colorbar=True);
 fig.tight_layout()
 
+
+# Define function that takes injection rates and computes final sweep, i.e. saturation field.
 
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
@@ -451,6 +511,8 @@ def final_sweep_given_inj_rates(**kwargs):
     return wsats[-1]
 
 
+# By assigning `controls` to this function (the rate of each injector)...
+
 final_sweep_given_inj_rates.controls = dict(
     i0 = (0, 1.4),
     i1 = (0, 1.4),
@@ -458,12 +520,18 @@ final_sweep_given_inj_rates.controls = dict(
     i3 = (0, 1.4),
 )
 
+# ... the following widget allows us to "interactively" (but manually) optimise the rates.
+# This is of course only feasible because the model is so simple and runs so fast.
+
 plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, figsize=(1, .6))
 
-# ## Optim triangles
+# ## Automatic (EnOpt) optimisation
+# Run EnOpt (below).
 
 u0 = .7*np.ones(len(model.inj_rates))
 chol = .1 * np.eye(len(u0))
 path, objs, info = EnOpt(obj, u0, chol)
 
-# Now try setting these values in the interactive widget above.
+# Now try setting
+# the resulting suggested values in the interactive widget above.
+# Were you able to find equally good settings?

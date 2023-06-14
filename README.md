@@ -10,9 +10,8 @@
 
 ## OR: install
 
-Use this option for development, or if you simply want
-faster computations (your typical laptop is twice as powerful
-as Google's free offering).
+Use this option for development, or if you simply want faster computations
+(your typical laptop is 10x faster than Google's free offering).
 
 #### Prerequisite: Python>=3.9
 

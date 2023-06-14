@@ -222,8 +222,6 @@ def EnOpt(obj, u, chol, sign=+1,
 
 # ## NPV objective functions
 
-
-## Objectives
 def prod2npv(model, prods):
     """Net present value (NPV), i.e. monetarily discounted, total oil production."""
     discounts = .99 ** np.arange(nTime + 1)
@@ -253,26 +251,22 @@ def npv(**kwargs):
     return prod2npv(model, prods)
 
 
-def npv_in_injectors(xys):
-    """`npv(inj_xy)`. Input shape `(nEns, 2*nInj)`."""
-    xys, singleton = utils.atleast_2d(xys)
-    xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
+# #### Optimize x-coordinate
+# Let's try it out with a 1D optimisation case
+# Input shape `(nEns, 1)` or `(1,)`.
+
+
+def npv_in_x_of_inj0_with_fixed_y(x):
+    """Optimize x coordinate of injector."""
+    xs, singleton = utils.atleast_2d(x)
+    ys = np.full_like(xs, y)
+    xys = np.dstack([xs, ys])
     Js = apply(npv, inj_xy=xys, unzip=False,
                pbar=not singleton, leave=False)
     return Js[0] if singleton else Js
 
-
-# +
-def npv_in_x_of_inj0_with_fixed_y(x):
-    """Like `npv_in_injectors` but with `y` fixed. Input shape `(nEns, 1)` or `(1,)`."""
-    xs = x
-    ys = y * np.ones_like(xs)
-    xys = np.hstack([xs, ys])
-    Js = npv_in_injectors(xys)
-    return Js
-
-obj = npv_in_x_of_inj0_with_fixed_y
 y = model.Ly/2
+obj = npv_in_x_of_inj0_with_fixed_y
 
 # +
 # Plot entire objective
@@ -292,15 +286,25 @@ for i, u0 in enumerate(u0s):
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
 
-# +
-obj = npv_in_injectors
-fig, axs = plotting.figure12(obj.__name__)
+# #### Optimize both coordinates
+# Input shape `(nEns, 2*nInj)`.
+
+def npv_in_injectors(xys):
+    """`npv(inj_xy)`."""
+    xys, singleton = utils.atleast_2d(xys)
+    xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
+    Js = apply(npv, inj_xy=xys, unzip=False,
+               pbar=not singleton, leave=False)
+    return Js[0] if singleton else Js
+
 
 # Plot entire objective
 
+obj = npv_in_injectors
 X, Y = model.mesh
 XY = np.vstack([X.ravel(), Y.ravel()]).T
 npvs = obj(XY)
+fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
 fig.tight_layout()
 
@@ -378,9 +382,10 @@ model = new_mod(inj_xy=path[-1].reshape((-1, 2)),
 plot_final_sweep(model)
 
 # ## Rates
+# Input shape `(nEns, nInj)`.
 
 def npv_in_rates(inj_rates):
-    """`npv(inj_rates)`. Input shape `(nEns, nInj)`."""
+    """`npv(inj_rates)`."""
     inj_rates, singleton = utils.atleast_2d(inj_rates)
     nEns = len(inj_rates)
     inj_rates = inj_rates.reshape((nEns, -1, 1))  # (nEns, nInj) --> (nEns, nInj, 1)

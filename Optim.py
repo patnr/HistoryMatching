@@ -166,7 +166,7 @@ def EnOpt(obj, u, chol, sign=+1,
           # Backtracking (step lenghts):
           xSteps=tuple(.4 * 1/2**i for i in range(8)),
           # Stopping criteria:
-          nIter=100, rtol=1e-4):
+          nIter=100, rtol=1e-8):
     """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking."""
 
     def backtrack(base_step):
@@ -350,7 +350,7 @@ fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
 L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, L, rtol=1e-8)
+path, objs, info = EnOpt(obj, u0, L)
 path = transform_xys(path)
 
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
@@ -401,7 +401,7 @@ ax.plot(xx, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
     L = .1 * np.eye(len(u0))
-    path, objs, info = EnOpt(obj, u0, L, rtol=1e-8)
+    path, objs, info = EnOpt(obj, u0, L)
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
@@ -449,6 +449,6 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 
 u0 = .7*np.ones(len(model.inj_rates))
 L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, L, rtol=1e-8)
+path, objs, info = EnOpt(obj, u0, L)
 
 # Now try setting these values in the interactive widget above.

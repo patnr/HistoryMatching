@@ -75,6 +75,7 @@ def init():
                 # Similar to `%matplotlib widget/ipympl`
                 # Equivalently: mpl.use('module://ipympl.backend_nbagg')
                 import ipympl  # noqa
+                # pass  # revert to inline
 
             except ImportError:
                 # Similar to `%matplotlib notebook`.

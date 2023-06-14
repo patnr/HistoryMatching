@@ -139,8 +139,10 @@ def plot_final_sweep(model):
 plot_final_sweep(model)
 
 # ## EnOpt
+# `EnGrad` uses LLS regression to estimate gradients.
 
 def EnGrad(obj, u, chol, nEns, precond=False):
+    """Compute ensemble gradient for `obj` centered on `u`."""
     U, _ = utils.center(rnd.randn(nEns, len(u)) @ chol.T)
     J, _ = utils.center(obj(u + U))
     if precond:
@@ -149,6 +151,12 @@ def EnGrad(obj, u, chol, nEns, precond=False):
         g = utils.rinv(U, reg=.1, tikh=True) @ J
     return g
 
+# *EnOpt*: Gradient descent using `EnGrad`.
+# - `rtol` specified how large an improvement is required to update the iterate.
+#   Large values makes backtracking more reluctant to accept an update,
+#   resulting in *faster* declaration of convergence.
+#   Setting to 0 is not recommended, because if the objective function is flat
+#   in the neighborhood, then the path could just go in circles on that flat.
 
 def EnOpt(obj, u, chol, sign=+1,
           # Ensemble size
@@ -159,14 +167,7 @@ def EnOpt(obj, u, chol, sign=+1,
           xSteps=tuple(.4 * 1/2**i for i in range(8)),
           # Stopping criteria:
           nIter=100, rtol=1e-4):
-    """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking.
-
-    - `rtol` specified how large an improvement is required to update the iterate.
-      Large values makes backtracking more reluctant to accept an update,
-      resulting in *faster* declaration of convergence.
-      Setting to 0 is not recommended, because if the objective function is flat
-      in the neighborhood, then the path could just go in circles on that flat.
-    """
+    """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking."""
 
     def backtrack(base_step):
         """Line search by bisection."""
@@ -179,7 +180,6 @@ def EnOpt(obj, u, chol, sign=+1,
                     pbar.update(len(xSteps))  # needed in Jupyter
                     return x, J, i
 
-    # Init
     J = obj(u)
     atol = max(1e-8, abs(J)) * rtol
     info, path, objs = {}, [], []

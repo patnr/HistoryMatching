@@ -138,24 +138,6 @@ plot_final_sweep(model)
 
 # ## EnOpt
 
-@dataclass
-class Momentum:
-    """Gradient momentum (provides history memorisation)."""
-
-    # Note: I also tried rolling average with a maxlen deque
-    #       but the results of cursory testing were slightly worse.
-    b: float = 0.9
-
-    def update(self, v):
-        if not hasattr(self, 'val'):
-            self.reset()
-        self.val *= self.b
-        self.val += (1-self.b) * v
-
-    def reset(self, val=0):
-        self.val = val
-
-
 def EnGrad(obj, u, chol, precond=False):
     U, _ = utils.center(rnd.randn(N, len(u)) @ chol.T)
     J, _ = utils.center(obj(u + U))
@@ -168,7 +150,7 @@ def EnGrad(obj, u, chol, precond=False):
 
 def EnOpt(obj, u, chol, sign=+1,
           # Step modifiers:
-          regulator=None, xSteps=(1,), normed=True, precond=True,
+          xSteps=(1,), normed=True, precond=True,
           # Stopping criteria:
           nIter=100, rtol=1e-4):
     """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking.
@@ -192,8 +174,6 @@ def EnOpt(obj, u, chol, sign=+1,
                     return x, J, i
 
     # Init
-    if regulator:
-        regulator.reset()
     J = obj(u)
     atol = max(1e-8, abs(J)) * rtol
     info, path, objs = {}, [], []
@@ -206,19 +186,12 @@ def EnOpt(obj, u, chol, sign=+1,
         grad = EnGrad(obj, u, chol, precond=precond)
         if normed:
             grad /= utils.mnorm(grad)
-        if regulator:
-            regulator.update(grad)
 
         # Update iterate
-        if not regulator or not (updated := backtrack(regulator.val)):
-            if regulator:
-                regulator.reset(grad)
-                info.setdefault('resets', []).append(itr)
-            # Fallback to pure grad
-            if not (updated := backtrack(grad)):
-                # Stop if lower J not found
-                status = "Converged ✅"
-                break
+        if not (updated := backtrack(grad)):
+            # Stop if lower J not found
+            status = "Converged ✅"
+            break
         u, J, i = updated
         info.setdefault('nDeclined', []).append(i)
 
@@ -301,7 +274,7 @@ L = .3 * np.eye(1)
 shifts = {}
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
 for i, u0 in enumerate(u0s):
-    path, objs, info = EnOpt(obj, u0, L, regulator=None, xSteps=xSteps)
+    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False)
     shift = .3*i  # for visual distinction
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
@@ -323,11 +296,15 @@ fig.tight_layout()
 L = .1 * np.eye(2)
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = EnOpt(obj, u0, L, regulator=Momentum(0.3), xSteps=xSteps, precond=False)
+    path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False)
     plotting.add_path12(*axs, path, objs, color=color)
 # -
 
 # #### Comments
+# - Given the zig-zag optimization trajectories we see, it would appear
+#   that the EnOpt gradient descent implementation could well benefit
+#   from using an "acceleration" technique such as "momentum".
+#   See git commit `9937d5b2` for a working implementation.
 # - Some get stuck in local minima
 # - Smaller steps towards end
 # - Notice that discreteness of npv_in_injectors function means that
@@ -372,12 +349,13 @@ fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
 L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, L, regulator=Momentum(.1), xSteps=xSteps, precond=False, rtol=1e-8)
+path, objs, info = EnOpt(obj, u0, L, xSteps=xSteps, precond=False, rtol=1e-8)
 path = transform_xys(path)
 
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
 plotting.add_path12(*axs, path[:, 2:], color='C5')
 fig.tight_layout()
+
 # -
 
 # Let's optimize

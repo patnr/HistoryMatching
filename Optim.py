@@ -448,6 +448,6 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 
 u0 = .7*np.ones(len(model.inj_rates))
 L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(npv_in_rates, u0, L, rtol=1e-8)
+path, objs, info = EnOpt(obj, u0, L, rtol=1e-8)
 
 # Now try setting these values in the interactive widget above.

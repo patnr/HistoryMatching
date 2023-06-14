@@ -271,11 +271,11 @@ npvs = obj(np.atleast_2d(xx).T)
 ax.plot(xx, npvs, "slategrey", lw=3)
 
 # Optimize
-L = .3 * np.eye(1)
+chol = .3 * np.eye(1)
 shifts = {}
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
 for i, u0 in enumerate(u0s):
-    path, objs, info = EnOpt(obj, u0, L)
+    path, objs, info = EnOpt(obj, u0, chol)
     shift = .3*i  # for visual distinction
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
@@ -294,10 +294,10 @@ fig.tight_layout()
 
 # Optimize
 
-L = .1 * np.eye(2)
+chol = .1 * np.eye(2)
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = EnOpt(obj, u0, L)
+    path, objs, info = EnOpt(obj, u0, chol)
     plotting.add_path12(*axs, path, objs, color=color)
 # -
 
@@ -349,8 +349,8 @@ model = new_mod(
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
-L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, L)
+chol = .1 * np.eye(len(u0))
+path, objs, info = EnOpt(obj, u0, chol)
 path = transform_xys(path)
 
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
@@ -400,8 +400,8 @@ ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(xx, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
-    L = .1 * np.eye(len(u0))
-    path, objs, info = EnOpt(obj, u0, L)
+    chol = .1 * np.eye(len(u0))
+    path, objs, info = EnOpt(obj, u0, chol)
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
@@ -448,7 +448,7 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 # ## Optim triangles
 
 u0 = .7*np.ones(len(model.inj_rates))
-L = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, L)
+chol = .1 * np.eye(len(u0))
+path, objs, info = EnOpt(obj, u0, chol)
 
 # Now try setting these values in the interactive widget above.

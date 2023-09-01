@@ -8,6 +8,10 @@
 #   for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
 #
 # TODO:
+# - Do time-dependent rates.
+#   Use fixed rate as starting guess.
+#   Repeat, but with higher resolution time-dependence.
+#   Keep iterating until you have full time resolution.
 # - Handle set_perm so it's not necessary to put into new_mod
 # - 1D: Plot ensemble of npv curves
 # - Plot ensemble of pdfs of npvs, including
@@ -234,7 +238,7 @@ def EnOpt(
 
 # ## NPV
 
-# Convert production saturations to monetary value.
+# Convert production saturation time series to cumulative monetary value.
 
 def prod2npv(model, prods):
     """Net present value (NPV), i.e. discounted, total oil production."""
@@ -253,7 +257,7 @@ def prod2npv(model, prods):
     cost = cost @ discounts[:-1]
     return value - .5*cost
 
-# Objective function consists of model config, simulation, and conversion to money.
+# Before applying `prod2npv`, the objective function must first configure the model and simulate it.
 
 def npv(**kwargs):
     """NPV from model config."""
@@ -267,7 +271,7 @@ def npv(**kwargs):
 
 
 # ## Optimize x-coordinate of single injector
-# Let's try it out with a 1D optimisation case
+# Let's try it out with a 1D optimisation case.
 # Input shape `(nEns, 1)` or `(1,)`.
 
 def npv_in_x_of_inj0_with_fixed_y(x, **kws):
@@ -281,7 +285,8 @@ def npv_in_x_of_inj0_with_fixed_y(x, **kws):
 y = model.Ly/2
 obj = npv_in_x_of_inj0_with_fixed_y
 
-# Compute entire objective
+# Since our model is so simple, and we only have 1 control parameter,
+# we can afford to compute and plot the entire objective.
 
 xx = np.linspace(0, model.Lx, 201)
 npvs = obj(np.atleast_2d(xx).T, desc=f"Plot pts. of {obj.__name__}")
@@ -303,6 +308,13 @@ fig.tight_layout()
 
 
 # -
+
+# Note that the objective functions appears to jump at regular intervals.
+# This would be even more apparent (no slanting of the "walls") with a higher resolution.
+# The phenomenon is due to the fact that the model always collocates wells with grid nodes.
+# Other than this, as we might expect, the objective is nice and convex,
+# and EnOpt is able to find the minimum, for several different starting positions,
+# without much trouble.
 
 # ## Optimize both coordinates
 # Input shape `(nEns, 2*nInj)`.
@@ -382,6 +394,8 @@ model = new_mod(
 # - Another alternative is to transform the control variables
 # so that the domain is the whole of $\mathcal{R}^d$.
 # This is the approach taken below.
+# Note that this is not an approach for constrained optimisation in general:
+# we can only constrain the control variables, not functions thereof.
 
 def transform_xys(xys):
     """Transform infinite plane to `(0, Lx) x (0, Ly)`."""

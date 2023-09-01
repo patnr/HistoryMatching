@@ -83,14 +83,18 @@ xy_4corners = np.dstack(np.meshgrid(
 )).reshape((-1, 2))
 
 
-# We'll be altering the model quite a lot,
-# so let's make a convenient factory function.
+# We'll be altering the model quite a lot, so let's make a convenient factory function.
+#
+# Again, note that setting parameters is not necessarily a trivial task.
+# It might involve reshaping arrays, translating units, read/write to file, etc.
+# Indeed, from a general "task" perspective, there is no hard distinction between
+# writing parameters and running other components of a forward model.
 
 def new_mod(**kwargs):
     """Create new model, based on `globals()['model']`."""
     # Init
     new = copy.deepcopy(model)  # dont overwrite
-    # Set attrs from kwargs
+    # Set params
     for key, val in kwargs.items():
         setattr(new, key, val)
     # Sanitize
@@ -131,6 +135,7 @@ nTime = round(T/dt)
 utils.nCPU = True
 
 def apply(*args, **kwargs):
+    """Fix `unzip`, `leave`."""
     return utils.apply(*args, **kwargs, unzip=False, leave=False)
 
 

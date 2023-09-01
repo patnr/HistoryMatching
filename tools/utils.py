@@ -178,8 +178,6 @@ nCPU = 1
 def apply(fun, *args, unzip=True, pbar=True, leave=True, desc=None, **kwargs):
     """Apply `fun` along 0th axis of (zipped) `args` and `kwargs`.
 
-    Only (but always) axis 0 is treated special (and requires length conformity).
-
     Provides
 
     - Multiprocessing.
@@ -189,10 +187,12 @@ def apply(fun, *args, unzip=True, pbar=True, leave=True, desc=None, **kwargs):
     - Robust interpretation of `nCPU`.
     - Emits progressbar.
 
-    Note: Implementing conditional treatment for input/output depending
-    on whether they are iterable (or tuple) or scalar is perhaps impossible
-    without producing *surprises*. I really, really tried, and do not recommend it.
-    This must therefore be done by the caller, which will know more particulars.
+    Note: Only (but always) axis 0 is treated special (and requires length conformity).
+    This means that the input can be >2D, which is convenient,
+    but makes it impossible to say whether a 1d vector (i.e. neither row nor column)
+    is a single vector realisation or an ensemble.
+    ⇒ Cannot know whether to (i) show p-bar or (ii) squeeze output.
+    I.e. these decisions must be left to caller, which has more particulars.
     """
     # Set nCPU
     global nCPU

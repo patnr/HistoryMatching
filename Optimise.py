@@ -277,10 +277,10 @@ def npv(**kwargs):
 
 def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
     """Optimize x coordinate of injector."""
-    xs, singleton = utils.atleast_2d(x)
-    ys = np.full_like(xs, y)
-    xys = np.dstack([xs, ys])
-    Js = apply(npv, inj_xy=xys, pbar=not singleton, desc=desc)
+    x, singleton = utils.atleast_2d(x)
+    xy = np.dstack([x, x])
+    xy[..., 1] = y
+    Js = apply(npv, inj_xy=xy, pbar=not singleton, desc=desc)
     return Js[0] if singleton else Js
 
 y = model.Ly/2

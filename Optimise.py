@@ -252,7 +252,8 @@ def prod2npv(model, prods):
     cost = cost @ discounts[:-1]
     return value - .5*cost
 
-# Before applying `prod2npv`, the objective function must first configure the model and simulate it.
+# Before applying `prod2npv`, the objective function must first compute the production,
+# which entails configuring and simulating the model.
 
 def npv(**kwargs):
     """NPV from model config."""
@@ -269,12 +270,12 @@ def npv(**kwargs):
 # Let's try it out with a 1D optimisation case.
 # Input shape `(nEns, 1)` or `(1,)`.
 
-def npv_in_x_of_inj0_with_fixed_y(x, **kws):
+def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
     """Optimize x coordinate of injector."""
     xs, singleton = utils.atleast_2d(x)
     ys = np.full_like(xs, y)
     xys = np.dstack([xs, ys])
-    Js = apply(npv, inj_xy=xys, pbar=not singleton, **kws)
+    Js = apply(npv, inj_xy=xys, pbar=not singleton, desc=desc)
     return Js[0] if singleton else Js
 
 y = model.Ly/2
@@ -313,11 +314,11 @@ fig.tight_layout()
 # ## Optimize both coordinates
 # Input shape `(nEns, 2*nInj)`.
 
-def npv_in_injectors(xys, **kws):
+def npv_in_injectors(xys, desc=None):
     """`npv(inj_xy)`."""
     xys, singleton = utils.atleast_2d(xys)
     xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
-    Js = apply(npv, inj_xy=xys, pbar=not singleton, **kws)
+    Js = apply(npv, inj_xy=xys, pbar=not singleton, desc=desc)
     return Js[0] if singleton else Js
 
 
@@ -407,8 +408,8 @@ def transform_xys(xys):
 
 
 # +
-def npv_in_injectors_transformed(xys, **kws):
-    return npv_in_injectors(transform_xys(xys), **kws)
+def npv_in_injectors_transformed(xys, desc=None):
+    return npv_in_injectors(transform_xys(xys), desc=desc)
 
 obj = npv_in_injectors_transformed
 
@@ -442,7 +443,7 @@ plot_final_sweep(model)
 # differently across the wells (somehow, our choice),
 # but here we all set them all to be equal.
 
-def npv_in_rates(inj_rates, **kws):
+def npv_in_rates(inj_rates, desc=None):
     """`npv(inj_rates)`."""
     inj_rates, singleton = utils.atleast_2d(inj_rates)
     nEns = len(inj_rates)
@@ -450,7 +451,7 @@ def npv_in_rates(inj_rates, **kws):
     total_rate = np.sum(inj_rates, axis=1).squeeze()  # (nEns,)
     nProd = len(model.prod_rates)
     prod_rates = (np.ones((1, nProd, nEns)) * total_rate/nProd).T
-    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, pbar=not singleton, **kws)
+    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, pbar=not singleton, desc=desc)
     return Js[0] if singleton else Js
 
 obj = npv_in_rates
@@ -464,7 +465,7 @@ model = model0
 # Optimize
 
 xx = np.linspace(0.1, 5, 21)
-npvs = obj(np.atleast_2d(xx).T)
+npvs = obj(np.atleast_2d(xx).T, "Plot pts.")
 
 # +
 fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)

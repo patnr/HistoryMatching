@@ -41,12 +41,7 @@ def vectorize(*XYZ):
 
 
 def dist_euclid(X):
-    """Compute distances.
-
-    X must be a 2D-array of shape `(nPt, nDim)`.
-
-    Note: not periodic.
-    """
+    """Compute distances, like `squareform(pdist(X))`."""
     diff = X[:, None, :] - X
     d2 = np.sum(diff**2, axis=-1)
     return np.sqrt(d2)

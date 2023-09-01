@@ -222,11 +222,11 @@ def EnOpt(
             grad /= utils.mnorm(grad)
 
         # Update iterate
-        if not (updated := backtrack(grad)):
+        if not (improved := backtrack(grad)):
             # Stop if lower J not found
             status = "Converged ✅"
             break
-        u, J, i = updated
+        u, J, i = improved
         info.setdefault('nDeclined', []).append(i)
 
     else:

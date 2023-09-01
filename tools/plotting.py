@@ -98,47 +98,36 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1),
 
 
 def captured_fig(output, num, **kwargs):
-    """Create decorator that provides `fig, ax` for use in IPywidget layouts.
+    """Decorator that provides `fig, ax` for use in Jupyter (IPywidget) *layouts*.
 
-    Including the output of mpl figures in the widget **layout** is quite difficult.
-    Especially cross-compatibility local/Colab (which this approach provides!).
+    In general, I advise to create dashboards with custom layouts using `ìnteractive`:
+    The source code `ipywidgets/widgets/interaction.py` is fairly readable!
+    - Like `interact()`, it creates control widgets from simple kwargs.
+    - Like `interactive_output()`, it delays `display()` until manually called.
 
-    ## Brief intro
+    Example:
 
-    - Use `w.interact` for basic functionality
-        - Use explicit controls like `w.IntSlider` if you wish to specify
-          - `orientation`
-          - `description`
-          - `continuous_update`
-            Also see: `{'manual': True}` and `w.interact_manual`
-    - Use `w.interactive` to delay display.
-        - Allows delay/reuse-ing resulting widgets,
-          and accessing the data bound to the UI controls.
-        - Display with `IPython.display.display`.
-        - Inspect the resulting widget's `.children` to find
-          the controls and (lastly) the `w.Output`, which contains
-          stdout, stderr, mpl figures (see note below),
-          and which allows CSS styling (like borders, etc).
-    - Use `w.interactive_output` to avoid generating the control widgets,
-      but still linking the controls to the function
-      (PS: I found that using `with w.Output` worked better).
-      Allows specifying layout (`VBox`, `HBox`, `AppLayout`, `GridspecLayout`)
-      properly, without hacks like modifying it after creation e.g.
-      https://stackoverflow.com/q/52980565 .
-    - Another way to link is to use the `.observe` attr of widgets.
+    >>> linked = interactive()
+    ... *ww, out = linked.children
+    ... dashboard = HBox([ww[0], out, ww[1]])
+    ... display(dashboard)
+
+    BUT, there is some trickery about making figures actually show up.
+    Especially making it work simultaneously on local/Colab.
+
+    - The approach taken here uses `with w.Output`.
+    - In `DA-tutorials`, I found you can make the figures appear on Colab
+      also initially (which was a problem) by using `linked.update()`.
 
     ## Cautions
 
-    - In order to include an mpl figure in a ipywidget **layout**,
-      we must capture its output; it is essential that
-      the **figure creation** and `plt.show()` is done therein.
-      Treatment differs from inline to interactive backends.
-      For example, using `with w.Output` and creating the figure thereunder
-      seems to necessitate using `IPython.display.clear_output` when `inline`.
+    - **figure creation** (done by this function) and `plt.show()` must be in callback,
+      i.e. part of the interactively called function.
     - `tight_layout` must render. Better to use `constrained_layout`?
 
     ## Refs
 
+    Main ref: <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
     None of these quite worked on Colab or my Mac, but were useful:
 
     - Use of `fig.canvas.flush_events()` and `fig.canvas.draw()`:
@@ -296,6 +285,10 @@ def layout1(ww, output):
           cX
     -----------------
     ```
+
+    There are many interesting attributes and CSS possibilities.
+    - https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20List.html
+    - https://stackoverflow.com/q/52980565 .
     """
     cN, cF, cFt, cP, cPt, cX, cY = ww
 

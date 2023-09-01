@@ -160,80 +160,75 @@ def plot_final_sweep(model):
 plot_final_sweep(model)
 
 # ## EnOpt
-# `EnGrad` uses LLS regression to estimate gradients.
+# `ens_grad` uses LLS regression to estimate gradients.
 
-def EnGrad(obj, u, chol, nEns, precond=False):
-    """Compute ensemble gradient for `obj` centered on `u`."""
-    U = rnd.randn(nEns, len(u)) @ chol.T
-    U, _ = utils.center(U)
-    J = obj(u + U, desc=f"EnGrad of {obj.__name__}'s")
-    J, _ = utils.center(J)
-    if precond:
-        g = U.T @ J / (nEns-1)
-    else:
-        g = utils.rinv(U, reg=.1, tikh=True) @ J
-    return g
+def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
+    """Set parameters of `ens_grad`."""
+    def ens_grad(obj, u):
+        """Compute ensemble gradient for `obj` centered on `u`."""
+        cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
+        U = rnd.randn(nEns, len(u)) @ cholT
+        U, _ = utils.center(U)
+        J = obj(u + U, desc=f"ens_grad of {obj.__name__}'s")
+        J, _ = utils.center(J)
+        if precond:
+            g = U.T @ J / (nEns-1)
+        else:
+            g = utils.rinv(U, reg=.1, tikh=True) @ J
+        if normed:
+            g /= utils.mnorm(g)
+        return g
+    return ens_grad
 
-# *EnOpt*: Gradient descent using `EnGrad`.
-# - `rtol` specified how large an improvement is required to update the iterate.
-#   Large values makes backtracking more reluctant to accept an update,
-#   resulting in *faster* declaration of convergence.
+# Parameters:
+# - `sign=+/-1`: max/min-imization.
+# - `xSteps`: trial step lengths.
+# - `rtol`: convergence criterion.
+#   Specifies magnitude of improvement required to accept update of iterate.
+#   Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
 #   Setting to 0 is not recommended, because if the objective function is flat
 #   in the neighborhood, then the path could just go in circles on that flat.
 
-def EnOpt(
-    # Objective function, initial guess, cholesky factor for sampling ens:
-    obj, u, chol,
-    # Minimize or maximize:
-    sign=+1,
-    # Ensemble size
-    nEns=10,
-    # Step modifiers:
-    normed=True, precond=False,
-    # Backtracking (step lenghts):
-    xSteps=tuple(1/2**(i+1) for i in range(8)),
-    # Stopping criteria:
-    nIter=100, rtol=1e-8
-):
-    """Gradient/steepest *descent* using ensemble (LLS) gradient and backtracking."""
-
-    def backtrack(base_step):
+def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
+    """Set parameters of `backtrack`."""
+    def backtrack(x0, J0, objective, search_direction):
         """Line search by bisection."""
+        atol = max(1e-8, abs(J0)) * rtol
         with tqdm(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
-            for i, xStep in enumerate(xSteps):
+            for i, step_length in enumerate(xSteps):
                 pbar.update(1)
-                x = path[-1] + sign * xStep * base_step
-                J = obj(x)
-                if sign*(J - objs[-1]) > atol:
+                dx = sign * step_length * search_direction
+                x1 = x0 + dx
+                J1 = objective(x1)
+                dJ = J1 - J0
+                if sign*dJ > atol:
                     pbar.update(len(xSteps))  # needed in Jupyter
-                    return x, J, i
+                    return x1, J1, dict(nDeclined=i)
+    return backtrack
 
-    J = obj(u)
-    atol = max(1e-8, abs(J)) * rtol
-    info, path, objs = {}, [], []
 
+# *EnOpt*: Gradient descent
+
+def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
+    """Gradient (i.e. steepest) descent/ascent."""
+    J = objective(x)
+    path = [x]
+    objs = [J]
+    info = []  # ⇒ len+1 == len(path)
     for itr in range(nIter):
-        path.append(u)
-        objs.append(J)
-
-        # Compute search direction
-        grad = EnGrad(obj, u, chol, nEns, precond=precond)
-        if normed:
-            grad /= utils.mnorm(grad)
-
-        # Update iterate
-        if not (improved := backtrack(grad)):
-            # Stop if lower J not found
+        grad = nabla(objective, x)
+        if (update := line_search(x, J, objective, grad)):
+            x, J, dct = update
+            path.append(x)
+            objs.append(J)
+            info.append(dct)
+        else:
             status = "Converged ✅"
             break
-        u, J, i = improved
-        info.setdefault('nDeclined', []).append(i)
-
     else:
         status = "Ran out of iters ❌"
-
-    print(f"{status:<9} {itr=:<5}  {path[-1]=}  {objs[-1]=:.2f}")
-    return np.array(path), np.array(objs), info
+    print(f"{status:<9} {itr=:<5}  {x=!s}  {J=:.2f}")
+    return np.asarray(path), np.asarray(objs), info
 
 
 # ## NPV
@@ -298,10 +293,9 @@ ax.set(xlabel="x", ylabel="NPV")
 ax.plot(xx, npvs, "slategrey", lw=3);
 
 # Optimize, plot
-chol = .3 * np.eye(1)
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
 for i, u0 in enumerate(u0s):
-    path, objs, info = EnOpt(obj, u0, chol)
+    path, objs, info = GD(obj, u0, nabla_ens(.3))
     shift = .3*i  # for visual distinction
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
@@ -341,10 +335,9 @@ model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
 fig.tight_layout()
 
 # Optimize, plot
-chol = .1 * np.eye(2)
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = EnOpt(obj, u0, chol)
+    path, objs, info = GD(obj, u0, nabla_ens(.1))
     plotting.add_path12(*axs, path, objs, color=color)
 # -
 
@@ -426,8 +419,7 @@ model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
 # Optimize
 u0 = np.array([0, 0] + [2, 0])
-chol = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, chol)
+path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = transform_xys(path)
 
 # Plot optimisation trajectory
@@ -481,8 +473,7 @@ ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(xx, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
-    chol = .1 * np.eye(len(u0))
-    path, objs, info = EnOpt(obj, u0, chol)
+    path, objs, info = GD(obj, u0, nabla_ens(.1))
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
@@ -539,8 +530,7 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 # Run EnOpt (below).
 
 u0 = .7*np.ones(len(model.inj_rates))
-chol = .1 * np.eye(len(u0))
-path, objs, info = EnOpt(obj, u0, chol)
+path, objs, info = GD(obj, u0, nabla_ens(.1))
 
 # Now try setting
 # the resulting suggested values in the interactive widget above.

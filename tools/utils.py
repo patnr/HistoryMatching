@@ -4,13 +4,6 @@ import numpy as np
 import scipy.linalg as sla
 
 
-def atleast_2d(x):
-    """Ensure has ens axis."""
-    singleton = np.ndim(x) == 1
-    x = np.atleast_2d(x)
-    return x, singleton
-
-
 def rinv(A, reg, tikh=True, nMax=None):
     """Reproduces `sla.pinv(..., rtol=reg)` for `tikh=False`."""
     # Decompose

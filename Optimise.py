@@ -121,9 +121,12 @@ nTime = round(T/dt)
 
 utils.nCPU = True
 
-def apply(*args, **kwargs):
-    """Fix `unzip`, `leave`."""
-    return utils.apply(*args, **kwargs, unzip=False, leave=False)
+def apply2(fun, **kwargs):
+    """Fix `unzip`, `leave`. Treat singleton case. Requires ens (2D) input."""
+    arg0 = next(iter(kwargs.values()))
+    singleton = (np.ndim(arg0) == 1) or len(arg0) == 1
+    Js = utils.apply(fun, **kwargs, unzip=False, leave=False)
+    return Js[0] if singleton else Js
 
 
 # Like `forward_model` of the previous (history matching) tutorial, but w/o setting params
@@ -260,15 +263,14 @@ def npv(**kwargs):
 
 # ## Optimize x-coordinate of single injector
 # Let's try it out with a 1D optimisation case.
-# Input shape `(nEns, 1)` or `(1,)`.
 
 def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
-    """Optimize x coordinate of injector."""
-    x, singleton = utils.atleast_2d(x)
-    xy = np.dstack([x, x])
+    """Optimize x-coordinate of injector."""
+    xy = np.zeros((len(x), 1, 2))
+    xy[..., 0] = x
     xy[..., 1] = y
-    Js = apply(npv, inj_xy=xy, pbar=not singleton, desc=desc)
-    return Js[0] if singleton else Js
+    Js = apply2(npv, inj_xy=xy, desc=desc)
+    return Js
 
 y = model.Ly/2
 obj = npv_in_x_of_inj0_with_fixed_y
@@ -304,14 +306,12 @@ fig.tight_layout()
 # without much trouble.
 
 # ## Optimize both coordinates
-# Input shape `(nEns, 2*nInj)`.
 
 def npv_in_injectors(xys, desc=None):
-    """`npv(inj_xy)`."""
-    xys, singleton = utils.atleast_2d(xys)
-    xys = xys.reshape((len(xys), -1, 2))  # (nEns, 2*nInj) --> (nEns, nInj, 2)
-    Js = apply(npv, inj_xy=xys, pbar=not singleton, desc=desc)
-    return Js[0] if singleton else Js
+    """Optimize (x, y) of injectors."""
+    nEns = 1 if xys.ndim == 1 else len(xys)
+    shape = (nEns, -1, 2)
+    return apply2(npv, inj_xy=xys.reshape(shape), desc=desc)
 
 
 # Compute entire objective
@@ -367,41 +367,26 @@ model = new_mod(
 # the optimal 2 injector positions will be somewhere near the upper edge.
 # But boundaries are a problem for basic EnOpt.
 # Because of its Gaussian character, it will often sample points outside of the domain.
-# This won't crash our optimisation, since the `npv` function penalizes invalid models,
-# but the gradient near the border will seem to indicate that the border is a bad place to be,
+# This won't crash our optimisation, since the `npv` function
+# catches all exceptions and converts them to a penatly,
+# but the gradient near the border will then seem to indicate that the border is a bad place to be,
 # which is not necessarily the case.
 #
 # - One quickfix to this problem
-# (but more technically challenging that the penalization already in place)
+# (but more technically demanding that the penalization already in place)
 # is to truncate the ensemble members to the valid domain.
 # - Another alternative (ref. Mathias) is to use a non-Gaussian generalisation of EnOpt that samples
 # from a Beta (e.g.) distribution, and uses a different formula than LLS regression
-# to estimate the average gradient.
+# to estimate the average gradient. This is one more degree of technical overhead.
 # - Another alternative is to transform the control variables
 # so that the domain is the whole of $\mathcal{R}^d$.
 # This is the approach taken below.
 # Note that this is not an approach for constrained optimisation in general:
 # we can only constrain the control variables, not functions thereof.
 
-def transform_xys(xys):
-    """Transform infinite plane to `(0, Lx) x (0, Ly)`."""
-    def realline_to_0L(x, L, compress=1):
-        sigmoid = lambda z: 1/(1 + np.exp(-z))  # noqa
-        x = (x - L/2) * L * compress
-        return L * sigmoid(x)
-
-    xys = np.array(xys, dtype=float)
-
-    # Loop over (x, y)
-    for i0, L in zip([0, 1], model.domain[1]):
-        ii = slice(i0, None, 2)
-        xys[..., ii] = realline_to_0L(xys[..., ii], L, 1)
-    return xys
-
-
 # +
 def npv_in_injectors_transformed(xys, desc=None):
-    return npv_in_injectors(transform_xys(xys), desc=desc)
+    return npv_in_injectors(coordinate_transform(xys), desc=desc)
 
 obj = npv_in_injectors_transformed
 
@@ -411,9 +396,18 @@ fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
 
 # Optimize
-u0 = np.array([0, 0] + [2, 0])
+def coordinate_transform(xys):
+    """Map `ℝ² --> (0, Lx) x (0, Ly)`, with `origin ↦ domain centre`."""
+    xys = np.array(xys, dtype=float)
+    sigmoid = lambda x, h, w=1: h/(1 + np.exp(-x/w))
+    xys[..., 0::2] = sigmoid(xys[..., 0::2], model.Lx)
+    xys[..., 1::2] = sigmoid(xys[..., 1::2], model.Ly)
+    return xys
+
+
+u0 = np.array([-1, 0, +1, 0])
 path, objs, info = GD(obj, u0, nabla_ens(.1))
-path = transform_xys(path)
+path = coordinate_transform(path)
 
 # Plot optimisation trajectory
 plotting.add_path12(*axs, path[:, :2], objs, color='C0')
@@ -437,19 +431,18 @@ plot_final_sweep(model)
 
 def npv_in_rates(inj_rates, desc=None):
     """`npv(inj_rates)`."""
-    inj_rates, singleton = utils.atleast_2d(inj_rates)
-    nEns = len(inj_rates)
-    inj_rates = inj_rates.reshape((nEns, -1, 1))  # (nEns, nInj) --> (nEns, nInj, 1)
-    total_rate = np.sum(inj_rates, axis=1).squeeze()  # (nEns,)
+    nEns = 1 if inj_rates.ndim == 1 else len(inj_rates)
+    inj_rates = inj_rates.reshape((nEns, -1, 1))  # --> (nEns, nInj, 1)
+
     nProd = len(model.prod_rates)
-    prod_rates = (np.ones((1, nProd, nEns)) * total_rate/nProd).T
-    Js = apply(npv, inj_rates=inj_rates, prod_rates=prod_rates, pbar=not singleton, desc=desc)
-    return Js[0] if singleton else Js
+    total_rate = np.sum(inj_rates, axis=1).squeeze()
+    prod_rates = np.full((nEns, nProd, 1), np.nan)
+    prod_rates.T[:] = total_rate/nProd
+
+    return apply2(npv, inj_rates=inj_rates, prod_rates=prod_rates, desc=desc)
 
 obj = npv_in_rates
 
-# Note: input shape `(nEns, nInj)`.
-#
 # Restore default well config
 
 model = model0

@@ -82,11 +82,14 @@ def new_mod(**kwargs):
     # Init
     new = copy.deepcopy(model)  # dont overwrite
     # Set params
+
+    # Wells
+    wellspecs = {key: (kwargs.pop(key) if key in kwargs else getattr(model, key))
+                 for key in ['inj_xy', 'inj_rates', 'prod_xy', 'prod_rates']}
+    new.config_wells(**wellspecs)
+
     for key, val in kwargs.items():
         setattr(new, key, val)
-    # Sanitize
-    new.config_wells(new.inj_xy, new.inj_rates,
-                     new.prod_xy, new.prod_rates)
     return new
 
 # This will serve as our default model

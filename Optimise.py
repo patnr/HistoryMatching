@@ -51,7 +51,7 @@ def set_perm(model, log_perm_array):
     """Set perm. in model code (both x and y components)."""
     p = perm_transf(log_perm_array)
     p = p.reshape(model.shape)
-    model.Gridded.K = np.stack([p, p])
+    model.K = np.stack([p, p])
 
 
 seed = rnd.seed(3)
@@ -78,18 +78,11 @@ xy_4corners = np.dstack(np.meshgrid(
 # writing parameters and running other components of a forward model.
 
 def new_mod(**kwargs):
-    """Create new model, based on `globals()['model']`."""
-    # Init
-    new = copy.deepcopy(model)  # dont overwrite
-    # Set params
-
-    # Wells
-    wellspecs = {key: (kwargs.pop(key) if key in kwargs else getattr(model, key))
-                 for key in ['inj_xy', 'inj_rates', 'prod_xy', 'prod_rates']}
-    new.config_wells(**wellspecs)
-
-    for key, val in kwargs.items():
-        setattr(new, key, val)
+    """Instantiate new model config, merging `kwargs` with `model` from globals."""
+    # Init. Normally done "from scratch", but here we use a "basemodel"
+    new = copy.deepcopy(model)
+    for k, v in kwargs.items():
+        setattr(new, k, v)
     return new
 
 # This will serve as our default model
@@ -360,7 +353,6 @@ plot_final_sweep(model)
 model = new_mod(
     name = "Lower 2 corners",
     prod_xy = xy_4corners[:2],
-    inj_xy  = model.inj_xy[:2], # dummy
     prod_rates = rate0 * np.ones((2, 1)) / 2,
     inj_rates  = rate0 * np.ones((2, 1)) / 2,
 )

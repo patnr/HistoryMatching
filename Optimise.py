@@ -40,6 +40,11 @@ np.set_printoptions(precision=6)
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1, name="Base model")
 
+# #### Perm
+seed = rnd.seed(3)
+model.K = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, 1, r=0.8))
+
+# #### Wells
 # List of coordinates (x, y) of the 4 cornerns of the rectangular domain
 
 xy_4corners = np.dstack(np.meshgrid(
@@ -56,29 +61,10 @@ model.prod_xy = xy_4corners
 model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
-# #### Perm
-def sample_prior_perm(N):
-    lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
-    return lperms
-
-def perm_transf(x):
-    return .1 + np.exp(5*x)
-
-def set_perm(model, log_perm_array):
-    """Set perm. in model code (both x and y components)."""
-    p = perm_transf(log_perm_array)
-    p = p.reshape(model.shape)
-    model.K = np.stack([p, p])
-
-
-seed = rnd.seed(3)
-pperm = sample_prior_perm(1)
-set_perm(model, pperm)
-
 # Plot
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
-model.plt_field(ax, pperm, "pperm", wells=True, colorbar=True);
+model.plt_field(ax, model.K[0], "perm", wells=True, colorbar=True);
 fig.tight_layout()
 
 # ## Define simulations
@@ -386,7 +372,8 @@ obj = npv_in_injectors_transformed
 # +
 # Plot perm field
 fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], pperm, "pperm", wells=True, colorbar=True)
+model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
+fig.tight_layout()
 
 # Optimize
 def coordinate_transform(xys):
@@ -403,8 +390,8 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = coordinate_transform(path)
 
 # Plot optimisation trajectory
-plotting.add_path12(*axs, path[:, :2], objs, color='C0')
-plotting.add_path12(*axs, path[:, 2:], color='C5')
+plotting.add_path12(*axs, path[:, :2], objs, color='C1')
+plotting.add_path12(*axs, path[:, 2:], color='C3')
 fig.tight_layout()
 # -
 
@@ -474,7 +461,7 @@ model = remake(model, **wells)
 # Show well config
 
 fig, ax = freshfig("Triangle case", figsize=(1, .6), rel=True)
-model.plt_field(ax, pperm, "pperm", wells=True, colorbar=True);
+model.plt_field(ax, model.K[0], "perm", wells=True, colorbar=True);
 fig.tight_layout()
 
 

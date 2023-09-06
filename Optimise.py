@@ -36,10 +36,27 @@ np.set_printoptions(precision=6)
 
 # ## Define model
 # We start with the same settings as in the previous tutorial (on history matching).
+# This will serve as our default/base model
 
-model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1)
+model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1, name="Base model")
 
+# List of coordinates (x, y) of the 4 cornerns of the rectangular domain
 
+xy_4corners = np.dstack(np.meshgrid(
+    np.array([.12, .87]) * model.Lx,
+    np.array([.12, .87]) * model.Ly,
+)).reshape((-1, 2))
+
+# Suggested total rate of production (total rate of injection must be the same).
+
+rate0 = 1.5
+
+model.inj_xy  = [[model.Lx/2, model.Ly/2]]
+model.prod_xy = xy_4corners
+model.inj_rates  = rate0 * np.ones((1, 1)) / 1
+model.prod_rates = rate0 * np.ones((4, 1)) / 4
+
+# #### Perm
 def sample_prior_perm(N):
     lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
     return lperms
@@ -58,48 +75,6 @@ seed = rnd.seed(3)
 pperm = sample_prior_perm(1)
 set_perm(model, pperm)
 
-# Suggested total rate of production (total rate of injection must be the same).
-
-rate0 = 1.5
-
-# List of coordinates (x, y) of the 4 cornerns of the rectangular domain
-
-xy_4corners = np.dstack(np.meshgrid(
-    np.array([.12, .87]) * model.Lx,
-    np.array([.12, .87]) * model.Ly,
-)).reshape((-1, 2))
-
-
-# We'll be altering the model quite a lot, so let's make a convenient factory function.
-#
-# Again, note that setting parameters is not necessarily a trivial task.
-# It might involve reshaping arrays, translating units, read/write to file, etc.
-# Indeed, from a general "task" perspective, there is no hard distinction between
-# writing parameters and running other components of a forward model.
-
-def new_mod(**kwargs):
-    """Instantiate new model config, merging `kwargs` with `model` from globals."""
-    # Init. Normally done "from scratch", but here we use a "basemodel"
-    new = copy.deepcopy(model)
-    for k, v in kwargs.items():
-        setattr(new, k, v)
-    return new
-
-# This will serve as our default model
-
-model = new_mod(
-    name = "Base model",
-    inj_xy  = [[model.Lx/2, model.Ly/2]],
-    prod_xy = xy_4corners,
-    inj_rates  = rate0 * np.ones((1, 1)) / 1,
-    prod_rates = rate0 * np.ones((4, 1)) / 4,
-)
-
-# The global `model` is used by `new_mod` for defaults.
-# Let's store its current state
-
-model0 = new_mod()
-
 # Plot
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
@@ -113,7 +88,49 @@ T = 1
 dt = 0.025
 nTime = round(T/dt)
 
-# Multiprocessing. Only used in ensemble runs
+def simulate(model, wsat, pbar=False, leave=False):
+    """Compute evolution in time of reservoir saturation field."""
+    integrator = model.time_stepper(dt)
+    wsats = simulator.recurse(integrator, nTime, wsat, pbar=pbar, leave=leave)
+    # Extract production time series from water saturation fields
+    wells = model.xy2ind(*model.prod_xy.T)
+    prods = np.array([wsat[wells] for wsat in wsats])
+    return wsats, prods
+
+
+# Let us plot the final sweep of the base model configuration.
+
+def plot_final_sweep(model):
+    """Simulate reservoir, plot final oil saturation."""
+    title = "Final sweep" + (" -- " + model.name) if model.name else ""
+    wsats, prods = simulate(model, wsat0)
+    fig, ax = freshfig(title, figsize=(1, .6), rel=True)
+    model.plt_field(ax, wsats[-1], "oil", wells=True, colorbar=True)
+    fig.tight_layout()
+
+plot_final_sweep(model)
+
+# Unlike the history matching tutorial, we will do several distinct "cases",
+# i.e. use different *base* model configuration (which are not changed by our methods).
+# We have therefore factored out the convenient parameter setter from the simulator.
+
+def remake(model, **kwargs):
+    """Instantiate new model config."""
+    model = copy.deepcopy(model)
+    for k, v in kwargs.items():
+        setattr(model, k, v)
+    return model
+
+# Note that setting parameters is generally not a trivial task (unlike here).
+# It might involve reshaping arrays, translating units, read/write to file, etc.
+# Indeed, from a "task runner" perspective, there is no hard distinction between
+# writing parameters and running simulations.
+#
+# Let's store the base-base model.
+
+model0 = remake(model)
+
+# ### Multiprocessing. Only used in ensemble runs
 
 utils.nCPU = True
 
@@ -124,31 +141,6 @@ def apply2(fun, **kwargs):
     Js = utils.apply(fun, **kwargs, unzip=False, leave=False)
     return Js[0] if singleton else Js
 
-
-# Like `forward_model` of the previous (history matching) tutorial, but w/o setting params
-
-def sim(model, wsat, pbar=False, leave=False):
-    """Simulate reservoir."""
-    integrator = model.time_stepper(dt)
-    wsats = simulator.recurse(integrator, nTime, wsat, pbar=pbar, leave=leave)
-    # Extract production time series from water saturation fields
-    wells = model.xy2ind(*model.prod_xy.T)
-    prods = np.array([wsat[wells] for wsat in wsats])
-    return wsats, prods
-
-
-def plot_final_sweep(model):
-    """Simulate reservoir, plot final oil saturation."""
-    title = plotting.dash_join(f"Final sweep", getattr(model, "name", ""))
-    wsats, prods = sim(model, wsat0)
-    fig, ax = freshfig(title, figsize=(1, .6), rel=True)
-    model.plt_field(ax, wsats[-1], "oil", wells=True, colorbar=True)
-    fig.tight_layout()
-
-
-# Let us plot the final sweep given these well settings
-
-plot_final_sweep(model)
 
 # ## EnOpt
 # EnOpt consists of gradient descent with ensemble gradient estimation.
@@ -256,12 +248,12 @@ def prod2npv(model, prods):
 def npv(**kwargs):
     """NPV from model config."""
     try:
-        model = new_mod(**kwargs)
-        wsats, prods = sim(model, wsat0)
+        new = remake(model, **kwargs)
+        wsats, prods = simulate(new, wsat0)
     except Exception:
         return 0  # Invalid model params. Penalize.
         # Use `raise` for debugging.
-    return prod2npv(model, prods)
+    return prod2npv(new, prods)
 
 
 # ## Optimize x-coordinate of single injector
@@ -349,15 +341,14 @@ for color in ['C0', 'C2', 'C7', 'C9']:
 
 # Plot of final sweep
 
-model = new_mod(inj_xy=path[-1].reshape((-1, 2)),
-                name=f"Optimized in {obj.__name__}")
-plot_final_sweep(model)
+plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
+                        name=f"Optimized in {obj.__name__}"))
 
 # ## Optimize coordinates of 2 injectors
 
 # With 2 injectors, it's more interesting (not necessary) to also only have 2 producers. So let's configure our model for that.
 
-model = new_mod(
+model = remake(model,
     name = "Lower 2 corners",
     prod_xy = xy_4corners[:2],
     prod_rates = rate0 * np.ones((2, 1)) / 2,
@@ -419,9 +410,8 @@ fig.tight_layout()
 
 # Let's plot the final sweep
 
-model = new_mod(inj_xy=path[-1].reshape((-1, 2)),
-                name=f"Optimzed in {obj.__name__}")
-plot_final_sweep(model)
+plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
+                        name=f"Optimzed in {obj.__name__}"))
 
 # ## Optimize single rate
 
@@ -479,7 +469,7 @@ wells = dict(
     inj_rates  = rate0 * np.ones((4, 1)) / 4,
     prod_rates = rate0 * np.ones((3, 1)) / 3,
 )
-model = new_mod(**wells)
+model = remake(model, **wells)
 
 # Show well config
 
@@ -493,9 +483,9 @@ fig.tight_layout()
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
     prod_rates = np.ones((3, 1)) / 3 * np.sum(inj_rates)
-    model = new_mod(inj_rates=inj_rates, prod_rates=prod_rates)
-    wsats, prods = sim(model, wsat0)
-    npv = prod2npv(model, prods)
+    new = remake(model, inj_rates=inj_rates, prod_rates=prod_rates)
+    wsats, prods = simulate(new, wsat0)
+    npv = prod2npv(new, prods)
     print(f"NPV for these injection_rates: {npv:.5f}")
     return wsats[-1]
 

@@ -10,7 +10,7 @@ import struct_tools
 from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MaxNLocator, LogLocator
 from mpl_tools import place
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
@@ -32,6 +32,10 @@ styles["pperm"] = dict(
     levels = np.linspace(-4, 4, 21),
     cticks = np.arange(-4, 4+1),
     cmap   = "jet",
+)
+styles["perm"] = dict(
+    title  = "Perm",
+    locator=LogLocator(),
 )
 styles["corr"] = dict(
     title  = "Correlations",

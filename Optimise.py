@@ -106,7 +106,7 @@ fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, pperm, "pperm", wells=True, colorbar=True);
 fig.tight_layout()
 
-# ## Define simulation
+# ## Define simulations
 
 wsat0 = np.zeros(model.Nxy)
 T = 1
@@ -151,12 +151,14 @@ def plot_final_sweep(model):
 plot_final_sweep(model)
 
 # ## EnOpt
-# `ens_grad` uses LLS regression to estimate gradients.
+# EnOpt consists of gradient descent with ensemble gradient estimation.
+# We wrap the gradient estimation function in another to fix its configuration parameters,
+# (to avoid having to pass them through the caller, i.e. gradient descent).
 
 def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
     """Set parameters of `ens_grad`."""
     def ens_grad(obj, u):
-        """Compute ensemble gradient for `obj` centered on `u`."""
+        """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
         cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
         U = rnd.randn(nEns, len(u)) @ cholT
         U, _ = utils.center(U)
@@ -171,6 +173,8 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
         return g
     return ens_grad
 
+# Another ingredient to successful gradient descent is line search.
+#
 # Parameters:
 # - `sign=+/-1`: max/min-imization.
 # - `xSteps`: trial step lengths.
@@ -197,8 +201,11 @@ def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
                     return x1, J1, dict(nDeclined=i)
     return backtrack
 
-
-# *EnOpt*: Gradient descent
+# Other acceleration techniques such as momentum, AdaGrad, and Nesterov
+# could also be considered, but do not necessarily fit well together with
+# line search.
+#
+# The following implements gradient descent (GD).
 
 def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
     """Gradient (i.e. steepest) descent/ascent."""

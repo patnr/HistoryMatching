@@ -38,6 +38,8 @@ np.set_printoptions(precision=6)
 # We start with the same settings as in the previous tutorial (on history matching).
 # This will serve as our default/base model
 
+# #### Grid
+
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1, name="Base model")
 
 # #### Perm
@@ -61,7 +63,7 @@ model.prod_xy = xy_4corners
 model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
-# Plot
+# Plot reservoir
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm", wells=True, colorbar=True);
@@ -107,7 +109,7 @@ def remake(model, **kwargs):
         setattr(model, k, v)
     return model
 
-# Note that setting parameters is generally not a trivial task (unlike here).
+# Note that setting parameters is not generally such a trivial task as here.
 # It might involve reshaping arrays, translating units, read/write to file, etc.
 # Indeed, from a "task runner" perspective, there is no hard distinction between
 # writing parameters and running simulations.
@@ -116,98 +118,7 @@ def remake(model, **kwargs):
 
 model0 = remake(model)
 
-# ### Multiprocessing. Only used in ensemble runs
-
-utils.nCPU = True
-
-def apply2(fun, **kwargs):
-    """Fix `unzip`, `leave`. Treat singleton case. Requires ens (2D) input."""
-    arg0 = next(iter(kwargs.values()))
-    singleton = (np.ndim(arg0) == 1) or len(arg0) == 1
-    Js = utils.apply(fun, **kwargs, unzip=False, leave=False)
-    return Js[0] if singleton else Js
-
-
-# ## EnOpt
-# EnOpt consists of gradient descent with ensemble gradient estimation.
-# We wrap the gradient estimation function in another to fix its configuration parameters,
-# (to avoid having to pass them through the caller, i.e. gradient descent).
-
-def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
-    """Set parameters of `ens_grad`."""
-    def ens_grad(obj, u):
-        """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
-        cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
-        U = rnd.randn(nEns, len(u)) @ cholT
-        U, _ = utils.center(U)
-        J = obj(u + U, desc=f"ens_grad of {obj.__name__}'s")
-        J, _ = utils.center(J)
-        if precond:
-            g = U.T @ J / (nEns-1)
-        else:
-            g = utils.rinv(U, reg=.1, tikh=True) @ J
-        if normed:
-            g /= utils.mnorm(g)
-        return g
-    return ens_grad
-
-# Another ingredient to successful gradient descent is line search.
-#
-# Parameters:
-# - `sign=+/-1`: max/min-imization.
-# - `xSteps`: trial step lengths.
-# - `rtol`: convergence criterion.
-#   Specifies magnitude of improvement required to accept update of iterate.
-#   Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
-#   Setting to 0 is not recommended, because if the objective function is flat
-#   in the neighborhood, then the path could just go in circles on that flat.
-
-def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
-    """Set parameters of `backtrack`."""
-    def backtrack(x0, J0, objective, search_direction):
-        """Line search by bisection."""
-        atol = max(1e-8, abs(J0)) * rtol
-        with tqdm(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
-            for i, step_length in enumerate(xSteps):
-                pbar.update(1)
-                dx = sign * step_length * search_direction
-                x1 = x0 + dx
-                J1 = objective(x1)
-                dJ = J1 - J0
-                if sign*dJ > atol:
-                    pbar.update(len(xSteps))  # needed in Jupyter
-                    return x1, J1, dict(nDeclined=i)
-    return backtrack
-
-# Other acceleration techniques such as momentum, AdaGrad, and Nesterov
-# could also be considered, but do not necessarily fit well together with
-# line search.
-#
-# The following implements gradient descent (GD).
-
-def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
-    """Gradient (i.e. steepest) descent/ascent."""
-    J = objective(x)
-    path = [x]
-    objs = [J]
-    info = []  # ⇒ len+1 == len(path)
-    for itr in range(nIter):
-        grad = nabla(objective, x)
-        if (update := line_search(x, J, objective, grad)):
-            x, J, dct = update
-            path.append(x)
-            objs.append(J)
-            info.append(dct)
-        else:
-            status = "Converged ✅"
-            break
-    else:
-        status = "Ran out of iters ❌"
-    print(f"{status:<9} {itr=:<5}  {x=!s}  {J=:.2f}")
-    return np.asarray(path), np.asarray(objs), info
-
-
-# ## NPV
+# ## NPV objective function
 
 # Convert production saturation time series to cumulative monetary value.
 
@@ -241,8 +152,103 @@ def npv(**kwargs):
         # Use `raise` for debugging.
     return prod2npv(new, prods)
 
+# ## EnOpt
 
-# ## Optimize x-coordinate of single injector
+# ### Multiprocessing
+# Ensemble methods are easily parallelizable.
+
+utils.nCPU = True
+
+def apply2(fun, **kwargs):
+    """Fix `unzip`, `leave`. Treat singleton case. Requires ens (2D) input."""
+    arg0 = next(iter(kwargs.values()))
+    singleton = (np.ndim(arg0) == 1) or len(arg0) == 1
+    Js = utils.apply(fun, **kwargs, unzip=False, leave=False)
+    return Js[0] if singleton else Js
+
+
+# #### Ensemble gradient estimator
+# EnOpt consists of gradient descent with ensemble gradient estimation.
+# We wrap the gradient estimation function in another to fix its configuration parameters,
+# (to avoid having to pass them through the caller, i.e. gradient descent).
+
+def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
+    """Set parameters of `ens_grad`."""
+    def ens_grad(obj, u):
+        """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
+        cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
+        U = rnd.randn(nEns, len(u)) @ cholT
+        U, _ = utils.center(U)
+        J = obj(u + U, desc=f"ens_grad of {obj.__name__}'s")
+        J, _ = utils.center(J)
+        if precond:
+            g = U.T @ J / (nEns-1)
+        else:
+            g = utils.rinv(U, reg=.1, tikh=True) @ J
+        if normed:
+            g /= utils.mnorm(g)
+        return g
+    return ens_grad
+
+# #### Backtracking
+# Another ingredient to successful gradient descent is line search.
+#
+# Parameters:
+# - `sign=+/-1`: max/min-imization.
+# - `xSteps`: trial step lengths.
+# - `rtol`: convergence criterion.
+#   Specifies magnitude of improvement required to accept update of iterate.
+#   Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
+#   Setting to 0 is not recommended, because if the objective function is flat
+#   in the neighborhood, then the path could just go in circles on that flat.
+
+def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
+    """Set parameters of `backtrack`."""
+    def backtrack(x0, J0, objective, search_direction):
+        """Line search by bisection."""
+        atol = max(1e-8, abs(J0)) * rtol
+        with tqdm(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
+            for i, step_length in enumerate(xSteps):
+                pbar.update(1)
+                dx = sign * step_length * search_direction
+                x1 = x0 + dx
+                J1 = objective(x1)
+                dJ = J1 - J0
+                if sign*dJ > atol:
+                    pbar.update(len(xSteps))  # needed in Jupyter
+                    return x1, J1, dict(nDeclined=i)
+    return backtrack
+
+# #### Gradient descent
+# Other acceleration techniques such as momentum, AdaGrad, and Nesterov
+# could also be considered, but do not necessarily fit well together with
+# line search.
+#
+# The following implements gradient descent (GD).
+
+def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
+    """Gradient (i.e. steepest) descent/ascent."""
+    J = objective(x)
+    path = [x]
+    objs = [J]
+    info = []  # ⇒ len+1 == len(path)
+    for itr in range(nIter):
+        grad = nabla(objective, x)
+        if (update := line_search(x, J, objective, grad)):
+            x, J, dct = update
+            path.append(x)
+            objs.append(J)
+            info.append(dct)
+        else:
+            status = "Converged ✅"
+            break
+    else:
+        status = "Ran out of iters ❌"
+    print(f"{status:<9} {itr=:<5}  {x=!s}  {J=:.2f}")
+    return np.asarray(path), np.asarray(objs), info
+
+
+# ## Case: Optimize x-coordinate of single injector
 # Let's try it out with a 1D optimisation case.
 
 def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
@@ -286,7 +292,7 @@ fig.tight_layout()
 # and EnOpt is able to find the minimum, for several different starting positions,
 # without much trouble.
 
-# ## Optimize both coordinates
+# ## Case: Optimize both coordinates
 
 def npv_in_injectors(xys, desc=None):
     """Optimize (x, y) of injectors."""
@@ -330,7 +336,7 @@ for color in ['C0', 'C2', 'C7', 'C9']:
 plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
                         name=f"Optimized in {obj.__name__}"))
 
-# ## Optimize coordinates of 2 injectors
+# ## Case: Optimize coordinates of 2 injectors
 
 # With 2 injectors, it's more interesting (not necessary) to also only have 2 producers. So let's configure our model for that.
 
@@ -363,14 +369,13 @@ model = remake(model,
 # Note that this is not an approach for constrained optimisation in general:
 # we can only constrain the control variables, not functions thereof.
 
-# +
 def npv_in_injectors_transformed(xys, desc=None):
     return npv_in_injectors(coordinate_transform(xys), desc=desc)
 
 obj = npv_in_injectors_transformed
 
-# +
-# Plot perm field
+# Show well layout
+
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
 fig.tight_layout()
@@ -390,17 +395,21 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = coordinate_transform(path)
 
 # Plot optimisation trajectory
+
 plotting.add_path12(*axs, path[:, :2], objs, color='C1')
 plotting.add_path12(*axs, path[:, 2:], color='C3')
 fig.tight_layout()
-# -
 
 # Let's plot the final sweep
 
 plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
                         name=f"Optimzed in {obj.__name__}"))
 
-# ## Optimize single rate
+# ## Case: Optimize single rate
+
+# Restore default well config
+
+model = model0
 
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint).
@@ -422,10 +431,6 @@ def npv_in_rates(inj_rates, desc=None):
 
 obj = npv_in_rates
 
-# Restore default well config
-
-model = model0
-
 # Optimize
 
 xx = np.linspace(0.1, 5, 21)
@@ -444,7 +449,7 @@ for i, u0 in enumerate(np.array([[.1, 5]]).T):
 fig.tight_layout()
 # -
 
-# ## Interactive (manual) optimisation of multiple rates
+# ## Case: multiple rates (with interactive/manual optimisation)
 
 # Let's make the flow "less orthogonal" by not placing the wells on a rectilinear grid (i.e. the 4 corners).
 
@@ -458,7 +463,7 @@ wells = dict(
 )
 model = remake(model, **wells)
 
-# Show well config
+# Show well layout
 
 fig, ax = freshfig("Triangle case", figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm", wells=True, colorbar=True);

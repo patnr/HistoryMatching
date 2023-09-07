@@ -284,7 +284,7 @@ fig.tight_layout()
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = GD(obj, u0, nabla_ens(.1))
-    plotting.add_path12(*axs, path, objs, color=color)
+    plotting.add_path12(*axs, path, objs, color=color, labels=False)
 # -
 
 # ##### Comments

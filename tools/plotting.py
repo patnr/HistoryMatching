@@ -503,7 +503,7 @@ def figure12(title="", *args, figsize=(11, 3), **kwargs):
     return fig, (ax0, ax1, ax2)
 
 
-def add_path12(ax1, ax2, ax3, path, objs=None, color=None):
+def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
     """Plot 2d path in `ax1`, `objs` in `ax2`, step size magnitude to `ax3`."""
     # Plot x0
     ax1.plot(*path[0, :2], c=color or 'g', ms=3**2, marker='o')
@@ -519,9 +519,10 @@ def add_path12(ax1, ax2, ax3, path, objs=None, color=None):
     for k, c in zip(ii, cm):
         if color:
             c = color
-        x = path[k][:2]
-        ax1.text(*x, k, c=c)
-        ax1.scatter(*x, s=4**2, color=c, zorder=5)
+        xy = path[k][:2]
+        if labels:
+            ax1.text(*xy, k, c=c)
+        ax1.scatter(*xy, s=4**2, color=c, zorder=5)
 
     if objs is not None:
         # Objective values

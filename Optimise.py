@@ -221,9 +221,9 @@ def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
     return backtrack
 
 # #### Gradient descent
-# Other acceleration techniques such as momentum, AdaGrad, and Nesterov
-# could also be considered, but do not necessarily fit well together with
-# line search.
+# Other acceleration techniques (AdaGrad, Nesterov, momentum,
+# of which git commit `9937d5b2` contains a working implementation)
+# could also be considered, but do not necessarily fit well together with line search.
 #
 # The following implements gradient descent (GD).
 
@@ -249,8 +249,66 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
     return np.asarray(path), np.asarray(objs), info
 
 
+# ## Case: Optimize both coordinates
+# Let's try out EnOpt for optimising the location of the injector well.
+
+def npv_in_injectors(xys, desc=None):
+    """Obj. as function of (x, y) of injectors."""
+    return apply2(npv, inj_xy=xys, desc=desc)
+
+# The model is sufficiently cheap that we can afford to compute the objective
+# over the entire domain, and plot it.
+
+obj = npv_in_injectors
+X, Y = model.mesh
+XY = np.vstack([X.ravel(), Y.ravel()]).T
+npvs = obj(XY, desc=f"Plot pts. of {obj.__name__}")
+
+# We have in effect conducted an exhaustive computation of the objective function,
+# so that we already know the true, global, optimum:
+
+argmax = npvs.argmax()
+print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.3}",
+      "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+
+# Note that the optimum is not quite in the centre of the domain,
+# which is caused by the randomness (including asymmetry) of the permeability field.
+
+# +
+# Plot objective
+fig, axs = plotting.figure12(obj.__name__)
+model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
+fig.tight_layout()
+
+# Optimize, plot
+for color in ['C0', 'C2', 'C7', 'C9']:
+    u0 = rnd.rand(2) * model.domain[1]
+    path, objs, info = GD(obj, u0, nabla_ens(.1))
+    plotting.add_path12(*axs, path, objs, color=color)
+# -
+
+# ##### Comments
+# - The increase in objective function for each step is guaranteed by the line search
+#   (but could cause getting stuck in a local minimum). It is also what causes
+#   the step size to vanish towards later iterations.
+# - EnOpt uses gradient descent, which is a "local" optimiser (being gradient based).
+#   Therefore it can get stuck in local mimima, for example (depends on the random
+#   numbers used) the corner areas outside a producer.
+# - Even when they find the global minimum, the optimisation paths don't
+#   converge on the exact same point (depending on their starting point / initial guess).
+#   This will be further explained in the following case.
+
+# Plot of final sweep
+
+plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimized in {obj.__name__}"))
+
 # ## Case: Optimize x-coordinate of single injector
-# Let's try it out with a 1D optimisation case.
+#
+# `apply2`, `npv` and `remake` simplify much in defining
+# a parallelized, ensemble-compatible, forward model.
+# Still, sometimes we need to pre-process the arguments some more.
+# For example, suppose we only want to vary the x-coordinate of the injector,
+# while keeping the y-coordinate fixed.
 
 def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
     """Obj. as function of x-coordinate of injector."""
@@ -290,47 +348,6 @@ fig.tight_layout()
 # Other than this, as we might expect, the objective is nice and convex,
 # and EnOpt is able to find the minimum, for several different starting positions,
 # without much trouble.
-
-# ## Case: Optimize both coordinates
-
-def npv_in_injectors(xys, desc=None):
-    """Obj. as function of (x, y) of injectors."""
-    return apply2(npv, inj_xy=xys, desc=desc)
-
-
-# Compute entire objective
-
-obj = npv_in_injectors
-X, Y = model.mesh
-XY = np.vstack([X.ravel(), Y.ravel()]).T
-npvs = obj(XY, desc=f"Plot pts. of {obj.__name__}")
-
-# +
-# Plot objective
-fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
-fig.tight_layout()
-
-# Optimize, plot
-for color in ['C0', 'C2', 'C7', 'C9']:
-    u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1))
-    plotting.add_path12(*axs, path, objs, color=color)
-# -
-
-# ##### Comments
-# - Given the zig-zag optimization trajectories we see, it would appear
-#   that the EnOpt gradient descent implementation could well benefit
-#   from using an "acceleration" technique such as "momentum".
-#   See git commit `9937d5b2` for a working implementation.
-# - Some get stuck in local minima
-# - Smaller steps towards end
-# - Notice that discreteness of npv_in_injectors function means that
-#   they dont all CV to exactly the same
-
-# Plot of final sweep
-
-plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimized in {obj.__name__}"))
 
 # ## Case: Optimize coordinates of 2 injectors
 

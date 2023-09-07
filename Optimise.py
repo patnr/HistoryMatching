@@ -159,11 +159,12 @@ def npv(**kwargs):
 
 utils.nCPU = True
 
-def apply2(fun, **kwargs):
+def apply2(fun, desc=None, **kwargs):
     """Fix `unzip`, `leave`. Treat singleton case. Requires ens (2D) input."""
+    kwargs = {k: np.atleast_2d(v) for (k, v) in kwargs.items()}
     arg0 = next(iter(kwargs.values()))
-    singleton = (np.ndim(arg0) == 1) or len(arg0) == 1
-    Js = utils.apply(fun, **kwargs, unzip=False, leave=False)
+    singleton = len(arg0) == 1
+    Js = utils.apply(fun, **kwargs, unzip=False, leave=False, desc=desc)
     return Js[0] if singleton else Js
 
 
@@ -252,12 +253,10 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
 # Let's try it out with a 1D optimisation case.
 
 def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
-    """Optimize x-coordinate of injector."""
-    xy = np.zeros((len(x), 1, 2))
-    xy[..., 0] = x
-    xy[..., 1] = y
-    Js = apply2(npv, inj_xy=xy, desc=desc)
-    return Js
+    """Obj. as function of x-coordinate of injector."""
+    y_const = np.full_like(x, y)
+    xy = np.stack([x, y_const], -1)
+    return apply2(npv, inj_xy=xy, desc=desc)
 
 y = model.Ly/2
 obj = npv_in_x_of_inj0_with_fixed_y
@@ -295,10 +294,8 @@ fig.tight_layout()
 # ## Case: Optimize both coordinates
 
 def npv_in_injectors(xys, desc=None):
-    """Optimize (x, y) of injectors."""
-    nEns = 1 if xys.ndim == 1 else len(xys)
-    shape = (nEns, -1, 2)
-    return apply2(npv, inj_xy=xys.reshape(shape), desc=desc)
+    """Obj. as function of (x, y) of injectors."""
+    return apply2(npv, inj_xy=xys, desc=desc)
 
 
 # Compute entire objective
@@ -333,8 +330,7 @@ for color in ['C0', 'C2', 'C7', 'C9']:
 
 # Plot of final sweep
 
-plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
-                        name=f"Optimized in {obj.__name__}"))
+plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimized in {obj.__name__}"))
 
 # ## Case: Optimize coordinates of 2 injectors
 
@@ -343,6 +339,7 @@ plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
 model = remake(model,
     name = "Lower 2 corners",
     prod_xy = xy_4corners[:2],
+    inj_xy = np.zeros((2, 2)),  # dummy
     prod_rates = rate0 * np.ones((2, 1)) / 2,
     inj_rates  = rate0 * np.ones((2, 1)) / 2,
 )
@@ -404,8 +401,7 @@ fig.tight_layout()
 
 # Let's plot the final sweep
 
-plot_final_sweep(remake(model, inj_xy=path[-1].reshape((-1, 2)),
-                        name=f"Optimzed in {obj.__name__}"))
+plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimzed in {obj.__name__}"))
 
 # ## Case: Optimize single rate
 

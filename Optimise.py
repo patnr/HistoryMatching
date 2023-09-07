@@ -7,19 +7,6 @@
 # - Please have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
 #   for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
 #
-# TODO:
-# - Do time-dependent rates.
-#   Use fixed rate as starting guess.
-#   Repeat, but with higher resolution time-dependence.
-#   Keep iterating until you have full time resolution.
-# - Handle set_perm so it's not necessary to put into new_mod
-# - 1D: Plot ensemble of npv curves
-# - Plot ensemble of pdfs of npvs, including
-#   strategies: reactive control, nominal optimization, robust optimization
-# - Use model with many injectors, producers ? jansen2010closed_prez
-# - Cite essen, jansen, chen, fonseca, stordal, raanes
-
-
 # If you're on **Google Colab**, run the cell below to install the requirements.
 # Otherwise (and assuming you have done the installation described in the README),
 # you can skip/delete this cell.

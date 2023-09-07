@@ -155,17 +155,18 @@ def npv(**kwargs):
 # ## EnOpt
 
 # ### Multiprocessing
-# Ensemble methods are easily parallelizable.
+# Ensemble methods are easily parallelizable, achieved hereunder by following
+# multiprocessing `map` that we apply to run ensemble simulations.
+# In some cases, however, it is best to leave the parallelisation to the
+# forward model/simulator/objective function since it is "closer to the metal"
+# and so can therefore do more speed optimisation. For example if the simulations
+# can be vectorize over ensemble members, then multi-threaded `numpy` is likey faster).
 
 utils.nCPU = True
 
-def apply2(fun, desc=None, **kwargs):
-    """Fix `unzip`, `leave`. Treat singleton case. Requires ens (2D) input."""
-    kwargs = {k: np.atleast_2d(v) for (k, v) in kwargs.items()}
-    arg0 = next(iter(kwargs.values()))
-    singleton = len(arg0) == 1
-    Js = utils.apply(fun, **kwargs, unzip=False, leave=False, desc=desc)
-    return Js[0] if singleton else Js
+def apply2(fun, arg, desc=None):
+    """Fix `unzip`, `leave`."""
+    return utils.apply(fun, arg, unzip=False, leave=False, desc=desc)
 
 
 # #### Ensemble gradient estimator
@@ -180,7 +181,7 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
         cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
         U = rnd.randn(nEns, len(u)) @ cholT
         U, _ = utils.center(U)
-        J = obj(u + U, desc=f"ens_grad of {obj.__name__}'s")
+        J = apply2(obj, u + U, "ens_grad")
         J, _ = utils.center(J)
         if precond:
             g = U.T @ J / (nEns-1)
@@ -252,17 +253,17 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
 # ## Case: Optimize both coordinates
 # Let's try out EnOpt for optimising the location of the injector well.
 
-def npv_in_injectors(xys, desc=None):
-    """Obj. as function of (x, y) of injectors."""
-    return apply2(npv, inj_xy=xys, desc=desc)
+def npv_inj_xy(xys):
+    return npv(inj_xy=xys)
+
+obj = npv_inj_xy
 
 # The model is sufficiently cheap that we can afford to compute the objective
-# over the entire domain, and plot it.
+# over its entire 2D domain, and plot it.
 
-obj = npv_in_injectors
 X, Y = model.mesh
 XY = np.vstack([X.ravel(), Y.ravel()]).T
-npvs = obj(XY, desc=f"Plot pts. of {obj.__name__}")
+npvs = apply2(obj, XY, "obj(entire domain)")
 
 # We have in effect conducted an exhaustive computation of the objective function,
 # so that we already know the true, global, optimum:
@@ -304,26 +305,26 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimized in {obj.__name_
 
 # ## Case: Optimize x-coordinate of single injector
 #
-# `apply2`, `npv` and `remake` simplify much in defining
-# a parallelized, ensemble-compatible, forward model.
+# The setters in `remake` and ResSim simplify much in defining the forward model.
 # Still, sometimes we need to pre-process the arguments some more.
 # For example, suppose we only want to vary the x-coordinate of the injector,
 # while keeping the y-coordinate fixed.
 
-def npv_in_x_of_inj0_with_fixed_y(x, desc=None):
-    """Obj. as function of x-coordinate of injector."""
-    y_const = np.full_like(x, y)
-    xy = np.stack([x, y_const], -1)
-    return apply2(npv, inj_xy=xy, desc=desc)
+def npv_x_with_fixed_y(xs):
+    xys = np.stack([xs, xs], -1)
+    xys[..., 1] = y  # fix constant value
+    return npv(inj_xy=xys)
 
+obj = npv_x_with_fixed_y
 y = model.Ly/2
-obj = npv_in_x_of_inj0_with_fixed_y
 
-# Since our model is so simple, and we only have 1 control parameter,
-# we can afford to compute and plot the entire objective.
+# *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
+# thus working both when it's 0d and 1d (i.e. `nInj=1` and `nInj>1`)*.
+# Also note that we could of course have re-used `npv_inj_xy` to define `npv_x_with_fixed_y`.
+# This will be our approach for the subsequent case.
 
 xx = np.linspace(0, model.Lx, 201)
-npvs = obj(np.atleast_2d(xx).T, desc=f"Plot pts. of {obj.__name__}")
+npvs = apply2(obj, xx, "obj(entire domain)")
 
 # +
 # Plot objective
@@ -356,9 +357,7 @@ fig.tight_layout()
 model = remake(model,
     name = "Lower 2 corners",
     prod_xy = xy_4corners[:2],
-    inj_xy = np.zeros((2, 2)),  # dummy
-    prod_rates = rate0 * np.ones((2, 1)) / 2,
-    inj_rates  = rate0 * np.ones((2, 1)) / 2,
+    prod_rates = rate0 * np.ones((2, 1)) / 2
 )
 
 
@@ -383,22 +382,29 @@ model = remake(model,
 # Note that this is not an approach for constrained optimisation in general:
 # we can only constrain the control variables, not functions thereof.
 
-def npv_in_injectors_transformed(xys, desc=None):
-    return npv_in_injectors(coordinate_transform(xys), desc=desc)
+def coordinate_transform(xys):
+    """Map `ℝ --> (0, L)` with `origin ↦ domain centre`, in both dims (axis 1)."""
+    # An alternative to reshape/undo is slicing with 0::2 and 1::2
+    xy2d = np.array(xys, dtype=float).reshape((-1, 2))
+    xy2d[:, 0] = sigmoid(xy2d[:, 0], model.Lx)  # transform x
+    xy2d[:, 1] = sigmoid(xy2d[:, 1], model.Ly)  # transform y
+    return xy2d.reshape(np.shape(xys))
 
 def sigmoid(x, height, width=1):
     return height/(1 + np.exp(-x/width))
 
-def coordinate_transform(xys):
-    """Map `ℝ² --> (0, Lx) x (0, Ly)`, with `origin ↦ domain centre`."""
-    xys = np.array(xys, dtype=float).T
-    xys[0::2] = sigmoid(xys[0::2], model.Lx)  # transform x
-    xys[1::2] = sigmoid(xys[1::2], model.Ly)  # transform y
-    return xys.T
+inj_xys0 = [[-1, 0], [+1, 0]]
+model = remake(model,
+    inj_xy = coordinate_transform(inj_xys0),
+    inj_rates = rate0 * np.ones((2, 1)) / 2,
+)
 
-obj = npv_in_injectors_transformed
 
 # Show well layout
+def npv_xy_transf(xys):
+    return npv_inj_xy(coordinate_transform(xys))
+
+obj = npv_xy_transf
 
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
@@ -406,7 +412,7 @@ fig.tight_layout()
 
 # Optimize
 
-u0 = np.array([-1, 0, +1, 0])
+u0 = np.ravel(inj_xys0)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = coordinate_transform(path)
 
@@ -425,6 +431,11 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimzed in {obj.__name__
 # Restore default well config
 
 model = model0
+def npv_in_rates(inj_rates):
+    prod_rates = equalize_prod(inj_rates)
+    return npv(inj_rates=inj_rates, prod_rates=prod_rates)
+
+obj = npv_in_rates
 
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint).
@@ -436,27 +447,18 @@ def equalize_prod(rates):
     total_rates = rates.reshape((nInj, -1)).sum(0)
     return np.tile(total_rates / nProd, (nProd, 1))
 
-def npv_in_rates(inj_rates, desc=None):
-    """Obj. as function of injector(s) rates."""
-    def npv1(inj_rates):
-        # The input is a single realisation, not ensemble,
-        # since this function gets sent to `apply2`.
-        prod_rates = equalize_prod(inj_rates)
-        return npv(inj_rates=inj_rates, prod_rates=prod_rates)
-    return apply2(npv1, inj_rates=inj_rates, desc=desc)
 
-obj = npv_in_rates
 
 # Optimize
 
-xx = np.linspace(0.1, 5, 21)
-npvs = obj(np.atleast_2d(xx).T, "Plot pts.")
+rates = np.linspace(0.1, 5, 21)
+npvs = apply2(obj, rates, "Entire domain")
 
 # +
 fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
-ax.plot(xx, npvs, "slategrey")
+ax.plot(rates, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
     path, objs, info = GD(obj, u0, nabla_ens(.1))

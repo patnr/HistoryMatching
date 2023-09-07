@@ -261,8 +261,7 @@ obj = npv_inj_xy
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
 
-X, Y = model.mesh
-XY = np.vstack([X.ravel(), Y.ravel()]).T
+XY = np.stack(model.mesh, -1).reshape((-1, 2))
 npvs = apply2(obj, XY, "obj(entire domain)")
 
 # We have in effect conducted an exhaustive computation of the objective function,

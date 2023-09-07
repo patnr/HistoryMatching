@@ -372,6 +372,16 @@ model = remake(model,
 def npv_in_injectors_transformed(xys, desc=None):
     return npv_in_injectors(coordinate_transform(xys), desc=desc)
 
+def sigmoid(x, height, width=1):
+    return height/(1 + np.exp(-x/width))
+
+def coordinate_transform(xys):
+    """Map `ℝ² --> (0, Lx) x (0, Ly)`, with `origin ↦ domain centre`."""
+    xys = np.array(xys, dtype=float).T
+    xys[0::2] = sigmoid(xys[0::2], model.Lx)  # transform x
+    xys[1::2] = sigmoid(xys[1::2], model.Ly)  # transform y
+    return xys.T
+
 obj = npv_in_injectors_transformed
 
 # Show well layout
@@ -381,14 +391,6 @@ model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
 fig.tight_layout()
 
 # Optimize
-def coordinate_transform(xys):
-    """Map `ℝ² --> (0, Lx) x (0, Ly)`, with `origin ↦ domain centre`."""
-    xys = np.array(xys, dtype=float)
-    sigmoid = lambda x, h, w=1: h/(1 + np.exp(-x/w))
-    xys[..., 0::2] = sigmoid(xys[..., 0::2], model.Lx)
-    xys[..., 1::2] = sigmoid(xys[..., 1::2], model.Ly)
-    return xys
-
 
 u0 = np.array([-1, 0, +1, 0])
 path, objs, info = GD(obj, u0, nabla_ens(.1))

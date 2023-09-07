@@ -505,14 +505,11 @@ def figure12(title="", *args, figsize=(11, 3), **kwargs):
 
 def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
     """Plot 2d path in `ax1`, `objs` in `ax2`, step size magnitude to `ax3`."""
-    # Plot x0
-    ax1.plot(*path[0, :2], c=color or 'g', ms=3**2, marker='o')
     # Path line
     ax1.plot(*path.T[:2], c=color or "g")
     # Path scatter and text
-    if len(path) >= 2:
-        ii = np.logspace(0, np.log10(len(path) - 1),
-                         15, endpoint=True, dtype=int)
+    if len(path) > 1:
+        ii = set(np.logspace(-1e-9, np.log10(len(path))-1e-9, 15, dtype=int))
     else:
         ii = [0]
     cm = plt.get_cmap('viridis_r')(np.linspace(0.0, 1, len(ii)))

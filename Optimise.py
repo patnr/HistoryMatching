@@ -411,21 +411,22 @@ model = model0
 
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint).
-# When there are multiple producers, we could distribute the production
-# differently across the wells (somehow, our choice),
-# but here we all set them all to be equal.
+
+def equalize_prod(rates):
+    """Distribute the total rate equally among producers."""
+    nInj = len(model.inj_xy)
+    nProd = len(model.prod_xy)
+    total_rates = rates.reshape((nInj, -1)).sum(0)
+    return np.tile(total_rates / nProd, (nProd, 1))
 
 def npv_in_rates(inj_rates, desc=None):
-    """`npv(inj_rates)`."""
-    nEns = 1 if inj_rates.ndim == 1 else len(inj_rates)
-    inj_rates = inj_rates.reshape((nEns, -1, 1))  # --> (nEns, nInj, 1)
-
-    nProd = len(model.prod_rates)
-    total_rate = np.sum(inj_rates, axis=1).squeeze()
-    prod_rates = np.full((nEns, nProd, 1), np.nan)
-    prod_rates.T[:] = total_rate/nProd
-
-    return apply2(npv, inj_rates=inj_rates, prod_rates=prod_rates, desc=desc)
+    """Obj. as function of injector(s) rates."""
+    def npv1(inj_rates):
+        # The input is a single realisation, not ensemble,
+        # since this function gets sent to `apply2`.
+        prod_rates = equalize_prod(inj_rates)
+        return npv(inj_rates=inj_rates, prod_rates=prod_rates)
+    return apply2(npv1, inj_rates=inj_rates, desc=desc)
 
 obj = npv_in_rates
 
@@ -472,11 +473,9 @@ fig.tight_layout()
 
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
-    prod_rates = np.ones((3, 1)) / 3 * np.sum(inj_rates)
-    new = remake(model, inj_rates=inj_rates, prod_rates=prod_rates)
+    new = remake(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
     wsats, prods = simulate(new, wsat0)
-    npv = prod2npv(new, prods)
-    print(f"NPV for these injection_rates: {npv:.5f}")
+    print("NPV for these injection_rates:", f"{prod2npv(new, prods):.5f}")
     return wsats[-1]
 
 

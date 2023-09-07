@@ -257,6 +257,7 @@ def npv_inj_xy(xys):
     return npv(inj_xy=xys)
 
 obj = npv_inj_xy
+print(obj.__name__)
 
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
@@ -315,6 +316,7 @@ def npv_x_with_fixed_y(xs):
     return npv(inj_xy=xys)
 
 obj = npv_x_with_fixed_y
+print(obj.__name__)
 y = model.Ly/2
 
 # *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
@@ -404,6 +406,7 @@ def npv_xy_transf(xys):
     return npv_inj_xy(coordinate_transform(xys))
 
 obj = npv_xy_transf
+print(obj.__name__)
 
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
@@ -435,6 +438,7 @@ def npv_in_rates(inj_rates):
     return npv(inj_rates=inj_rates, prod_rates=prod_rates)
 
 obj = npv_in_rates
+print(obj.__name__)
 
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint).
@@ -470,6 +474,7 @@ fig.tight_layout()
 
 # Let's make the flow "less orthogonal" by not placing the wells on a rectilinear grid (i.e. the 4 corners).
 
+print(obj.__name__, "Triangle case")
 triangle = [0, 135, -135]
 wells = dict(
     inj_xy = ([[model.Lx/2, model.Ly/2]] +

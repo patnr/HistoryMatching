@@ -145,12 +145,12 @@ def prod2npv(model, prods):
 def npv(**kwargs):
     """NPV from model config."""
     try:
-        new = remake(model, **kwargs)
-        wsats, prods = simulate(new, wsat0)
+        new_model = remake(model, **kwargs)
+        wsats, prods = simulate(new_model, wsat0)
     except Exception:
         return 0  # Invalid model params. Penalize.
         # Use `raise` for debugging.
-    return prod2npv(new, prods)
+    return prod2npv(new_model, prods)
 
 # ## EnOpt
 
@@ -496,9 +496,9 @@ fig.tight_layout()
 
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
-    new = remake(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
-    wsats, prods = simulate(new, wsat0)
-    print("NPV for these injection_rates:", f"{prod2npv(new, prods):.5f}")
+    new_model = remake(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
+    wsats, prods = simulate(new_model, wsat0)
+    print("NPV for these injection_rates:", f"{prod2npv(new_model, prods):.5f}")
     return wsats[-1]
 
 

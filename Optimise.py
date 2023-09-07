@@ -30,13 +30,10 @@ from tools import geostat, mpl_setup, utils
 mpl_setup.init()
 np.set_printoptions(precision=6)
 
-# Could put this in npv() rather than copying the base model
-# but it's useful to have a base model in the global namespace
-# for plotting purposes.
-
 # ## Define model
 # We start with the same settings as in the previous tutorial (on history matching).
-# This will serve as our default/base model
+# This will serve as our default/base model.
+# It is convenient to define it in the global namespace.
 
 # #### Grid
 
@@ -116,7 +113,7 @@ def remake(model, **kwargs):
 #
 # Let's store the base-base model.
 
-model0 = remake(model)
+original_model = remake(model)
 
 # ## NPV objective function
 
@@ -250,8 +247,8 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
     return np.asarray(path), np.asarray(objs), info
 
 
-# ## Case: Optimize both coordinates
-# Let's try out EnOpt for optimising the location of the injector well.
+# ## Case: Optimize injector location
+# Let's try out EnOpt for optimising the location (x, y) of the injector well.
 
 def npv_inj_xy(xys):
     return npv(inj_xy=xys)
@@ -292,16 +289,16 @@ for color in ['C0', 'C2', 'C7', 'C9']:
 # - The increase in objective function for each step is guaranteed by the line search
 #   (but could cause getting stuck in a local minimum). It is also what causes
 #   the step size to vanish towards later iterations.
-# - EnOpt uses gradient descent, which is a "local" optimiser (being gradient based).
+# - EnOpt uses gradient descent, which is a "local" optimizer (being gradient based).
 #   Therefore it can get stuck in local mimima, for example (depends on the random
 #   numbers used) the corner areas outside a producer.
 # - Even when they find the global minimum, the optimisation paths don't
 #   converge on the exact same point (depending on their starting point / initial guess).
 #   This will be further explained in the following case.
 
-# Plot of final sweep
+# Plot of final sweep of the result of the final optimisation trial.
 
-plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimized in {obj.__name__}"))
+plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}"))
 
 # ## Case: Optimize x-coordinate of single injector
 #
@@ -341,7 +338,6 @@ for i, u0 in enumerate(u0s):
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
 
-
 # -
 
 # Note that the objective functions appears to jump at regular intervals.
@@ -353,7 +349,8 @@ fig.tight_layout()
 
 # ## Case: Optimize coordinates of 2 injectors
 
-# With 2 injectors, it's more interesting (not necessary) to also only have 2 producers. So let's configure our model for that.
+# With 2 injectors, it's more interesting (not necessary) to also only have 2 producers.
+# So let's configure our model for that, placing the 2 producers at the lower corners.
 
 model = remake(model,
     name = "Lower 2 corners",
@@ -361,11 +358,10 @@ model = remake(model,
     prod_rates = rate0 * np.ones((2, 1)) / 2
 )
 
-
-# As you might imagine, with the 2 producers at the lower corners,
-# the optimal 2 injector positions will be somewhere near the upper edge.
+# Now, as you might imagine, the optimal injector positions will be somewhere near the upper edge.
 # But boundaries are a problem for basic EnOpt.
-# Because of its Gaussian character, it will often sample points outside of the domain.
+# Because of its Gaussian character, its gradient estimation will often sample points
+# outside of the domain.
 # This won't crash our optimisation, since the `npv` function
 # catches all exceptions and converts them to a penatly,
 # but the gradient near the border will then seem to indicate that the border is a bad place to be,
@@ -379,9 +375,10 @@ model = remake(model,
 # to estimate the average gradient. This is one more degree of technical overhead.
 # - Another alternative is to transform the control variables
 # so that the domain is the whole of $\mathcal{R}^d$.
-# This is the approach taken below.
 # Note that this is not an approach for constrained optimisation in general:
 # we can only constrain the control variables, not functions thereof.
+#
+# Below, we take the transformation approach.
 
 def coordinate_transform(xys):
     """Map `ℝ --> (0, L)` with `origin ↦ domain centre`, in both dims (axis 1)."""
@@ -400,39 +397,45 @@ model = remake(model,
     inj_rates = rate0 * np.ones((2, 1)) / 2,
 )
 
+# The objective function is otherwise unchanged.
 
-# Show well layout
 def npv_xy_transf(xys):
     return npv_inj_xy(coordinate_transform(xys))
 
 obj = npv_xy_transf
 print(obj.__name__)
 
+# #### Show well layout
+# The objective is now a function of `2*nInj = 4` variables.
+# It is therefore difficult to plot (requires cross-sections or other projections)
+# and anyway computing it would be `nPixels_per_dim^nInj` times more costly.
+# We therefore just plot the (known) permeability field along with the wells,
+# to show a possible layout.
+
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
 fig.tight_layout()
 
-# Optimize
+# #### Optimize
 
 u0 = np.ravel(inj_xys0)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = coordinate_transform(path)
 
-# Plot optimisation trajectory
+# #### Plot optimisation trajectory
 
 plotting.add_path12(*axs, path[:, :2], objs, color='C1')
 plotting.add_path12(*axs, path[:, 2:], color='C3')
 fig.tight_layout()
 
-# Let's plot the final sweep
+# #### Plot final sweep
 
-plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimzed in {obj.__name__}"))
+plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}"))
 
 # ## Case: Optimize single rate
 
-# Restore default well config
+# Like above, we need to pre-compute something before computing the `npv`.
 
-model = model0
 def npv_in_rates(inj_rates):
     prod_rates = equalize_prod(inj_rates)
     return npv(inj_rates=inj_rates, prod_rates=prod_rates)
@@ -450,14 +453,21 @@ def equalize_prod(rates):
     total_rates = rates.reshape((nInj, -1)).sum(0)
     return np.tile(total_rates / nProd, (nProd, 1))
 
+# Restore default well config
 
+model = original_model
 
-# Optimize
+# Plot
 
 rates = np.linspace(0.1, 5, 21)
 npvs = apply2(obj, rates, "Entire domain")
 
+# It makes sense that there is an optimal somewhere in the middle.
+# - Little water injection ⇒ little oil production.
+# - Much water injection ⇒ very pricey, whereas reservoir contains finite amount of oil.
+
 # +
+# Optimize
 fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
@@ -511,7 +521,7 @@ final_sweep_given_inj_rates.controls = dict(
     i3 = (0, 1.4),
 )
 
-# ... the following widget allows us to "interactively" (but manually) optimise the rates.
+# ... the following widget allows us to "interactively" (but manually) optimize the rates.
 # This is of course only feasible because the model is so simple and runs so fast.
 
 plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, figsize=(1, .6))

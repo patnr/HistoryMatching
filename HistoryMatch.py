@@ -219,8 +219,7 @@ model.config_wells(
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # model.plt_field(ax, perm.Truth, "pperm")
-model.plt_field(ax, perm_transf(perm.Truth),
-                locator=LogLocator(), wells=True, colorbar=True)
+model.plt_field(ax, perm_transf(perm.Truth), "perm")
 fig.tight_layout()
 
 
@@ -570,7 +569,7 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 # Here is a plot of the paths.
 
 fig, ax = freshfig("Trajectories of maxima of corr. fields", figsize=(1.5, 1), rel=1)
-model.plt_field(ax, np.zeros(model.shape), "corr", wells=True)
+model.plt_field(ax, np.zeros(model.shape), "corr", colorbar=False)
 for i, xy_path in enumerate(xy_max_corr):
     color = dict(color=f"C{i}")
     ax.plot(*xy_path.T, **color)

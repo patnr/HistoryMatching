@@ -50,7 +50,7 @@ styles["NPV"] = dict(
 
 
 def fields(model, Zs, style, title="", figsize=(1.7, 1),
-           label_color="k", colorbar=True, **kwargs):
+           label_color="k", wells=False, colorbar=True, **kwargs):
     """Do `model.plt_field(Z) for Z in Zs`."""
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
@@ -81,7 +81,8 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1),
     hh = []
     for ax, label in zip(axs, Zs):
         label_ax(ax, label, c=label_color)
-        hh.append(model.plt_field(ax, Zs[label], style, **kwargs))
+        hh.append(model.plt_field(ax, Zs[label], style, wells=wells,
+                                  colorbar=False, title=None, **kwargs))
 
     # Suptitle
     if len(Zs) > len(axs):

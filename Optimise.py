@@ -63,7 +63,7 @@ model.prod_rates = rate0 * np.ones((4, 1)) / 4
 # Plot reservoir
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
-model.plt_field(ax, model.K[0], "perm", wells=True, colorbar=True);
+model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
 # ## Define simulations
@@ -90,7 +90,7 @@ def plot_final_sweep(model):
     title = "Final sweep" + (" -- " + model.name) if model.name else ""
     wsats, prods = simulate(model, wsat0)
     fig, ax = freshfig(title, figsize=(1, .6), rel=True)
-    model.plt_field(ax, wsats[-1], "oil", wells=True, colorbar=True)
+    model.plt_field(ax, wsats[-1], "oil")
     fig.tight_layout()
 
 plot_final_sweep(model)
@@ -275,7 +275,7 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.3}",
 # +
 # Plot objective
 fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], npvs, "NPV", wells=True, argmax=True, colorbar=True);
+model.plt_field(axs[0], npvs, "NPV", argmax=True);
 fig.tight_layout()
 
 # Optimize, plot
@@ -413,7 +413,7 @@ print(obj.__name__)
 # to show a possible layout.
 
 fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], model.K[0], "perm", wells=True, colorbar=True)
+model.plt_field(axs[0], model.K[0], "perm")
 fig.tight_layout()
 
 # #### Optimize
@@ -498,7 +498,7 @@ model = remake(model, **wells)
 # Show well layout
 
 fig, ax = freshfig("Triangle case", figsize=(1, .6), rel=True)
-model.plt_field(ax, model.K[0], "perm", wells=True, colorbar=True);
+model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
 

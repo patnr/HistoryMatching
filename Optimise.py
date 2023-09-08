@@ -22,7 +22,7 @@ import numpy as np
 import numpy.random as rnd
 import TPFA_ResSim as simulator
 from mpl_tools.place import freshfig
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm as progbar
 
 import tools.plotting as plotting
 from tools import geostat, mpl_setup, utils
@@ -75,8 +75,7 @@ nTime = round(T/dt)
 
 def simulate(model, wsat, pbar=False, leave=False):
     """Compute evolution in time of reservoir saturation field."""
-    integrator = model.time_stepper(dt)
-    wsats = simulator.recurse(integrator, nTime, wsat, pbar=pbar, leave=leave)
+    wsats = model.sim(dt, nTime, wsat, pbar=pbar, leave=leave)
     # Extract production time series from water saturation fields
     wells = model.xy2ind(*model.prod_xy.T)
     prods = np.array([wsat[wells] for wsat in wsats])
@@ -206,7 +205,7 @@ def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
     def backtrack(x0, J0, objective, search_direction):
         """Line search by bisection."""
         atol = max(1e-8, abs(J0)) * rtol
-        with tqdm(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
+        with progbar(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
             for i, step_length in enumerate(xSteps):
                 pbar.update(1)
                 dx = sign * step_length * search_direction

@@ -81,7 +81,6 @@ plt.legend();
 import copy
 import numpy.random as rnd
 import scipy.linalg as sla
-from matplotlib.ticker import LogLocator
 from mpl_tools.place import freshfig
 from numpy import sqrt
 from struct_tools import DotDict as Dict
@@ -237,7 +236,7 @@ dt = 0.025
 nTime = round(T/dt)
 wsat.init.Truth = np.zeros(model.Nxy)
 
-wsat.past.Truth = simulator.recurse(model.time_stepper(dt), nTime, wsat.init.Truth)
+wsat.past.Truth = model.sim(dt, nTime, wsat.init.Truth)
 prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 
 # #### Animation
@@ -356,7 +355,7 @@ def forward_model(wsat0, perm):
     set_perm(model_n, perm)
 
     # Run simulator
-    wsats = simulator.recurse(model_n.time_stepper(dt), nTime, wsat0, pbar=False)
+    wsats = model_n.sim(dt, nTime, wsat0, pbar=False)
     prods = np.array([obs_model(x) for x in wsats[1:]])  # extract prod time series
 
     # While we only really need the state at the *final* time (for future predictions),
@@ -1178,7 +1177,7 @@ plotting.fields(model, wsat_means, "oil", "Means");
 
 print("Future/prediction")
 
-wsat.futr.Truth = simulator.recurse(model.time_stepper(dt), nTime, wsat.curnt.Truth)
+wsat.futr.Truth = model.sim(dt, nTime, wsat.curnt.Truth)
 prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
 
 for methd in perm:

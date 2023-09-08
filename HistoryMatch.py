@@ -365,8 +365,8 @@ def forward_model(wsat0, perm):
     wsats = simulator.recurse(model_n.time_stepper(dt), nTime, wsat0, pbar=False)
     prods = np.array([obs_model(x) for x in wsats[1:]])  # extract prod time series
 
-    # While we only reall need the state at the *final* time (for future predictions),
-    # for possible diagnostic purposes we emit the full time series of wsats.
+    # While we only really need the state at the *final* time (for future predictions),
+    # for diagnostic purposes we emit the full time series of wsats.
     return wsats, prods
 
 # Note that the input to `forward_model` should contain **not only** permeability
@@ -385,7 +385,7 @@ wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
 # #### Run
 
-# A huge technical advantage of ensembel methods is that they are
+# A huge technical advantage of ensemble methods is that they are
 # "embarrasingly parallelizable", because each member simulation
 # is completely independent (requires no communication) from the others.
 # Configure the number of CPUs to use in `apply`. Can set to an `int` or False.

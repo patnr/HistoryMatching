@@ -60,6 +60,12 @@ model.prod_xy = xy_4corners
 model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
+# TODO: Should obs_model apply from time 0 (for unity)?
+def get_prods(wsats, model):
+    """Extract production saturation from water saturation (full field)."""
+    inds = model.xy2ind(*model.prod_xy.T)
+    return wsats.T[inds].T  # works on last axis *for any ndim*
+
 # Plot reservoir
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
@@ -73,21 +79,12 @@ T = 1
 dt = 0.025
 nTime = round(T/dt)
 
-def simulate(model, wsat, pbar=False, leave=False):
-    """Compute evolution in time of reservoir saturation field."""
-    wsats = model.sim(dt, nTime, wsat, pbar=pbar, leave=leave)
-    # Extract production time series from water saturation fields
-    wells = model.xy2ind(*model.prod_xy.T)
-    prods = np.array([wsat[wells] for wsat in wsats])
-    return wsats, prods
-
-
 # Let us plot the final sweep of the base model configuration.
 
 def plot_final_sweep(model):
     """Simulate reservoir, plot final oil saturation."""
+    wsats = model.sim(dt, nTime, wsat0, pbar=False)
     title = "Final sweep" + (" -- " + model.name) if model.name else ""
-    wsats, prods = simulate(model, wsat0)
     fig, ax = freshfig(title, figsize=(1, .6), rel=True)
     model.plt_field(ax, wsats[-1], "oil")
     fig.tight_layout()
@@ -135,18 +132,21 @@ def prod2npv(model, prods):
     cost = cost @ discounts[:-1]
     return value - .5*cost
 
-# Before applying `prod2npv`, the objective function must first compute the production,
-# which entails configuring and simulating the model.
+# Before applying `prod2npv`, the objective function must first compute the production.
+# Similar to the `forward_model` of the history matching tutorial,
+# this entails configuring and simulating the model,
+# but we do not need to implement the custom permability parameter setter.
 
 def npv(**kwargs):
     """NPV from model config."""
     try:
         new_model = remake(model, **kwargs)
-        wsats, prods = simulate(new_model, wsat0)
+        wsats = new_model.sim(dt, nTime, wsat0, pbar=False)
+        prods = get_prods(wsats, new_model)
+        return prod2npv(new_model, prods)
     except Exception:
-        return 0  # Invalid model params. Penalize.
         # Use `raise` for debugging.
-    return prod2npv(new_model, prods)
+        return 0  # Invalid model params. Penalize.
 
 # ## EnOpt
 
@@ -506,7 +506,8 @@ fig.tight_layout()
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
     new_model = remake(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
-    wsats, prods = simulate(new_model, wsat0)
+    wsats = new_model.sim(dt, nTime, wsat0, pbar=False)
+    prods = get_prods(wsats, new_model)
     print("NPV for these injection_rates:", f"{prod2npv(new_model, prods):.5f}")
     return wsats[-1]
 

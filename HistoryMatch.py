@@ -131,7 +131,6 @@ prod = Dict(
 
 # Water saturation
 wsat = Dict(
-    init = Dict(),
     past = Dict(),
     futr = Dict(),
 )
@@ -206,6 +205,16 @@ model.prod_rates = np.ones((nProd, 1)) / nProd
 # As detailed in the model docs, when `inj_rates.shape[1] == 1` (as above),
 # the rates do not vary in time.
 #
+# #### Observation operator
+# The data will consist in the water saturation of at the production well locations.
+# I.e. there is no well model. It should be pointed out, however, that ensemble
+# methods technically support (though your accuracy mileage may vary, again, depending
+# on the incurred nonlinearity and non-Gaussianity) observation models of any complexity.
+
+prod_inds = model.xy2ind(*model.prod_xy.T)
+def obs_model(water_sat):
+    return water_sat[prod_inds]
+
 # #### Plot
 # Let's take a moment to visualize the (true) model permeability field,
 # and the well locations.
@@ -215,28 +224,15 @@ fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 model.plt_field(ax, perm_transf(perm.Truth), "perm")
 fig.tight_layout()
 
-
-# #### Observation operator
-# The data will consist in the water saturation of at the well locations, i.e. of the
-# production. I.e. there is no well model. It should be pointed out, however, that
-# ensemble methods technically support observation models of any complexity, though your
-# accuracy mileage may vary (again, depending on the incurred nonlinearity and
-# non-Gaussianity). Furthermore, it is also no problem to include time-dependence in the
-# observation model.
-
-obs_inds = model.xy2ind(*model.prod_xy.T)
-def obs_model(water_sat):
-    return water_sat[obs_inds]
-
 # #### Simulation
 # The following generates the synthetic truth evolution and data.
 
 T = 1
 dt = 0.025
 nTime = round(T/dt)
-wsat.init.Truth = np.zeros(model.Nxy)
 
-wsat.past.Truth = model.sim(dt, nTime, wsat.init.Truth)
+wsat0 = np.zeros(model.Nxy)
+wsat.past.Truth = model.sim(dt, nTime, wsat0)
 prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 
 # #### Animation
@@ -340,18 +336,15 @@ plotting.spectrum(svals, "Prior cov.");
 # The forward model is generally a composite function.
 # In our simple case, it only consists of two steps:
 #
-# - The main work consists of running the reservoir simulator
-#   for each realisation in the ensemble.
-# - However, the simulator only inputs/outputs *state* variables,
-#   so we also have to take the necessary steps to set the *parameter* values.
+# - Setting the permeability *parameter* field.
+# - Running the reservoir simulator.
 #
-# This all has to be stitched together; this is not usually a pleasant task, though some
-# tools like [ERT](https://github.com/equinor/ert) have made it a little easier.
+# Stitching together a composite model is not usually a pleasant task.
+# Some tools like [ERT](https://github.com/equinor/ert) can make it a little easier.
 
-def forward_model(wsat0, perm):
-    """Forecast (composite) model for a *single* member (realisation)."""
-    # Set attribute params, w/o overwriting truth model
-    model_n = copy.deepcopy(model)
+def forward_model(perm, wsat0=wsat0):
+    """Forecast (composite) model."""
+    model_n = copy.deepcopy(model)  # don't overwrite truth model
     set_perm(model_n, perm)
 
     # Run simulator
@@ -362,19 +355,12 @@ def forward_model(wsat0, perm):
     # for diagnostic purposes we emit the full time series of wsats.
     return wsats, prods
 
-# Note that the input to `forward_model` should contain **not only** permeability
-# fields, but **also** the state (i.e. time-dependent, prognostic) variable,
-# i.e. water saturations.
+# The input to `forward_model` should contain **not only** permeability fields,
+# but **also** the state (i.e. time-dependent, prognostic) variable, i.e. water saturations.
 # Why? Because further below we'll be "restarting" (running) the simulator
 # from a later point in time (to generate future predictions) in which case
 # the saturation fields (which is also among the outputs) will depend on the
 # given permeability field, and hence vary from realisation to realisation.
-#
-# But for time 0, the saturations (in this case study) are not uncertain (unknown).
-# We can express this 100% certainty by setting each saturation field
-# equal to the *true* time-0 saturation (a constant field of 0).
-
-wsat.init.Prior = np.tile(wsat.init.Truth, (N, 1))
 
 # #### Run
 
@@ -390,7 +376,7 @@ utils.nCPU = "auto"
 # later, is part of the assimilation process.
 
 (wsat.past.Prior,
- prod.past.Prior) = apply(forward_model, wsat.init.Prior, perm.Prior)
+ prod.past.Prior) = apply(forward_model, perm.Prior)
 
 # #### Flattening the time dimension
 
@@ -608,7 +594,7 @@ fig.tight_layout()
 # As seen from `distances_to_obs` below, we will need the
 # locations of each observation and each unknown parameter.
 
-xy_obs = model.ind2xy(obs_inds)
+xy_obs = model.ind2xy(prod_inds)
 xy_prm = model.ind2xy(np.arange(model.Nxy))
 
 # However, as we saw from the correlation dashboard, the localization should be
@@ -974,7 +960,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
         stat.rmse += [utils.mnorm(E.mean(0) - perm.Truth, None)]
 
         # Forecast.
-        _, Eo = apply(forward_model, wsat.init.Prior, E, leave=False)
+        _, Eo = apply(forward_model, E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.
@@ -1102,7 +1088,7 @@ plotting.fields(model, perm_means, "pperm", "Means");
 for methd in perm:
     if methd not in prod.past:
         print(methd, ":")
-        s, p = apply(forward_model, wsat.init.Prior, perm[methd])
+        s, p = apply(forward_model, perm[methd])
         wsat.past[methd], prod.past[methd] = s, p
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
@@ -1183,7 +1169,7 @@ prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
 for methd in perm:
     if methd not in prod.futr:
         print(methd, ":")
-        s, p = apply(forward_model, wsat.curnt[methd], perm[methd])
+        s, p = apply(forward_model, perm[methd], wsat.curnt[methd])
         wsat.futr[methd], prod.futr[methd] = s, p
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)

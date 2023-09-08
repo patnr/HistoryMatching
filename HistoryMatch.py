@@ -151,40 +151,33 @@ wsat = Dict(
 # We will estimate the log permeability field.  We *parameterize* the permeability,
 # meaning that they are defined via some transform (function), which becomes part of the
 # forward model. We term the parameterized permeability fields "pre-permeability".
-#
-# *If* we use the exponential, then we will we working with log-permeabilities.
-# In any case, the transform should be chosen so that the parameterized permeabilities
-# are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this
-# consideration must be weighted against the fact that that nonlinearity (another
-# difficulty for ensemble methods) in the transform might add to the nonlinearity of
-# the total/composite forward model.
-#
-# Since this is a synthetic case, we can freely choose *both* the distribution of the
-# parameterized permeabilities, *and* the transform.  Here we use Gaussian fields, and a
-# almost-exponential function (to make the problem slightly trickier).
-
-def sample_prior_perm(N):
-    lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
-    return lperms
+# *If* we use the exponential, then we will be working with log-permeabilities.
+# Here we use an almost-exponential transform (presumably making the problem slightly trickier).
 
 def perm_transf(x):
     return .1 + np.exp(5*x)
     # return 1000*np.exp(3*x)
 
-# For any type of parameter, one typically has to write a "setter" function that takes
-# the vector of parameter parameter values, and applies it to the specific model
-# implementation. We could merge this functionality with `perm_transf` (and indeed the
-# "setter" function is also part of the composite forward model) but it is convenient to
-# separate these implementation specifics from the mathematics going on in
-# `perm_transf`.
+# In any case, the transform should be chosen so that the parameterized permeabilities
+# are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this
+# consideration must be weighted against the fact that that nonlinearity (another
+# difficulty for ensemble methods) in the transform might add to the nonlinearity of
+# the total/composite forward model.
+# Since this is a synthetic case, we can freely choose the distribution of the
+# parameterized permeabilities, which we take to be Gaussian.
+
+def sample_prior_perm(N):
+    lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
+    return lperms
+
+# For many kinds of parameters, one typically has to write "setter" functions that take
+# the vector of parameter parameter values, and apply it to the specific model implementation.
 
 def set_perm(model, log_perm_array):
     """Set perm. in model code (both x and y components)."""
     p = perm_transf(log_perm_array)
     p = p.reshape(model.shape)
-    model.Gridded.K = np.stack([p, p])
-
-# Now we are in position to sample the permeability of the (synthetic) truth.
+    model.K = np.stack([p, p])
 
 perm.Truth = sample_prior_perm(1)
 set_perm(model, perm.Truth)
@@ -194,7 +187,7 @@ set_perm(model, perm.Truth)
 # In this model, wells are represented simply by point **sources** and **sinks**.
 # This is of course incredibly basic and not realistic, but works for our purposes.
 # So all we need to specify is their placement and flux (which we will not vary in time).
-# The code below generates the coordinates of the 4 corners.
+# The code below generates the (x,y) coordinates of a point near each of the 4 corners.
 
 xy_4corners = np.dstack(np.meshgrid(
     np.array([.12, .87]) * model.Lx,
@@ -202,17 +195,18 @@ xy_4corners = np.dstack(np.meshgrid(
 )).reshape((-1, 2))
 
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
-# is incompressible, the total of the source terms must equal that of the sinks. This is
-# ensured by the `config_wells` function used below. We will not vary the rates in time.
+# is incompressible, the total of the source terms must equal that of the sinks.
+# If this is not the case, the model will raise an error when run.
 
 nProd = len(xy_4corners)
-model.config_wells(
-    inj_xy = [[0.50*model.Lx, 0.50*model.Ly]],
-    inj_rates = [[1]],
-    prod_xy = xy_4corners,
-    prod_rates = np.ones((nProd, 1)) / nProd,
-);
+model.inj_xy = [[0.50*model.Lx, 0.50*model.Ly]]
+model.inj_rates = [[1]]
+model.prod_xy = xy_4corners
+model.prod_rates = np.ones((nProd, 1)) / nProd
 
+# As detailed in the model docs, when `inj_rates.shape[1] == 1` (as above),
+# the rates do not vary in time.
+#
 # #### Plot
 # Let's take a moment to visualize the (true) model permeability field,
 # and the well locations.

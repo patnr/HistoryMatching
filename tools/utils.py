@@ -2,6 +2,7 @@
 
 import numpy as np
 import scipy.linalg as sla
+from tqdm.auto import tqdm
 
 
 def rinv(A, reg, tikh=True, nMax=None):
@@ -168,88 +169,54 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def apply(fun, *args, unzip=True, pbar=True, leave=True, desc=None, **kwargs):
-    """Apply `fun` along 0th axis of (zipped) `args` and `kwargs`.
+def apply(fun, *args, leave=True, desc=None, **kwargs):
+    """Apply `fun` along 0th axis of each `args` and `kwargs`.
 
-    Provides
-
-    - Multiprocessing.
-    - Alternative for-loop implementation for easier debugging.
-    - Zipping and unpacking `inputs`. NB: all of `inputs` must be iterable.
-    - If `unzip`: unpack output. NB: `fun` must output a *doubly* iterable.
+    - Multiprocess and progressbar (without installing `p_tqdm`).
     - Robust interpretation of `nCPU`.
-    - Emits progressbar.
-
-    Note: Only (but always) axis 0 is treated special (and requires length conformity).
-    This means that the input can be >2D, which is convenient,
-    but makes it impossible to say whether a 1d vector (i.e. neither row nor column)
-    is a single vector realisation or an ensemble.
-    ⇒ Cannot know whether to (i) show p-bar or (ii) squeeze output.
-    I.e. these decisions must be left to caller, which has more particulars.
+    - Alternative for-loop implementation for easier debugging.
+    - Zipping and unpacking `inputs`.
     """
-    # Set nCPU
-    global nCPU
-    is_int = type(nCPU) == int  # `isinstance(True, int)` is True
+    # Set nCore
+    is_int = type(nCPU) == int  # NB: `isinstance(True, int)` is True
     if not is_int and nCPU in [True, None, "auto"]:
-        nCPU = 999
+        nCore = 999
 
     # Convert kwargs to positional
     nPositional = len(args)
     args = list(args) + list(kwargs.values())
-
-    def ensure_equal_lengths(xx):
-        """Prevent losing data via `zip`."""
-        L = len(xx[0])
-        assert all(len(x) == L for x in xx)
-        return L
-
-    # Pack ("transpose") and atleast_2d (using lists, not np, for objs of any len).
-    ensure_equal_lengths(args)
-    xx = list(zip(*args))
-
-    # Unpacker for arg
-    def function_with_unpacking(x):
-        positional, named_vals = x[:nPositional], x[nPositional:]
-        kws = dict(zip(kwargs, named_vals))
+    # Translate zipped args for original `fun`
+    def fun1(x):
+        positional, named = x[:nPositional], x[nPositional:]
+        kws = dict(zip(kwargs, named))
         return fun(*positional, **kws)
+    # Zip (for `map` compatibility)
+    xx = list(zip(*args, strict=True))
 
-    # Setup or disable (be it with or w/o multiprocessing) tqdm.
-    if pbar:
-        tqdm_kws = dict(
-            desc=desc or f"{fun.__name__}'s",
-            total=len(xx),
-            leave=leave,
-        )
-    else:
-        tqdm_kws = dict(
-            # passthrough
-            tqdm=(lambda x, **_: x),
-        )
+    # tqdm settings
+    pbar = dict(total=len(args[0]), desc=desc, leave=leave)
 
-    # Main work
-    if nCPU > 1:
+    # Main
+    if nCore > 1:
         import multiprocessing
+        nCore = min(multiprocessing.cpu_count(), nCore)
 
+        # make np use only 1 core
         import threadpoolctl
-        from p_tqdm import p_map
-        nCPU = min(multiprocessing.cpu_count(), nCPU)
-        threadpoolctl.threadpool_limits(1)  # make np use only 1 core
-        yy = p_map(function_with_unpacking, xx, num_cpus=nCPU, **tqdm_kws)
+        threadpoolctl.threadpool_limits(1)
+
+        # Similar to built-in multiprocessing, but with improved pickle (dill)
+        from pathos.multiprocessing import ProcessPool
+        pool = ProcessPool(nCore)
+
+        # Map must be non-blocking (so that tqdm can update) and ordered ⇒ imap
+        # PS: the necessary blocking is provided by surrounding list().
+        output = list(tqdm(pool.imap(fun1, xx), **pbar))
+        pool.clear()
 
     else:
-        from tqdm.auto import tqdm
-        tqdm = tqdm_kws.pop('tqdm', tqdm)
-        # yy = tqdm(map(fun, xx), **tqdm_kws)
-        yy = []
-        for x in tqdm(xx, **tqdm_kws):
-            yy.append(function_with_unpacking(x))
+        output = []
+        for x in tqdm(xx, **pbar):
+            output.append(fun1(x))
 
-    # Unpack
-    if unzip:
-        ensure_equal_lengths(yy)
-        yy = list(zip(*yy))
-        yy = [np.asarray(y) for y in yy]
-    else:
-        yy = np.asarray(yy)
-
-    return yy
+    return output

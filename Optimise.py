@@ -60,7 +60,6 @@ model.prod_xy = xy_4corners
 model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
-# TODO: Should obs_model apply from time 0 (for unity)?
 def get_prods(wsats, model):
     """Extract production saturation from water saturation (full field)."""
     inds = model.xy2ind(*model.prod_xy.T)
@@ -93,7 +92,13 @@ plot_final_sweep(model)
 
 # Unlike the history matching tutorial, we will do several distinct "cases",
 # i.e. use different *base* model configuration (which are not changed by our methods).
-# We have therefore factored out the convenient parameter setter from the simulator.
+# We therefore factor define a convenient parameter setter from the rest of the forward model.
+# Note that we do not bother to implement/support permability parameterisation,
+# as in the previous tutorial.
+# Indeed, setting parameters is not generally such a trivial task as here.
+# It might involve reshaping arrays, translating units, read/write to file, etc.
+# Indeed, from a "task runner" perspective, there is no hard distinction between
+# writing parameters and running simulations.
 
 def remake(model, **kwargs):
     """Instantiate new model config."""
@@ -102,11 +107,6 @@ def remake(model, **kwargs):
         setattr(model, k, v)
     return model
 
-# Note that setting parameters is not generally such a trivial task as here.
-# It might involve reshaping arrays, translating units, read/write to file, etc.
-# Indeed, from a "task runner" perspective, there is no hard distinction between
-# writing parameters and running simulations.
-#
 # Let's store the base-base model.
 
 original_model = remake(model)
@@ -134,8 +134,7 @@ def prod2npv(model, prods):
 
 # Before applying `prod2npv`, the objective function must first compute the production.
 # Similar to the `forward_model` of the history matching tutorial,
-# this entails configuring and simulating the model,
-# but we do not need to implement the custom permability parameter setter.
+# this entails configuring and simulating the model.
 
 def npv(**kwargs):
     """NPV from model config."""
@@ -160,11 +159,6 @@ def npv(**kwargs):
 
 utils.nCPU = True
 
-def apply2(fun, arg, desc=None):
-    """Fix `unzip`, `leave`."""
-    return utils.apply(fun, arg, unzip=False, leave=False, desc=desc)
-
-
 # #### Ensemble gradient estimator
 # EnOpt consists of gradient descent with ensemble gradient estimation.
 # We wrap the gradient estimation function in another to fix its configuration parameters,
@@ -172,13 +166,14 @@ def apply2(fun, arg, desc=None):
 
 def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
     """Set parameters of `ens_grad`."""
+    pbar = dict(desc="ens_grad", leave=False)
     def ens_grad(obj, u):
         """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
         cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
         U = rnd.randn(nEns, len(u)) @ cholT
-        U, _ = utils.center(U)
-        J = apply2(obj, u + U, "ens_grad")
-        J, _ = utils.center(J)
+        U = utils.center(U)[0]
+        J = utils.apply(obj, u + U, **pbar)
+        J = utils.center(J)[0]
         if precond:
             g = U.T @ J / (nEns-1)
         else:
@@ -259,7 +254,8 @@ print(obj.__name__)
 # over its entire 2D domain, and plot it.
 
 XY = np.stack(model.mesh, -1).reshape((-1, 2))
-npvs = apply2(obj, XY, "obj(entire domain)")
+npvs = utils.apply(obj, XY, desc="obj(entire domain)")
+npvs = np.asarray(npvs)
 
 # We have in effect conducted an exhaustive computation of the objective function,
 # so that we already know the true, global, optimum:
@@ -321,7 +317,7 @@ y = model.Ly/2
 # This will be our approach for the subsequent case.
 
 xx = np.linspace(0, model.Lx, 201)
-npvs = apply2(obj, xx, "obj(entire domain)")
+npvs = utils.apply(obj, xx, desc="obj(entire domain)")
 
 # +
 # Plot objective
@@ -459,7 +455,7 @@ model = original_model
 # Plot
 
 rates = np.linspace(0.1, 5, 21)
-npvs = apply2(obj, rates, "Entire domain")
+npvs = utils.apply(obj, rates, desc="obj(entire domain)")
 
 # It makes sense that there is an optimal somewhere in the middle.
 # - Little water injection ⇒ little oil production.

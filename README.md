@@ -13,7 +13,7 @@
 Use this option for development, or if you simply want faster computations
 (your typical laptop is 10x faster than Google's free offering).
 
-#### Prerequisite: Python>=3.9
+#### Prerequisite: Python>=3.10
 
 If you're an expert, setup a python environment however you like.
 Otherwise:
@@ -22,12 +22,12 @@ open the [Anaconda terminal](https://docs.conda.io/projects/conda/en/latest/user
 and run the following commands:
 
 ```bash
-conda create --yes --name my-env python=3.9
+conda create --yes --name my-env python=3.10
 conda activate my-env
 python --version
 ```
 
-Ensure the printed version is 3.9 or more.  
+Ensure the printed version is 3.10 or higher.  
 *Keep using the same terminal for the commands below.*
 
 #### Install

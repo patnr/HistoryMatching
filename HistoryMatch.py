@@ -342,41 +342,47 @@ plotting.spectrum(svals, "Prior cov.");
 # Stitching together a composite model is not usually a pleasant task.
 # Some tools like [ERT](https://github.com/equinor/ert) can make it a little easier.
 
-def forward_model(perm, wsat0=wsat0):
-    """Forecast (composite) model."""
-    model_n = copy.deepcopy(model)  # don't overwrite truth model
-    set_perm(model_n, perm)
-
-    # Run simulator
-    wsats = model_n.sim(dt, nTime, wsat0, pbar=False)
-    prods = np.array([obs_model(x) for x in wsats[1:]])  # extract prod time series
-
-    # While we only really need the state at the *final* time (for future predictions),
-    # for diagnostic purposes we emit the full time series of wsats.
+def comp1(perm, wsat0=wsat0):
+    """Composite forward/forecast/prediction model (for 1 realisation)."""
+    new_model = copy.deepcopy(model)                    # don't overwrite truth model
+    set_perm(new_model, perm)                           # set parameters
+    wsats = new_model.sim(dt, nTime, wsat0, pbar=False) # run simulator
+    prods = np.array([obs_model(x) for x in wsats[1:]]) # extract prod time series
     return wsats, prods
 
-# The input to `forward_model` should contain **not only** permeability fields,
+# Note that the input to `forward_model` can contain **not only** permeability fields,
 # but **also** the state (i.e. time-dependent, prognostic) variable, i.e. water saturations.
 # Why? Because further below we'll be "restarting" (running) the simulator
 # from a later point in time (to generate future predictions) in which case
 # the saturation fields (which is also among the outputs) will depend on the
 # given permeability field, and hence vary from realisation to realisation.
+# Thus, the state need only be outputted at the *final* time (for future prediction),
+# but for diagnostic purposes we emit the full time series of wsats.
 
-# #### Run
+# #### Parallelize
 
 # A huge technical advantage of ensemble methods is that they are
 # "embarrasingly parallelizable", because each member simulation
 # is completely independent (requires no communication) from the others.
+
+def forward_model(*args, **kwargs):
+    """Parallelize forward model (`comp1`)."""
+    kwargs = dict(dict(desc="Ens-run", leave=True), **kwargs)
+    output = apply(comp1, *args, **kwargs)
+    return [np.asarray(y) for y in zip(*output)]
+
 # Configure the number of CPUs to use in `apply`. Can set to an `int` or False.
 
 utils.nCPU = "auto"
+
+# #### Run
 
 # Now that our forward model is ready, we can make prior estimates of the saturation
 # evolution and production. This is interesting in and of itself and, as we'll see
 # later, is part of the assimilation process.
 
 (wsat.past.Prior,
- prod.past.Prior) = apply(forward_model, perm.Prior)
+ prod.past.Prior) = forward_model(perm.Prior)
 
 # #### Flattening the time dimension
 
@@ -955,12 +961,12 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     w      = np.zeros(N)  # Control vector for the mean state.
     T      = np.eye(N)    # Anomalies transform matrix.
 
-    for itr in progbar(range(nIter), desc="Iter"):
+    for itr in progbar(range(nIter), desc="Iter.ES"):
         # Compute rmse (vs. supposedly unknown Truth)
         stat.rmse += [utils.mnorm(E.mean(0) - perm.Truth, None)]
 
         # Forecast.
-        _, Eo = apply(forward_model, E, leave=False)
+        _, Eo = forward_model(E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.
@@ -1087,9 +1093,8 @@ plotting.fields(model, perm_means, "pperm", "Means");
 
 for methd in perm:
     if methd not in prod.past:
-        print(methd, ":")
-        s, p = apply(forward_model, perm[methd])
-        wsat.past[methd], prod.past[methd] = s, p
+        (wsat.past[methd],
+         prod.past[methd]) = forward_model(perm[methd], desc=methd)
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
 # A particularly interesting case is applying it to the prior's production predictions.
@@ -1163,14 +1168,13 @@ plotting.fields(model, wsat_means, "oil", "Means");
 
 print("Future/prediction")
 
-wsat.futr.Truth = model.sim(dt, nTime, wsat.curnt.Truth)
-prod.futr.Truth = np.array([obs_model(x) for x in wsat.futr.Truth[1:]])
+(wsat.futr.Truth,
+ prod.futr.Truth) = comp1(perm.Truth, wsat.curnt.Truth)
 
 for methd in perm:
     if methd not in prod.futr:
-        print(methd, ":")
-        s, p = apply(forward_model, perm[methd], wsat.curnt[methd])
-        wsat.futr[methd], prod.futr[methd] = s, p
+        (wsat.futr[methd],
+         prod.futr[methd]) = forward_model(perm[methd], wsat.curnt[methd], desc=methd)
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
 

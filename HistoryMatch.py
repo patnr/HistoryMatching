@@ -188,17 +188,17 @@ set_perm(model, perm.Truth)
 # So all we need to specify is their placement and flux (which we will not vary in time).
 # The code below generates the (x,y) coordinates of a point near each of the 4 corners.
 
-xy_4corners = np.dstack(np.meshgrid(
-    np.array([.12, .87]) * model.Lx,
-    np.array([.12, .87]) * model.Ly,
-)).reshape((-1, 2))
+near01 = np.array([.12, .87])
+xy_4corners = [[x, y]
+               for y in model.Ly*near01
+               for x in model.Lx*near01]
 
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
 # is incompressible, the total of the source terms must equal that of the sinks.
 # If this is not the case, the model will raise an error when run.
 
 nProd = len(xy_4corners)
-model.inj_xy = [[0.50*model.Lx, 0.50*model.Ly]]
+model.inj_xy = [[model.Lx/2, model.Ly/2]]
 model.inj_rates = [[1]]
 model.prod_xy = xy_4corners
 model.prod_rates = np.ones((nProd, 1)) / nProd

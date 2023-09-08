@@ -46,16 +46,16 @@ model.K = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, 1, r=0.8))
 # #### Wells
 # List of coordinates (x, y) of the 4 cornerns of the rectangular domain
 
-xy_4corners = np.dstack(np.meshgrid(
-    np.array([.12, .87]) * model.Lx,
-    np.array([.12, .87]) * model.Ly,
-)).reshape((-1, 2))
+near01 = np.array([.12, .87])
+xy_4corners = [[x, y]
+               for y in model.Ly*near01
+               for x in model.Lx*near01]
 
 # Suggested total rate of production (total rate of injection must be the same).
 
 rate0 = 1.5
 
-model.inj_xy  = [[model.Lx/2, model.Ly/2]]
+model.inj_xy = [[model.Lx/2, model.Ly/2]]
 model.prod_xy = xy_4corners
 model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4

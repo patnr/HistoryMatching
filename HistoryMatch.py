@@ -647,6 +647,7 @@ distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 # function below, which generates the folowing plotted data.
 
 def corr_wells(N, t, well, localize, radi, sharp):
+    t = t - 1
     if not localize:
         N = -1
     C = utils.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
@@ -663,7 +664,7 @@ corr_wells.controls = dict(
     radi=(0.1, 5),
     sharp=(-1.0, 1),
     N=(2, N),
-    t=(0, nTime-1),
+    t=(1, nTime),
     well=np.arange(nProd),
 )
 

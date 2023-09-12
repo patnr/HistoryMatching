@@ -3,9 +3,9 @@
 #
 # Copyright Patrick N. Raanes, NORCE, 2023.
 #
-# This is a self-contained tutorial on production optimisation using ensemble methods.
-# - Please have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
-#   for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
+# This is a tutorial on production optimisation using ensemble methods.
+# Please also have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
+# for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
 #
 # If you're on **Google Colab**, run the cell below to install the requirements.
 # Otherwise (and assuming you have done the installation described in the README),
@@ -39,7 +39,8 @@ np.set_printoptions(precision=6)
 
 model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1, name="Base model")
 
-# #### Perm
+# #### Permeability
+
 seed = rnd.seed(3)
 model.K = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, 1, r=0.8))
 
@@ -65,7 +66,7 @@ def get_prods(wsats, model):
     inds = model.xy2ind(*model.prod_xy.T)
     return wsats.T[inds].T  # works on last axis *for any ndim*
 
-# Plot reservoir
+# #### Plot
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
@@ -261,7 +262,7 @@ npvs = np.asarray(npvs)
 # so that we already know the true, global, optimum:
 
 argmax = npvs.argmax()
-print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.3}",
+print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
       "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
 
 # Note that the optimum is not quite in the centre of the domain,
@@ -271,13 +272,13 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.3}",
 # Plot objective
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], npvs, "NPV", argmax=True);
-fig.tight_layout()
 
 # Optimize, plot
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = GD(obj, u0, nabla_ens(.1))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
+fig.tight_layout()
 # -
 
 # ##### Comments
@@ -332,7 +333,6 @@ for i, u0 in enumerate(u0s):
     shift = .3*i  # for visual distinction
     ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
 fig.tight_layout()
-
 # -
 
 # Note that the objective functions appears to jump at regular intervals.
@@ -358,20 +358,22 @@ model = remake(model,
 # Because of its Gaussian character, its gradient estimation will often sample points
 # outside of the domain.
 # This won't crash our optimisation, since the `npv` function
-# catches all exceptions and converts them to a penatly,
+# catches all exceptions and converts them to a penalty,
 # but the gradient near the border will then seem to indicate that the border is a bad place to be,
 # which is not necessarily the case.
 #
-# - One quickfix to this problem
-# (but more technically demanding that the penalization already in place)
-# is to truncate the ensemble members to the valid domain.
-# - Another alternative (ref. Mathias) is to use a non-Gaussian generalisation of EnOpt that samples
-# from a Beta (e.g.) distribution, and uses a different formula than LLS regression
-# to estimate the average gradient. This is one more degree of technical overhead.
-# - Another alternative is to transform the control variables
-# so that the domain is the whole of $\mathcal{R}^d$.
-# Note that this is not an approach for constrained optimisation in general:
-# we can only constrain the control variables, not functions thereof.
+# - One quickfix to this issue is to truncate the ensemble members to the valid domain.
+# - A more sophisticated alternative is to use a non-Gaussian generalisation
+#   of EnOpt that samples from a Beta (e.g.) distribution,
+#   and uses a different formula than LLS regression to estimate the average gradient (ref. Mathias).
+# - The above two solutions are somewhat technically demanding,
+#   since they require communicating the boundaries to the gradient estimator.
+#   A simpler solution is to transform the control variables
+#   so that the domain is the whole of $\mathcal{R}^d$.
+#
+# Note that these approaches can only constrain the control variables themselves,
+# not functions thereof (e.g. there might be rate constraints, while the control
+# variables are actually pressures, WBHP).
 #
 # Below, we take the transformation approach.
 
@@ -394,34 +396,33 @@ model = remake(model,
 
 # The objective function is otherwise unchanged.
 
+# +
 def npv_xy_transf(xys):
     return npv_inj_xy(coordinate_transform(xys))
 
 obj = npv_xy_transf
 print(obj.__name__)
+# -
 
-# #### Show well layout
 # The objective is now a function of `2*nInj = 4` variables.
 # It is therefore difficult to plot (requires cross-sections or other projections)
 # and anyway computing it would be `nPixels_per_dim^nInj` times more costly.
-# We therefore just plot the (known) permeability field along with the wells,
-# to show a possible layout.
+# We therefore just plot the (known) permeability field along with initial well layout.
 
-fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], model.K[0], "perm")
-fig.tight_layout()
-
-# #### Optimize
-
+# +
+# Optimize
 u0 = np.ravel(inj_xys0)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = coordinate_transform(path)
 
-# #### Plot optimisation trajectory
+fig, axs = plotting.figure12(obj.__name__)
+model.plt_field(axs[0], model.K[0], "perm")
 
+# Plot optimisation trajectory
 plotting.add_path12(*axs, path[:, :2], objs, color='C1')
 plotting.add_path12(*axs, path[:, 2:], color='C3')
 fig.tight_layout()
+# -
 
 # #### Plot final sweep
 
@@ -431,12 +432,16 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 
 # Like above, we need to pre-compute something before computing the `npv`.
 
+# +
 def npv_in_rates(inj_rates):
     prod_rates = equalize_prod(inj_rates)
     return npv(inj_rates=inj_rates, prod_rates=prod_rates)
 
 obj = npv_in_rates
 print(obj.__name__)
+
+
+# -
 
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint).
@@ -457,7 +462,7 @@ model = original_model
 rates = np.linspace(0.1, 5, 21)
 npvs = utils.apply(obj, rates, desc="obj(entire domain)")
 
-# It makes sense that there is an optimal somewhere in the middle.
+# It makes sense that there is an optimum somewhere in the middle.
 # - Little water injection ⇒ little oil production.
 # - Much water injection ⇒ very pricey, whereas reservoir contains finite amount of oil.
 

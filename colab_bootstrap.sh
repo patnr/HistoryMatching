@@ -24,7 +24,7 @@ main () {
 
     # Put repo contents (including hidden files) in PWD
     shopt -s dotglob
-    cp -r REPO/* ./
+    cp -r REPO/notebooks/* ./
 }
 
 # Only run if we're on colab

@@ -489,7 +489,7 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
-def figure12(title="", *args, figsize=(11, 3), **kwargs):
+def figure12(title="", *args, figsize=(10, 3), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
     title = dash_join("Optim. trajectories", title)
     fig, _ax = place.freshfig(title, *args, figsize=figsize, **kwargs)

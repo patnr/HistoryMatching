@@ -185,13 +185,14 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
     # Convert kwargs to positional
     nPositional = len(args)
     args = list(args) + list(kwargs.values())
-    # Translate zipped args for original `fun`
-    def fun1(x):
+    # Zip, i.e. transpose, for `map` compatibility
+    argsT = list(zip(*args, strict=True))
+
+    def _fun(x):
+        """Unpack zipped args `x` and call `fun`."""
         positional, named = x[:nPositional], x[nPositional:]
         kws = dict(zip(kwargs, named))
         return fun(*positional, **kws)
-    # Zip (for `map` compatibility)
-    xx = list(zip(*args, strict=True))
 
     # tqdm settings
     pbar = dict(total=len(args[0]), desc=desc, leave=leave)
@@ -211,12 +212,12 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
 
         # Map must be non-blocking (so that tqdm can update) and ordered ⇒ imap
         # PS: the necessary blocking is provided by surrounding list().
-        output = list(tqdm(pool.imap(fun1, xx), **pbar))
+        output = list(tqdm(pool.imap(_fun, argsT), **pbar))
         pool.clear()
 
     else:
         output = []
-        for x in tqdm(xx, **pbar):
-            output.append(fun1(x))
+        for x in tqdm(argsT, **pbar):
+            output.append(_fun(x))
 
     return output

@@ -116,22 +116,33 @@ original_model = remake(model)
 
 # Convert production saturation time series to cumulative monetary value.
 
+COST_OF_INJ = 0.5
+
 def prod2npv(model, prods):
-    """Net present value (NPV), i.e. discounted, total oil production."""
-    discounts = .99 ** np.arange(nTime + 1)
+    """Discounted net present value."""
+    return (prod2sales(model, prods) -
+            prod2emissions(model, prods) * COST_OF_INJ)
+
+discounts = .99 ** np.arange(nTime + 1)  # TODO: apply in prod2npv
+
+def prod2sales(model, prods):
     prods = 1 - prods                   # water --> oil
     prods = prods * model.prod_rates.T  # volume = saturation * rate
     prods = np.sum(prods, -1)           # sum over wells
-    value = prods @ discounts           # sum in time, incld. discount factors
-    # Compute cost of water injection
-    # PS: We don't bother with cost of water production,
-    # since it is implicitly approximated by reduction in oil production.
+    sales = prods @ discounts           # sum in time, incld. discount factors
+    return sales
+
+# Compute cost of water injection.
+# PS: We don't bother with cost of water production,
+# since it is implicitly approximated by reduction in oil production.
+
+def prod2emissions(model, prods):
     inj_rates = model.inj_rates
     if inj_rates.shape[1] == 1:
         inj_rates = np.tile(inj_rates, (1, nTime))
     cost = np.sum(inj_rates, 0)
     cost = cost @ discounts[:-1]
-    return value - .5*cost
+    return cost
 
 # Before applying `prod2npv`, the objective function must first compute the production.
 # Similar to the `forward_model` of the history matching tutorial,
@@ -536,3 +547,76 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # Now try setting
 # the resulting suggested values in the interactive widget above.
 # Were you able to find equally good settings?
+
+# ## Case: 5-spot similar to Angga. Pareto front
+# Compared to Angga:
+#
+# - No compressibility
+# - 20x20 vs. 60x60
+# - Simplified geology (permeability)
+# - Injection is constant in time and across wells
+#
+# Only the 1st item is hard to change.
+
+# +
+model.prod_xy = [[model.Lx/2, model.Ly/2]]
+model.inj_xy = xy_4corners
+model.prod_rates  = rate0 * np.ones((1, 1)) / 1
+model.inj_rates = rate0 * np.ones((4, 1)) / 4
+
+plot_final_sweep(model)
+
+
+# +
+def npv_in_rates(prod_rates):
+    return npv(inj_rates=equalize_inj(prod_rates),
+               prod_rates=prod_rates)
+
+obj = npv_in_rates
+print(obj.__name__)
+
+def equalize_inj(rates):
+    """Distribute the total rate equally among injectors."""
+    nInj = len(model.inj_xy)
+    nProd = len(model.prod_xy)
+    total_rates = rates.reshape((nProd, -1)).sum(0)
+    return np.tile(total_rates / nInj, (nInj, 1))
+# -
+
+# ### Optimize
+
+fig, ax = freshfig(obj.__name__ + " v2", figsize=(1, .8), rel=True)
+rates = np.logspace(-2, 1, 31)
+optimal_rates = []
+# cost_factors = [.01, .04, .1, .4, .9, .99]
+cost_factors = np.arange(.1, 1, .1)
+for i, COST_OF_INJ in enumerate(cost_factors):
+    npvs = utils.apply(obj, rates, desc="obj(entire domain)")
+    ax.plot(rates, npvs, label=f"{COST_OF_INJ:.1}")
+    path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
+    optimal_rates.append(path[-1])
+ax.set_ylim(1e-2)
+ax.legend(title="COST_OF_INJ")
+ax.set(xlabel="rate", ylabel="NPV")
+fig.tight_layout()
+ax.grid()
+
+# ### Pareto front
+# Breakdown npv (into emissions and sales) for optima
+
+sales = []
+emissions = []
+for i, prod_rates in enumerate(optimal_rates):
+    new_model = remake(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
+    wsats = new_model.sim(dt, nTime, wsat0, pbar=True, leave=False)
+    prods = get_prods(wsats, new_model)
+
+    sales.append(prod2sales(new_model, prods))
+    emissions.append(prod2emissions(new_model, prods)) # * COST_OF_INJ
+
+
+fig, ax = freshfig("Pareto front (npv-optimal settings for range of COST_OF_INJ)", figsize=(1, .8), rel=True)
+ax.grid()
+ax.set(xlabel="sales", ylabel="emissions")
+ax.plot(sales, emissions, "o-")
+fig.tight_layout()

@@ -77,6 +77,7 @@ def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
     funC = V * ews
     if sym_square:
         # Optional, since not necessary e.g. for cholesky factors (for sampling)
+        # But, without it the sqrtm is beholden to the "vagaries" of lapack version?
         funC = funC @ V.T
     return funC
 
@@ -91,7 +92,7 @@ def gaussian_fields(pts, N=1, r=0.2):
     dists  = dist_euclid(vectorize(*pts))
     Cov    = 1 - variogram_gauss(dists, r)
     # C12    = sla.sqrtm(Cov).real  # unstable for len(Cov) >≈ 20
-    C12    = funm_psd(Cov, np.sqrt, sym_square=False)
+    C12    = funm_psd(Cov, np.sqrt, sym_square=True)
     fields = randn(N, len(C12.T)) @ C12.T
     return fields
 

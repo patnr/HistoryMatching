@@ -312,17 +312,11 @@ fig.tight_layout()
 plotting.fields(model, perm.Prior, "pperm", "Prior");
 
 # #### Variance/Spectrum
-# In practice, of course, we would not be using an explicit `Cov` matrix when generating
-# the prior ensemble, because it would be too large.  However, since this synthetic case
-# in being made that way, let's inspect its spectrum.
+# In practice we would not be using an explicit `Cov` matrix when generating
+# the prior ensemble, because it would be too large. However, we could inspect the spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
 plotting.spectrum(svals, "Prior cov.");
-
-# With our limited ensemble size, we see no clear cutoff index. In other words, we are
-# not so fortunate that the prior is implicitly restricted to some subspace that is of
-# lower rank than our ensemble. This is a very realistic situation, and indicates that
-# localization (implemented further below) will be very beneficial.
 
 # ## Forward model
 

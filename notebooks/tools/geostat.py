@@ -47,6 +47,40 @@ def dist_euclid(X):
     return np.sqrt(d2)
 
 
+def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
+    """Matrix function evaluation for pos-sem-def mat.
+
+    Adapted from `sla.funm` doc.
+
+    Note: small `rk` and `driver="evx"` should be faster,
+    but in my (simple but hopefully relevant) trials
+    sticking with the default "evr" and `rk=None` is usually faster.
+
+    Example
+    -------
+    >>> def sqrtm(C):
+    ...     return funm_psd(C, sqrt)
+    """
+    # EVD -- possibly truncated (for speed)
+    idx = [max(0, len(C)-rk), len(C)-1] if rk else None
+    ews, V = sla.eigh(C, subset_by_index=idx, **kwargs)
+
+    # Truncate (for stability) -- NB: ordering low-->high!
+    nNull = sum(ews <= rtol*ews.max())
+    ews = ews[nNull:]
+    V = V[:, nNull:]
+
+    # Apply
+    ews = fun(ews)
+
+    # Reconstruct
+    funC = V * ews
+    if sym_square:
+        # Optional, since not necessary e.g. for cholesky factors (for sampling)
+        funC = funC @ V.T
+    return funC
+
+
 def gaussian_fields(pts, N=1, r=0.2):
     """Random field generation.
 
@@ -56,22 +90,26 @@ def gaussian_fields(pts, N=1, r=0.2):
     """
     dists  = dist_euclid(vectorize(*pts))
     Cov    = 1 - variogram_gauss(dists, r)
-    C12    = sla.sqrtm(Cov).real
-    fields = randn(N, len(dists)) @ C12.T
+    # C12    = sla.sqrtm(Cov).real  # unstable for len(Cov) >≈ 20
+    C12    = funm_psd(Cov, np.sqrt, sym_square=False)
+    fields = randn(N, len(C12.T)) @ C12.T
     return fields
 
 
 if __name__ == "__main__":
     from TPFA_ResSim.grid import Grid2D
 
-    np.random.seed(3000)
+    # np.random.seed(3000)
     plt.ion()
-    N = 15  # ensemble size
+    N = 12  # ensemble size
 
     ## 1D
     xx = np.linspace(0, 1, 201)
     fields = gaussian_fields((xx,), N)
-    fig, ax = plt.subplots(num="1D-fields")
+
+    fignum = "1D-fields"
+    plt.figure(num=fignum).clear()
+    fig, ax = plt.subplots(num=fignum)
     ax.plot(xx, fields.T, lw=2)
 
     ## 2D

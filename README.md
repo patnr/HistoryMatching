@@ -1,11 +1,12 @@
 # History matching tutorial
 
+![Screenshots](./screenshots.png)
+
 ## Run in the cloud (no installation required)
 
-- on Colab (requires Google login):  
+- on Colab (requires Google login):
   [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patnr/HistoryMatching)
-- on a NORCE server (only available at specific times,
-  to specific users):  
+- on a NORCE server (not generally available):
   [![JupyterHub](https://img.shields.io/static/v1?label=JupyterHub&message=by%20DIGIRES&logo=jupyter&color=blue)](https://jupyterhub.fredagsmorgen.no/hub?next=%2Fuser-redirect%2Fgit-pull?repo%3Dhttps%253A%252F%252Fgithub.com%252Fpatricknraanes%252FHistoryMatching%26branch%3Dmaster)
 
 ## OR: install

@@ -72,7 +72,29 @@ fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
-# ## Define simulations
+# #### Setter
+# Unlike the history matching tutorial, we define a parameter setter also
+# outside of the forward model. This will be convenient since we will do
+# several distinct "cases", i.e. model configurations with differences not
+# generated via our methods.  On the other hand, we do not bother to
+# implement/support permability parameterisation, as in the previous tutorial.
+# Note that setting parameters is not generally as trivial a task as it is here.
+# It might involve reshaping arrays, translating units, read/write to file, etc.
+# Indeed, from a "task runner" perspective, there is no hard distinction between
+# writing parameters and running simulations.
+
+def remake(model, **kwargs):
+    """Instantiate new model config."""
+    model = copy.deepcopy(model)
+    for k, v in kwargs.items():
+        setattr(model, k, v)
+    return model
+
+# Let's store the base-base model.
+
+original_model = remake(model)
+
+# #### Define simulations
 
 wsat0 = np.zeros(model.Nxy)
 T = 1
@@ -90,27 +112,6 @@ def plot_final_sweep(model):
     fig.tight_layout()
 
 plot_final_sweep(model)
-
-# Unlike the history matching tutorial, we will do several distinct "cases",
-# i.e. use different *base* model configuration (which are not changed by our methods).
-# We therefore factor define a convenient parameter setter from the rest of the forward model.
-# Note that we do not bother to implement/support permability parameterisation,
-# as in the previous tutorial.
-# Indeed, setting parameters is not generally such a trivial task as here.
-# It might involve reshaping arrays, translating units, read/write to file, etc.
-# Indeed, from a "task runner" perspective, there is no hard distinction between
-# writing parameters and running simulations.
-
-def remake(model, **kwargs):
-    """Instantiate new model config."""
-    model = copy.deepcopy(model)
-    for k, v in kwargs.items():
-        setattr(model, k, v)
-    return model
-
-# Let's store the base-base model.
-
-original_model = remake(model)
 
 # ## NPV objective function
 
@@ -559,6 +560,7 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # Only the 1st item is hard to change.
 
 # +
+model.name = "Angga"
 model.prod_xy = [[model.Lx/2, model.Ly/2]]
 model.inj_xy = xy_4corners
 model.prod_rates  = rate0 * np.ones((1, 1)) / 1

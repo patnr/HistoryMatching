@@ -121,16 +121,15 @@ COST_OF_INJ = 0.5
 
 def prod2npv(model, prods):
     """Discounted net present value."""
-    return (prod2sales(model, prods) -
-            inj_costs(model) * COST_OF_INJ)
+    return (prod2sales(model, prods) - inj_costs(model) * COST_OF_INJ)
 
 discounts = .99 ** np.arange(nTime + 1)  # TODO: apply in prod2npv
 
 def prod2sales(model, prods):
-    prods = 1 - prods                   # water --> oil
-    prods = prods * model.prod_rates.T  # volume = saturation * rate
-    prods = np.sum(prods, -1)           # sum over wells
-    sales = prods @ discounts           # sum in time, incld. discount factors
+    prods = 1 - prods            # water --> oil
+    prods *= model.prod_rates.T  # volume = saturation * rate
+    prods = np.sum(prods.T, 0)   # sum over wells
+    sales = prods @ discounts    # sum in time, incld. discount factors
     return sales
 
 # Compute cost of water injection.
@@ -150,7 +149,7 @@ def inj_costs(model):
 # this entails configuring and simulating the model.
 
 def npv(**kwargs):
-    """NPV from model config."""
+    """Discounted net present value (NPV) from model config."""
     try:
         new_model = remake(model, **kwargs)
         wsats = new_model.sim(dt, nTime, wsat0, pbar=False)

@@ -118,11 +118,15 @@ def prod2npv(model, wsats):
     """Discounted net present value."""
     return (oil_productions(model, wsats) - inj_costs(model) * COST_OF_INJ)
 
-discounts = .99 ** np.arange(nTime + 1)
+discounts = .99 ** np.arange(nTime)
 
 def oil_productions(model, wsats):
-    prods = wsats[..., model.xy2ind(*model.prod_xy.T)] # saturations
-    prods = 1 - prods            # water --> oil
+    # Get saturation time series (with trapezoid approx) for each well.
+    well_inds = model.xy2ind(*model.prod_xy.T)
+    saturations = 0.5 * (wsats[:-1, well_inds] +
+                         wsats[+1:, well_inds])
+
+    prods = 1 - saturations      # water --> oil
     prods *= model.prod_rates.T  # volume = saturation * rate
     prods = np.sum(prods.T, 0)   # sum over wells
     sales = prods @ discounts    # sum in time, incld. discount factors
@@ -137,7 +141,7 @@ def inj_costs(model):
     if inj_rates.shape[1] == 1:
         inj_rates = np.tile(inj_rates, (1, nTime))
     cost = np.sum(inj_rates, 0)
-    cost = cost @ discounts[:-1]
+    cost = cost @ discounts
     return cost
 
 # Before applying `prod2npv`, the objective function must first compute the production.

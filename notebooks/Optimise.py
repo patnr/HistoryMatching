@@ -61,11 +61,6 @@ model.prod_xy = xy_4corners
 model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
-def get_prods(wsats, model):
-    """Extract production saturation from water saturation (full field)."""
-    inds = model.xy2ind(*model.prod_xy.T)
-    return wsats.T[inds].T  # works on last axis *for any ndim*
-
 # #### Plot
 
 fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
@@ -119,13 +114,14 @@ plot_final_sweep(model)
 
 COST_OF_INJ = 0.5
 
-def prod2npv(model, prods):
+def prod2npv(model, wsats):
     """Discounted net present value."""
-    return (prod2sales(model, prods) - inj_costs(model) * COST_OF_INJ)
+    return (oil_productions(model, wsats) - inj_costs(model) * COST_OF_INJ)
 
-discounts = .99 ** np.arange(nTime + 1)  # TODO: apply in prod2npv
+discounts = .99 ** np.arange(nTime + 1)
 
-def prod2sales(model, prods):
+def oil_productions(model, wsats):
+    prods = wsats[..., model.xy2ind(*model.prod_xy.T)] # saturations
     prods = 1 - prods            # water --> oil
     prods *= model.prod_rates.T  # volume = saturation * rate
     prods = np.sum(prods.T, 0)   # sum over wells
@@ -153,8 +149,7 @@ def npv(**kwargs):
     try:
         new_model = remake(model, **kwargs)
         wsats = new_model.sim(dt, nTime, wsat0, pbar=False)
-        prods = get_prods(wsats, new_model)
-        return prod2npv(new_model, prods)
+        return prod2npv(new_model, wsats)
     except Exception:
         # Use `raise` for debugging.
         return 0  # Invalid model params. Penalize.
@@ -519,8 +514,7 @@ def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
     new_model = remake(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
     wsats = new_model.sim(dt, nTime, wsat0, pbar=False)
-    prods = get_prods(wsats, new_model)
-    print("NPV for these injection_rates:", f"{prod2npv(new_model, prods):.5f}")
+    print("NPV for these injection_rates:", f"{prod2npv(new_model, wsats):.5f}")
     return wsats[-1]
 
 
@@ -610,9 +604,7 @@ emissions = []
 for i, prod_rates in enumerate(optimal_rates):
     new_model = remake(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
     wsats = new_model.sim(dt, nTime, wsat0, pbar=True, leave=False)
-    prods = get_prods(wsats, new_model)
-
-    sales.append(prod2sales(new_model, prods))
+    sales.append(oil_productions(new_model, wsats))
     emissions.append(inj_costs(new_model)) # * COST_OF_INJ
 
 

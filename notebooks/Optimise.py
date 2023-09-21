@@ -122,7 +122,7 @@ COST_OF_INJ = 0.5
 def prod2npv(model, prods):
     """Discounted net present value."""
     return (prod2sales(model, prods) -
-            prod2emissions(model, prods) * COST_OF_INJ)
+            inj_costs(model) * COST_OF_INJ)
 
 discounts = .99 ** np.arange(nTime + 1)  # TODO: apply in prod2npv
 
@@ -137,7 +137,7 @@ def prod2sales(model, prods):
 # PS: We don't bother with cost of water production,
 # since it is implicitly approximated by reduction in oil production.
 
-def prod2emissions(model, prods):
+def inj_costs(model):
     inj_rates = model.inj_rates
     if inj_rates.shape[1] == 1:
         inj_rates = np.tile(inj_rates, (1, nTime))
@@ -614,7 +614,7 @@ for i, prod_rates in enumerate(optimal_rates):
     prods = get_prods(wsats, new_model)
 
     sales.append(prod2sales(new_model, prods))
-    emissions.append(prod2emissions(new_model, prods)) # * COST_OF_INJ
+    emissions.append(inj_costs(new_model)) # * COST_OF_INJ
 
 
 fig, ax = freshfig("Pareto front (npv-optimal settings for range of COST_OF_INJ)", figsize=(1, .8), rel=True)

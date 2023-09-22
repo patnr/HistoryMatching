@@ -280,8 +280,8 @@ def npv_inj_xy(xys):
     return npv(model, inj_xy=xys)[0]
 
 obj = npv_inj_xy
-print(obj.__name__)
 model = original_model
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
@@ -345,9 +345,9 @@ def npv_x_with_fixed_y(xs):
     return npv(model, inj_xy=xys)[0]
 
 obj = npv_x_with_fixed_y
-print(obj.__name__)
 model = original_model
 y = model.Ly/2
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
 # which works both when it's 1d and 2d.*
@@ -384,7 +384,7 @@ fig.tight_layout()
 # With 2 injectors, it's more interesting (not necessary) to also only have 2 producers.
 # So let's configure our model for that, placing the 2 producers at the lower corners.
 
-model = remake(model,
+model = remake(original_model,
     name = "Lower 2 corners",
     prod_xy = xy_4corners[:2],
     prod_rates = rate0 * np.ones((2, 1)) / 2
@@ -438,7 +438,7 @@ def npv_xy_transf(xys):
     return npv_inj_xy(coordinate_transform(xys))
 
 obj = npv_xy_transf
-print(obj.__name__)
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
 # The objective is now a function of `2*nInj = 4` variables.
@@ -483,8 +483,8 @@ def npv_in_inj_rates(inj_rates):
     return npv(model, inj_rates=inj_rates, prod_rates=prod_rates)[0]
 
 obj = npv_in_inj_rates
-print(obj.__name__)
 model = original_model
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
 # Plot
@@ -514,7 +514,6 @@ fig.tight_layout()
 
 # Let's make the flow "less orthogonal" by not placing the wells on a rectilinear grid (i.e. the 4 corners).
 
-print(obj.__name__, "Triangle case")
 triangle = [0, 135, -135]
 wells = dict(
     inj_xy = ([[model.Lx/2, model.Ly/2]] +
@@ -523,11 +522,12 @@ wells = dict(
     inj_rates  = rate0 * np.ones((4, 1)) / 4,
     prod_rates = rate0 * np.ones((3, 1)) / 3,
 )
-model = remake(model, **wells)
+model = remake(model, **wells, name="Triangle case")
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Show well layout
 
-fig, ax = freshfig("Triangle case", figsize=(1, .6), rel=True)
+fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
@@ -593,7 +593,7 @@ def npv_in_prod_rates(prod_rates):
     return npv(model, prod_rates=prod_rates, inj_rates=inj_rates)[0]
 
 obj = npv_in_prod_rates
-print(obj.__name__)
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
 # #### Optimize

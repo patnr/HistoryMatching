@@ -181,6 +181,8 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
     is_int = type(nCPU) == int  # NB: `isinstance(True, int)` is True
     if not is_int and nCPU in [True, None, "auto"]:
         nCore = 999
+    else:
+        nCore = nCPU
 
     # Convert kwargs to positional
     nPositional = len(args)

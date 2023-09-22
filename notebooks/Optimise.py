@@ -631,9 +631,9 @@ ax.grid()
 sales = []
 emissions = []
 for i, prod_rates in enumerate(optimal_rates):
-    value, info = npv(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
-    sales.append(info['prod_total'])
-    emissions.append(info['inj_total'])  # NB: don't *COST_OF_INJ!
+    value, other = npv(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
+    sales.append(other['prod_total'])
+    emissions.append(other['inj_total'])  # NB: don't *COST_OF_INJ!
 
 
 fig, ax = freshfig("Pareto front (npv-optimal settings for range of COST_OF_INJ)", figsize=(1, .8), rel=True)

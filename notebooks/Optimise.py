@@ -143,7 +143,7 @@ def remake(model, **kwargs):
         setattr(model, k, v)
     return model
 
-# Let's store the base-base model.
+# Let's store the base model.
 
 original_model = remake(model)
 
@@ -281,6 +281,7 @@ def npv_inj_xy(xys):
 
 obj = npv_inj_xy
 print(obj.__name__)
+model = original_model
 
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
@@ -345,6 +346,7 @@ def npv_x_with_fixed_y(xs):
 
 obj = npv_x_with_fixed_y
 print(obj.__name__)
+model = original_model
 y = model.Ly/2
 
 # *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
@@ -468,12 +470,13 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 # Like above, we need to pre-compute something before computing the `npv`.
 
 # +
-def npv_in_rates(inj_rates):
+def npv_in_inj_rates(inj_rates):
     prod_rates = equalize_prod(inj_rates)
     return npv(model, inj_rates=inj_rates, prod_rates=prod_rates)[0]
 
-obj = npv_in_rates
+obj = npv_in_inj_rates
 print(obj.__name__)
+model = original_model
 
 
 # -
@@ -487,10 +490,6 @@ def equalize_prod(rates):
     nProd = len(model.prod_xy)
     total_rates = rates.reshape((nInj, -1)).sum(0)
     return np.tile(total_rates / nProd, (nProd, 1))
-
-# Restore default well config
-
-model = original_model
 
 # Plot
 
@@ -541,7 +540,7 @@ fig.tight_layout()
 
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
-    value, info = npv(model, inj_rates, prod_rates=equalize_prod(inj_rates))
+    value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
     print("NPV for these injection_rates:", f"{value}")
     return info['wsats'][-1]
 
@@ -581,20 +580,22 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # Only the 1st item is hard to change.
 
 # +
-model.name = "Angga"
-model.prod_xy = [[model.Lx/2, model.Ly/2]]
-model.inj_xy = xy_4corners
-model.prod_rates  = rate0 * np.ones((1, 1)) / 1
-model.inj_rates = rate0 * np.ones((4, 1)) / 4
+model = remake(original_model,
+    name = "Angga",
+    prod_xy = [[model.Lx/2, model.Ly/2]],
+    inj_xy = xy_4corners,
+    prod_rates  = rate0 * np.ones((1, 1)) / 1,
+    inj_rates = rate0 * np.ones((4, 1)) / 4,
+)
 
 plot_final_sweep(model)
 
 
 # +
-def npv_in_rates(prod_rates):
+def npv_in_prod_rates(prod_rates):
     return npv(model, inj_rates=equalize_inj(prod_rates), prod_rates=prod_rates)[0]
 
-obj = npv_in_rates
+obj = npv_in_prod_rates
 print(obj.__name__)
 
 def equalize_inj(rates):
@@ -607,7 +608,7 @@ def equalize_inj(rates):
 
 # #### Optimize
 
-fig, ax = freshfig(obj.__name__ + " v2", figsize=(1, .8), rel=True)
+fig, ax = freshfig(obj.__name__, figsize=(1, .8), rel=True)
 rates = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_factors = [.01, .04, .1, .4, .9, .99]
@@ -617,6 +618,7 @@ for i, COST_OF_INJ in enumerate(cost_factors):
     ax.plot(rates, npvs, label=f"{COST_OF_INJ:.1}")
     path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
     optimal_rates.append(path[-1])
+COST_OF_INJ = 0.5  # restore global value to default
 ax.set_ylim(1e-2)
 ax.legend(title="COST_OF_INJ")
 ax.set(xlabel="rate", ylabel="NPV")

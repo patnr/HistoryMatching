@@ -96,10 +96,10 @@ plot_final_sweep(model)
 # But we also output some other variables and diagnostics,
 # and wrap it all in error penalisation.
 
-def npv(model, **kwargs):
+def npv(model, **params):
     """Discounted net present value (NPV) from model config."""
     try:
-        model = remake(model, **kwargs)
+        model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
         # Sum over wells
         prod_total = partial_volumes(model, wsats, "prod").sum(0)
@@ -136,10 +136,10 @@ discounts = .99 ** np.arange(nTime)
 # Indeed, from a "task runner" perspective, there is no hard distinction between
 # writing parameters and running simulations.
 
-def remake(model, **kwargs):
+def remake(model, **params):
     """Instantiate new model config."""
     model = copy.deepcopy(model)
-    for k, v in kwargs.items():
+    for k, v in params.items():
         setattr(model, k, v)
     return model
 

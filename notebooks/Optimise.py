@@ -467,29 +467,25 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 
 # ## Case: Optimize single rate
 
-# Like above, we need to pre-compute something before computing the `npv`.
+# When setting the injection rate(s), we must also
+# set the total production rates to be the same (this is a model constraint),
+# and vice-versa.
+
+def equalize(rates, nWell):
+    """Distribute the total rate equally among `nWell`."""
+    return np.tile(rates.sum(0) / nWell, (nWell, 1))
+
+# Thus, as above, we need to pre-compute something before calling `npv()`.
 
 # +
 def npv_in_inj_rates(inj_rates):
-    prod_rates = equalize_prod(inj_rates)
+    prod_rates = equalize(inj_rates, model.nProd)
     return npv(model, inj_rates=inj_rates, prod_rates=prod_rates)[0]
 
 obj = npv_in_inj_rates
 print(obj.__name__)
 model = original_model
-
-
 # -
-
-# When setting the injection rate(s), we must also
-# set the total production rates to be the same (this is a model constraint).
-
-def equalize_prod(rates):
-    """Distribute the total rate equally among producers."""
-    nInj = len(model.inj_xy)
-    nProd = len(model.prod_xy)
-    total_rates = rates.reshape((nInj, -1)).sum(0)
-    return np.tile(total_rates / nProd, (nProd, 1))
 
 # Plot
 
@@ -540,7 +536,7 @@ fig.tight_layout()
 
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
-    value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
+    value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize(inj_rates, model.nProd))
     print("NPV for these injection_rates:", f"{value}")
     return info['wsats'][-1]
 
@@ -562,7 +558,7 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 # #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).
 
-u0 = .7*np.ones(len(model.inj_rates))
+u0 = .7*np.ones(model.nInj)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 
 # Now try setting
@@ -593,17 +589,11 @@ plot_final_sweep(model)
 
 # +
 def npv_in_prod_rates(prod_rates):
-    return npv(model, inj_rates=equalize_inj(prod_rates), prod_rates=prod_rates)[0]
+    inj_rates = equalize(prod_rates, model.nInj)
+    return npv(model, prod_rates=prod_rates, inj_rates=inj_rates)[0]
 
 obj = npv_in_prod_rates
 print(obj.__name__)
-
-def equalize_inj(rates):
-    """Distribute the total rate equally among injectors."""
-    nInj = len(model.inj_xy)
-    nProd = len(model.prod_xy)
-    total_rates = rates.reshape((nProd, -1)).sum(0)
-    return np.tile(total_rates / nInj, (nInj, 1))
 # -
 
 # #### Optimize
@@ -631,7 +621,8 @@ ax.grid()
 sales = []
 emissions = []
 for i, prod_rates in enumerate(optimal_rates):
-    value, other = npv(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
+    inj_rates = equalize(prod_rates, model.nInj)
+    value, other = npv(model, prod_rates=prod_rates, inj_rates=inj_rates)
     sales.append(other['prod_total'])
     emissions.append(other['inj_total'])  # NB: don't *COST_OF_INJ!
 

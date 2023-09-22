@@ -28,7 +28,7 @@ import tools.plotting as plotting
 from tools import geostat, mpl_setup, utils
 
 mpl_setup.init()
-np.set_printoptions(precision=6)
+np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
 
 # ## Define model
 # We start with the same settings as in the previous tutorial (on history matching).

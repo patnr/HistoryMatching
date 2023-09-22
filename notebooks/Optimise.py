@@ -544,10 +544,10 @@ def final_sweep_given_inj_rates(**kwargs):
 # By assigning `controls` to this function (the rate of each injector)...
 
 final_sweep_given_inj_rates.controls = dict(
-    i0 = (0, 1.4),
-    i1 = (0, 1.4),
-    i2 = (0, 1.4),
-    i3 = (0, 1.4),
+    inj0_rate = (0, 1.4),
+    inj1_rate = (0, 1.4),
+    inj2_rate = (0, 1.4),
+    inj3_rate = (0, 1.4),
 )
 
 # ... the following widget allows us to "interactively" (but manually) optimize the rates.

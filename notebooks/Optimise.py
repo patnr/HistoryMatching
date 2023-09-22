@@ -178,14 +178,15 @@ def partial_volumes(model, wsats, inj_or_prod):
 # ## EnOpt
 
 # #### Multiprocessing
-# Ensemble methods are easily parallelizable, achieved hereunder by following
-# multiprocessing `map` that we apply to run ensemble simulations.
-# In some cases, however, it is best to leave the parallelisation to the
-# forward model/simulator/objective function since it is "closer to the metal"
-# and so can therefore do more speed optimisation. For example if the simulations
-# can be vectorize over ensemble members, then multi-threaded `numpy` is likey faster).
+# Ensemble methods are easily parallelizable, achieved hereunder by `apply`
+# that we "map" on ensemble simulations.
 
 utils.nCPU = True
+
+# It should be noted that -- in some cases -- it is best to leave the parallelisation to the
+# model/simulator/objective function itself since it is "closer to the metal"
+# and so can therefore do more speed optimisation. For example if the simulations
+# can be vectorized over ensemble members, then multi-threaded `numpy` is likey faster).
 
 # #### Ensemble gradient estimator
 # EnOpt consists of gradient descent with ensemble gradient estimation.
@@ -461,7 +462,8 @@ plotting.add_path12(*axs, path[:, 2:], color='C3')
 fig.tight_layout()
 # -
 
-# #### Plot final sweep
+# Seems reasonable.
+# A useful sanity check is provided by inspecting the resulting flow pattern.
 
 plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}"))
 
@@ -487,12 +489,12 @@ model = original_model
 print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
-# Plot
+# Again, we are able and can afford to compute and plot the entire objective.
 
 rates = np.linspace(0.1, 5, 21)
 npvs = utils.apply(obj, rates, desc="obj(entire domain)")
 
-# It makes sense that there is an optimum somewhere in the middle.
+# It makes sense that there is an optimum sweet spot somewhere in the middle.
 # - Little water injection ⇒ little oil production.
 # - Much water injection ⇒ very pricey, whereas reservoir contains finite amount of oil.
 
@@ -511,8 +513,12 @@ fig.tight_layout()
 # -
 
 # ## Case: multiple rates (with interactive/manual optimisation)
+# The objective is again the npv as a function of the injection rate.
 
-# Let's make the flow "less orthogonal" by not placing the wells on a rectilinear grid (i.e. the 4 corners).
+obj = npv_in_inj_rates
+
+# But this time let's have more injectors,
+# and therefore also rearrange the producers.
 
 triangle = [0, 135, -135]
 wells = dict(

@@ -67,6 +67,61 @@ fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
+# #### Define simulations
+
+wsat0 = np.zeros(model.Nxy)
+T = 1
+dt = 0.025
+nTime = round(T/dt)
+
+# Let us plot the final sweep of the base model configuration.
+
+def plot_final_sweep(model):
+    """Simulate reservoir, plot final oil saturation."""
+    wsats = model.sim(dt, nTime, wsat0, pbar=False)
+    title = "Final sweep" + (" -- " + model.name) if model.name else ""
+    fig, ax = freshfig(title, figsize=(1, .6), rel=True)
+    model.plt_field(ax, wsats[-1], "oil")
+    fig.tight_layout()
+
+plot_final_sweep(model)
+
+# ## NPV objective function
+# The NPV (objective) function,
+# similar to the `forward_model` of the history matching tutorial,
+# entails configuring and simulating the model.
+# But we also output some other variables and diagnostics,
+# and wrap it all in error penalisation.
+
+def npv(model, **kwargs):
+    """Discounted net present value (NPV) from model config."""
+    try:
+        model = remake(model, **kwargs)
+        wsats = model.sim(dt, nTime, wsat0, pbar=False)
+        # Sum over wells
+        prod_total = partial_volumes(model, wsats, "prod").sum(0)
+        inj_total  = partial_volumes(model, wsats, "inj").sum(0)
+        # Sum in time
+        prod_total = prod_total @ discounts
+        inj_total = inj_total @ discounts
+        # Add up
+        value = prod_total - COST_OF_INJ * inj_total
+        other = dict(wsats=wsats, prod_total=prod_total, inj_total=inj_total)
+    except Exception:
+        # Invalid model params ⇒ penalize.
+        # Use `raise` for debugging.
+        value, other = 0, None
+    return value, other
+
+# Note that water injection is assigned a cost.
+# Is seems a reasonable simplification to let this serve as a stand-in
+# also for the cost of GHG emissions.
+# We don't bother with cost of water production,
+# since it is implicitly approximated by reduction in oil production.
+
+COST_OF_INJ = 0.5
+discounts = .99 ** np.arange(nTime)
+
 # #### Setter
 # Unlike the history matching tutorial, we define a parameter setter also
 # outside of the forward model. This will be convenient since we will do
@@ -89,74 +144,33 @@ def remake(model, **kwargs):
 
 original_model = remake(model)
 
-# #### Define simulations
+# #### Extract well flux from saturation fields
+# Also contains some minor bookkeeping
+# (for example, unify treatment of constant/variable rates).
 
-wsat0 = np.zeros(model.Nxy)
-T = 1
-dt = 0.025
-nTime = round(T/dt)
+def partial_volumes(model, wsats, inj_or_prod):
+    """Essentially `saturation * rate * dt` for `inj_or_prod` wells."""
+    # Saturations
+    if inj_or_prod == "prod":
+        # Oil (use trapezoid approx)
+        well_inds = model.xy2ind(*model.prod_xy.T)
+        saturations = 0.5 * (wsats[:-1, well_inds] +
+                             wsats[+1:, well_inds])
+        saturations = (1 - saturations).T  # water --> oil
+    elif inj_or_prod == "inj":
+        # Injector uses 100% water
+        saturations = 1
+    else:
+        raise KeyError
 
-# Let us plot the final sweep of the base model configuration.
+    # Rates
+    rates = getattr(model, f"{inj_or_prod}_rates")
+    if (_nT := rates.shape[1]) == 1 and _nT != nTime:
+        # constant-in-time ⇒ replicate for all time steps
+        rates = np.tile(rates, (1, nTime))
 
-def plot_final_sweep(model):
-    """Simulate reservoir, plot final oil saturation."""
-    wsats = model.sim(dt, nTime, wsat0, pbar=False)
-    title = "Final sweep" + (" -- " + model.name) if model.name else ""
-    fig, ax = freshfig(title, figsize=(1, .6), rel=True)
-    model.plt_field(ax, wsats[-1], "oil")
-    fig.tight_layout()
+    return rates * saturations # TODO: * dt
 
-plot_final_sweep(model)
-
-# ## NPV objective function
-
-# Convert production saturation time series to cumulative monetary value.
-
-COST_OF_INJ = 0.5
-
-def prod2npv(model, wsats):
-    """Discounted net present value."""
-    return (oil_productions(model, wsats) - inj_costs(model) * COST_OF_INJ)
-
-discounts = .99 ** np.arange(nTime)
-
-def oil_productions(model, wsats):
-    # Get saturation time series (with trapezoid approx) for each well.
-    well_inds = model.xy2ind(*model.prod_xy.T)
-    saturations = 0.5 * (wsats[:-1, well_inds] +
-                         wsats[+1:, well_inds])
-
-    prods = 1 - saturations      # water --> oil
-    prods *= model.prod_rates.T  # volume = saturation * rate
-    prods = np.sum(prods.T, 0)   # sum over wells
-    sales = prods @ discounts    # sum in time, incld. discount factors
-    return sales
-
-# Compute cost of water injection.
-# PS: We don't bother with cost of water production,
-# since it is implicitly approximated by reduction in oil production.
-
-def inj_costs(model):
-    inj_rates = model.inj_rates
-    if inj_rates.shape[1] == 1:
-        inj_rates = np.tile(inj_rates, (1, nTime))
-    cost = np.sum(inj_rates, 0)
-    cost = cost @ discounts
-    return cost
-
-# Before applying `prod2npv`, the objective function must first compute the production.
-# Similar to the `forward_model` of the history matching tutorial,
-# this entails configuring and simulating the model.
-
-def npv(**kwargs):
-    """Discounted net present value (NPV) from model config."""
-    try:
-        new_model = remake(model, **kwargs)
-        wsats = new_model.sim(dt, nTime, wsat0, pbar=False)
-        return prod2npv(new_model, wsats)
-    except Exception:
-        # Use `raise` for debugging.
-        return 0  # Invalid model params. Penalize.
 
 # ## EnOpt
 
@@ -256,7 +270,7 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
 # Let's try out EnOpt for optimising the location (x, y) of the injector well.
 
 def npv_inj_xy(xys):
-    return npv(inj_xy=xys)
+    return npv(model, inj_xy=xys)[0]
 
 obj = npv_inj_xy
 print(obj.__name__)
@@ -316,7 +330,7 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 def npv_x_with_fixed_y(xs):
     xys = np.stack([xs, xs], -1)
     xys[..., 1] = y  # fix constant value
-    return npv(inj_xy=xys)
+    return npv(model, inj_xy=xys)[0]
 
 obj = npv_x_with_fixed_y
 print(obj.__name__)
@@ -445,7 +459,7 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 # +
 def npv_in_rates(inj_rates):
     prod_rates = equalize_prod(inj_rates)
-    return npv(inj_rates=inj_rates, prod_rates=prod_rates)
+    return npv(model, inj_rates=inj_rates, prod_rates=prod_rates)[0]
 
 obj = npv_in_rates
 print(obj.__name__)
@@ -516,10 +530,9 @@ fig.tight_layout()
 
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
-    new_model = remake(model, inj_rates=inj_rates, prod_rates=equalize_prod(inj_rates))
-    wsats = new_model.sim(dt, nTime, wsat0, pbar=False)
-    print("NPV for these injection_rates:", f"{prod2npv(new_model, wsats):.5f}")
-    return wsats[-1]
+    value, info = npv(model, inj_rates, prod_rates=equalize_prod(inj_rates))
+    print("NPV for these injection_rates:", f"{value}")
+    return info['wsats'][-1]
 
 
 # By assigning `controls` to this function (the rate of each injector)...
@@ -568,8 +581,7 @@ plot_final_sweep(model)
 
 # +
 def npv_in_rates(prod_rates):
-    return npv(inj_rates=equalize_inj(prod_rates),
-               prod_rates=prod_rates)
+    return npv(model, inj_rates=equalize_inj(prod_rates), prod_rates=prod_rates)[0]
 
 obj = npv_in_rates
 print(obj.__name__)
@@ -606,14 +618,13 @@ ax.grid()
 sales = []
 emissions = []
 for i, prod_rates in enumerate(optimal_rates):
-    new_model = remake(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
-    wsats = new_model.sim(dt, nTime, wsat0, pbar=True, leave=False)
-    sales.append(oil_productions(new_model, wsats))
-    emissions.append(inj_costs(new_model)) # * COST_OF_INJ
+    value, info = npv(model, prod_rates=prod_rates, inj_rates=equalize_inj(prod_rates))
+    sales.append(info['prod_total'])
+    emissions.append(info['inj_total'])  # NB: don't *COST_OF_INJ!
 
 
 fig, ax = freshfig("Pareto front (npv-optimal settings for range of COST_OF_INJ)", figsize=(1, .8), rel=True)
 ax.grid()
-ax.set(xlabel="sales", ylabel="emissions")
+ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
 fig.tight_layout()

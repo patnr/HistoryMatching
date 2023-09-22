@@ -52,9 +52,12 @@ xy_4corners = [[x, y]
                for y in model.Ly*near01
                for x in model.Lx*near01]
 
-# Suggested total rate of production (total rate of injection must be the same).
+# Suggested total rate of production.
 
 rate0 = 1.5
+
+# Note that the production and injection rates add up to the same
+# (at each time step), as they must (or model will raise an error).
 
 model.inj_xy = [[model.Lx/2, model.Ly/2]]
 model.prod_xy = xy_4corners
@@ -67,7 +70,7 @@ fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
-# #### Define simulations
+# #### Simulations
 
 wsat0 = np.zeros(model.Nxy)
 T = 1
@@ -174,7 +177,7 @@ def partial_volumes(model, wsats, inj_or_prod):
 
 # ## EnOpt
 
-# ### Multiprocessing
+# #### Multiprocessing
 # Ensemble methods are easily parallelizable, achieved hereunder by following
 # multiprocessing `map` that we apply to run ensemble simulations.
 # In some cases, however, it is best to leave the parallelisation to the
@@ -240,7 +243,7 @@ def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
 # #### Gradient descent
 # Other acceleration techniques (AdaGrad, Nesterov, momentum,
 # of which git commit `9937d5b2` contains a working implementation)
-# could also be considered, but do not necessarily fit well together with line search.
+# could also be considered, but do not necessarily play nice with line search.
 #
 # The following implements gradient descent (GD).
 
@@ -267,7 +270,11 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
 
 
 # ## Case: Optimize injector location
-# Let's try out EnOpt for optimising the location (x, y) of the injector well.
+# Let's try optimising the location (x, y) of the injector well.
+#
+# The objective function is simply a thin wrapper around `npv`
+# which translates its single (vector) input argument into `kwargs`,
+# and discards all output except the scalar NPV.
 
 def npv_inj_xy(xys):
     return npv(model, inj_xy=xys)[0]
@@ -291,13 +298,17 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
 
 # Note that the optimum is not quite in the centre of the domain,
 # which is caused by the randomness (including asymmetry) of the permeability field.
+#
+# Now let's try EnOpt from a few different starting/initial guesses,
+# and plot the optimisation paths along with the contours of the objective
+# *PS: code for both tasks must be in same cell in order to plot on same figure*.
 
 # +
 # Plot objective
 fig, axs = plotting.figure12(obj.__name__)
 model.plt_field(axs[0], npvs, "NPV", argmax=True);
 
-# Optimize, plot
+# Optimize, plot paths
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = GD(obj, u0, nabla_ens(.1))
@@ -328,7 +339,7 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 # while keeping the y-coordinate fixed.
 
 def npv_x_with_fixed_y(xs):
-    xys = np.stack([xs, xs], -1)
+    xys = np.stack([xs, xs], -1) # ⇒ (1d or 2d)
     xys[..., 1] = y  # fix constant value
     return npv(model, inj_xy=xys)[0]
 
@@ -337,7 +348,7 @@ print(obj.__name__)
 y = model.Ly/2
 
 # *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
-# thus working both when it's 0d and 1d (i.e. `nInj=1` and `nInj>1`)*.
+# which works both when it's 1d and 2d.*
 # Also note that we could of course have re-used `npv_inj_xy` to define `npv_x_with_fixed_y`.
 # This will be our approach for the subsequent case.
 
@@ -350,7 +361,7 @@ fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
 ax.plot(xx, npvs, "slategrey", lw=3);
 
-# Optimize, plot
+# Optimize, plot paths
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
 for i, u0 in enumerate(u0s):
     path, objs, info = GD(obj, u0, nabla_ens(.3))
@@ -549,7 +560,7 @@ final_sweep_given_inj_rates.controls = dict(
 
 plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, figsize=(1, .6))
 
-# ## Automatic (EnOpt) optimisation
+# #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).
 
 u0 = .7*np.ones(len(model.inj_rates))
@@ -559,7 +570,7 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # the resulting suggested values in the interactive widget above.
 # Were you able to find equally good settings?
 
-# ## Case: 5-spot similar to Angga. Pareto front
+# ## Case: 5-spot similar to Angga -- Make Pareto front
 # Compared to Angga:
 #
 # - No compressibility
@@ -594,7 +605,7 @@ def equalize_inj(rates):
     return np.tile(total_rates / nInj, (nInj, 1))
 # -
 
-# ### Optimize
+# #### Optimize
 
 fig, ax = freshfig(obj.__name__ + " v2", figsize=(1, .8), rel=True)
 rates = np.logspace(-2, 1, 31)
@@ -612,7 +623,7 @@ ax.set(xlabel="rate", ylabel="NPV")
 fig.tight_layout()
 ax.grid()
 
-# ### Pareto front
+# #### Pareto front
 # Breakdown npv (into emissions and sales) for optima
 
 sales = []

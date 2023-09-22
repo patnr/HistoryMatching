@@ -108,7 +108,8 @@ def npv(model, **params):
         prod_total = prod_total @ discounts
         inj_total = inj_total @ discounts
         # Add up
-        value = prod_total - COST_OF_INJ * inj_total
+        value = (price_of_oil * prod_total -
+                 price_of_inj * inj_total)
         other = dict(wsats=wsats, prod_total=prod_total, inj_total=inj_total)
     except Exception:
         # Invalid model params ⇒ penalize.
@@ -121,8 +122,12 @@ def npv(model, **params):
 # also for the cost of GHG emissions.
 # We don't bother with cost of water production,
 # since it is implicitly approximated by reduction in oil production.
+#
+# "Non-model" parameters are defined in the global namespace.
+# Their values are not motivated by any realism.
 
-COST_OF_INJ = 0.5
+price_of_inj = 5e3
+price_of_oil = 1e4
 discounts = .99 ** np.arange(nTime)
 
 # #### Setter
@@ -152,7 +157,7 @@ original_model = remake(model)
 # (for example, unify treatment of constant/variable rates).
 
 def partial_volumes(model, wsats, inj_or_prod):
-    """Essentially `saturation * rate * dt` for `inj_or_prod` wells."""
+    """Essentially `saturation * rate` for `inj_or_prod` wells."""
     # Saturations
     if inj_or_prod == "prod":
         # Oil (use trapezoid approx)
@@ -172,7 +177,9 @@ def partial_volumes(model, wsats, inj_or_prod):
         # constant-in-time ⇒ replicate for all time steps
         rates = np.tile(rates, (1, nTime))
 
-    return rates * saturations # TODO: * dt
+    volume_per_rate = dt * model.hx * model.hx
+
+    return volume_per_rate * rates * saturations
 
 
 # ## EnOpt
@@ -607,16 +614,18 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 fig, ax = freshfig(obj.__name__, figsize=(1, .8), rel=True)
 rates = np.logspace(-2, 1, 31)
 optimal_rates = []
-# cost_factors = [.01, .04, .1, .4, .9, .99]
-cost_factors = np.arange(.1, 1, .1)
-for i, COST_OF_INJ in enumerate(cost_factors):
+# cost_multiplier = [.01, .04, .1, .4, .9, .99]
+__default__ = price_of_inj
+cost_multiplier = np.arange(0.1, 1, 0.1)
+for i, xCost in enumerate(cost_multiplier):
+    price_of_inj = __default__ * xCost
     npvs = utils.apply(obj, rates, desc="obj(entire domain)")
-    ax.plot(rates, npvs, label=f"{COST_OF_INJ:.1}")
+    ax.plot(rates, npvs, label=f"{xCost:.1}")
     path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
     optimal_rates.append(path[-1])
-COST_OF_INJ = 0.5  # restore global value to default
+price_of_inj = __default__  # restore
 ax.set_ylim(1e-2)
-ax.legend(title="COST_OF_INJ")
+ax.legend(title="×price_of_inj")
 ax.set(xlabel="rate", ylabel="NPV")
 fig.tight_layout()
 ax.grid()
@@ -630,10 +639,10 @@ for i, prod_rates in enumerate(optimal_rates):
     inj_rates = equalize(prod_rates, model.nInj)
     value, other = npv(model, prod_rates=prod_rates, inj_rates=inj_rates)
     sales.append(other['prod_total'])
-    emissions.append(other['inj_total'])  # NB: don't *COST_OF_INJ!
+    emissions.append(other['inj_total'])
 
 
-fig, ax = freshfig("Pareto front (npv-optimal settings for range of COST_OF_INJ)", figsize=(1, .8), rel=True)
+fig, ax = freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
 ax.grid()
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")

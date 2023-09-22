@@ -307,7 +307,7 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
 # +
 # Plot objective
 fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], npvs, "NPV", argmax=True);
+model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);
 
 # Optimize, plot paths
 for color in ['C0', 'C2', 'C7', 'C9']:

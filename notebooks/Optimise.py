@@ -117,14 +117,20 @@ def npv(model, **params):
         value, other = 0, None
     return value, other
 
-# Note that water injection is assigned a cost.
+# Note that water injection has a cost.
 # Is seems a reasonable simplification to let this serve as a stand-in
 # also for the cost of GHG emissions.
 # We don't bother with cost of water production,
 # since it is implicitly approximated by reduction in oil production.
 #
-# "Non-model" parameters are defined in the global namespace.
-# Their values are not motivated by any realism.
+# The following values are not motivated by any realism.
+# However, the 1-to-1 relationship implied by mass balance of the simulator
+# means that the (volumetric) price of injection must be cheapter than for oil
+# in order for production (even at 100% oil saturation) to be profitable.
+#
+# PS: since they just get defined in the global namespace,
+# they cannot be manipulated by our ensemble methods
+# (i.e. we cannot be "robust" to price fluctuations).
 
 price_of_inj = 5e3
 price_of_oil = 1e4

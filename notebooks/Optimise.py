@@ -214,13 +214,12 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
         """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
         cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
         U = rnd.randn(nEns, len(u)) @ cholT
-        U = center(U)[0]
-        J = apply(obj, u + U, **pbar)
-        J = center(J)[0]
+        dU = center(U)[0]
+        dJ = apply(obj, u + dU, **pbar)
         if precond:
-            g = U.T @ J / (nEns-1)
+            g = dU.T @ dJ / (nEns-1)
         else:
-            g = utils.rinv(U, reg=.1, tikh=True) @ J
+            g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
         if normed:
             g /= utils.mnorm(g)
         return g

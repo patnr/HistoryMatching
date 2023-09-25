@@ -558,8 +558,7 @@ fig.tight_layout()
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
     value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize(inj_rates, model.nProd))
-    termcolor = "\x1b[37;46;1m"
-    print("\x1b[45m NPV for these injection_rates:", f"\x1b[30;47;1m{value}")
+    print("\x1b[45m NPV for these injection_rates:", f"\x1b[30;47;1m{value}\x1b[0m")
     return info['wsats'][-1]
 
 

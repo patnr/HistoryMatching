@@ -1,9 +1,10 @@
 -r requirements.txt
 
 # For jupyterlab
+# NB: jupyterlab>=4 breaks complex widgets and throws errors in console.
 jupyterlab~=3.6
-jupytext~=1.14
-ipympl~=0.9
+jupytext~=1.15.2
+ipympl~=0.9.3
 
 ipython
 pre-commit

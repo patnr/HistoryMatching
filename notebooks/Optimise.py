@@ -536,8 +536,8 @@ obj = npv_in_inj_rates
 triangle = [0, 135, -135]
 wells = dict(
     inj_xy = ([[model.Lx/2, model.Ly/2]] +
-              [utils.xy_p_normed(th + 90, *model.domain[1]) for th in triangle]),
-    prod_xy = [utils.xy_p_normed(th - 90, *model.domain[1]) for th in triangle],
+              [utils.pCircle(th + 90, *model.domain[1]) for th in triangle]),
+    prod_xy = [utils.pCircle(th - 90, *model.domain[1]) for th in triangle],
     inj_rates  = rate0 * np.ones((4, 1)) / 4,
     prod_rates = rate0 * np.ones((3, 1)) / 3,
 )

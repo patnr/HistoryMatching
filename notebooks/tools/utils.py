@@ -28,8 +28,8 @@ def rinv(A, reg, tikh=True, nMax=None):
     return (VT.T * s1) @ U.T
 
 
-def xy_p_normed(degree, Lx, Ly, p=4, norm_val=.87):
-    """Compute `(x, y)` of `degree`, scale so `p-norm = norm_val`."""
+def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
+    """Compute `(x, y)` at angle `degree` with `p-norm = norm_val`."""
     # Also center in, and scale by, model domain, i.e. `Lx, Ly`
     radians = 2 * np.pi * degree / 360
     c = np.cos(radians)

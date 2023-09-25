@@ -26,6 +26,7 @@ from tqdm.auto import tqdm as progbar
 
 import tools.plotting as plotting
 from tools import geostat, mpl_setup, utils
+from tools.utils import center, apply
 
 mpl_setup.init()
 np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
@@ -213,9 +214,9 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
         """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
         cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
         U = rnd.randn(nEns, len(u)) @ cholT
-        U = utils.center(U)[0]
-        J = utils.apply(obj, u + U, **pbar)
-        J = utils.center(J)[0]
+        U = center(U)[0]
+        J = apply(obj, u + U, **pbar)
+        J = center(J)[0]
         if precond:
             g = U.T @ J / (nEns-1)
         else:
@@ -301,7 +302,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # over its entire 2D domain, and plot it.
 
 XY = np.stack(model.mesh, -1).reshape((-1, 2))
-npvs = utils.apply(obj, XY, desc="obj(entire domain)")
+npvs = apply(obj, XY, desc="obj(entire domain)")
 npvs = np.asarray(npvs)
 
 # We have in effect conducted an exhaustive computation of the objective function,
@@ -369,7 +370,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # This will be our approach for the subsequent case.
 
 xx = np.linspace(0, model.Lx, 201)
-npvs = utils.apply(obj, xx, desc="obj(entire domain)")
+npvs = apply(obj, xx, desc="obj(entire domain)")
 
 # +
 # Plot objective
@@ -505,7 +506,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # Again, we are able and can afford to compute and plot the entire objective.
 
 rates = np.linspace(0.1, 5, 21)
-npvs = utils.apply(obj, rates, desc="obj(entire domain)")
+npvs = apply(obj, rates, desc="obj(entire domain)")
 
 # It makes sense that there is an optimum sweet spot somewhere in the middle.
 # - Little water injection ⇒ little oil production.
@@ -627,7 +628,7 @@ __default__ = price_of_inj
 cost_multiplier = np.arange(0.1, 1, 0.1)
 for i, xCost in enumerate(cost_multiplier):
     price_of_inj = __default__ * xCost
-    npvs = utils.apply(obj, rates, desc="obj(entire domain)")
+    npvs = apply(obj, rates, desc="obj(entire domain)")
     ax.plot(rates, npvs, label=f"{xCost:.1}")
     path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
     optimal_rates.append(path[-1])

@@ -302,14 +302,14 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # over its entire 2D domain, and plot it.
 
 XY = np.stack(model.mesh, -1).reshape((-1, 2))
-npv_XY = apply(obj, XY, desc="obj(entire domain)")
-npv_XY = np.asarray(npv_XY)
+npvs = apply(obj, XY, desc="obj(XY)")
+npvs = np.asarray(npvs)
 
 # We have in effect conducted an exhaustive computation of the objective function,
 # so that we already know the true, global, optimum:
 
-argmax = npv_XY.argmax()
-print("Global (exhaustive search) optimum:", f"{npv_XY[argmax]:.4}",
+argmax = npvs.argmax()
+print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
       "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
 
 # Note that the optimum is not quite in the centre of the domain,
@@ -322,7 +322,7 @@ print("Global (exhaustive search) optimum:", f"{npv_XY[argmax]:.4}",
 # +
 # Plot objective
 fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], npv_XY, "NPV", argmax=True, wells=False);
+model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);
 
 # Optimize, plot paths
 for color in ['C0', 'C2', 'C7', 'C9']:
@@ -369,14 +369,14 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # Also note that we could of course have re-used `npv_inj_xy` to define `npv_x_with_fixed_y`.
 # This will be our approach for the subsequent case.
 
-xx = np.linspace(0, model.Lx, 201)
-npv_xx = apply(obj, xx, desc="obj(entire domain)")
+x_grid = np.linspace(0, model.Lx, 201)
+npvs = apply(obj, x_grid, desc="obj(x_grid)")
 
 # +
 # Plot objective
 fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
-ax.plot(xx, npv_xx, "slategrey", lw=3);
+ax.plot(x_grid, npvs, "slategrey", lw=3);
 
 # Optimize, plot paths
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
@@ -505,8 +505,8 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Again, we are able and can afford to compute and plot the entire objective.
 
-rates = np.linspace(0.1, 5, 21)
-npv_rates = apply(obj, rates, desc="obj(entire domain)")
+rate_grid = np.linspace(0.1, 5, 21)
+npvs = apply(obj, rate_grid, desc="obj(entire domain)")
 
 # It makes sense that there is an optimum sweet spot somewhere in the middle.
 # - Little water injection ⇒ little oil production.
@@ -517,7 +517,7 @@ npv_rates = apply(obj, rates, desc="obj(entire domain)")
 fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
-ax.plot(rates, npv_rates, "slategrey")
+ax.plot(rate_grid, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
     path, objs, info = GD(obj, u0, nabla_ens(.1))
@@ -620,15 +620,15 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # #### Optimize
 
 fig, ax = freshfig(obj.__name__, figsize=(1, .8), rel=True)
-rates = np.logspace(-2, 1, 31)
+rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
 __default__ = price_of_inj
 cost_multiplier = np.arange(0.1, 1, 0.1)
 for i, xCost in enumerate(cost_multiplier):
     price_of_inj = __default__ * xCost
-    npv_rates = apply(obj, rates, desc="obj(entire domain)")
-    ax.plot(rates, npv_rates, label=f"{xCost:.1}")
+    npvs = apply(obj, rate_grid, desc="obj(entire domain)")
+    ax.plot(rate_grid, npvs, label=f"{xCost:.1}")
     path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
     optimal_rates.append(path[-1])
 price_of_inj = __default__  # restore

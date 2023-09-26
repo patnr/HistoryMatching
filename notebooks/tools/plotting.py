@@ -249,7 +249,7 @@ def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, *
 
         # Add crosshairs
         if "x" in kw and "y" in kw:
-            x, y = model.sub2xy_stretched(kw["x"], kw["y"])
+            x, y = model.sub2xy(kw["x"], kw["y"])
             d = dict(c="k", ls="--", lw=1)
             ax.axhline(y, **d)
             ax.axvline(x, **d)

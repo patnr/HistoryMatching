@@ -204,7 +204,16 @@ model.prod_rates = np.ones((nProd, 1)) / nProd
 
 # As detailed in the model docs, when `inj_rates.shape[1] == 1` (as above),
 # the rates do not vary in time.
-#
+
+# #### Plot
+# Let's take a moment to visualize the (true) model permeability field,
+# and the well locations. Note that they have all been collocated to cell centres.
+
+fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
+# model.plt_field(ax, perm.Truth, "pperm")
+model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True)
+fig.tight_layout()
+
 # #### Observation operator
 # The data will consist in the water saturation of at the production well locations.
 # I.e. there is no well model. It should be pointed out, however, that ensemble
@@ -214,15 +223,6 @@ model.prod_rates = np.ones((nProd, 1)) / nProd
 prod_inds = model.xy2ind(*model.prod_xy.T)
 def obs_model(water_sat):
     return water_sat[prod_inds]
-
-# #### Plot
-# Let's take a moment to visualize the (true) model permeability field,
-# and the well locations.
-
-fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
-# model.plt_field(ax, perm.Truth, "pperm")
-model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True)
-fig.tight_layout()
 
 # #### Simulation
 # The following generates the synthetic truth evolution and data.

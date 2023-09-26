@@ -49,9 +49,10 @@ styles["NPV"] = dict(
 )
 
 
-def fields(model, Zs, style, title="", figsize=(1.7, 1),
+def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
            label_color="k", wells=False, colorbar=True, **kwargs):
     """Do `model.plt_field(Z) for Z in Zs`."""
+
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
@@ -92,8 +93,9 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1),
         fig.suptitle(suptitle)
 
     if colorbar:
-        fig.colorbar(hh[0], cax=axs.cbar_axes[0],
-                     ticks=kwargs.pop("cticks", styles[style]["cticks"]))
+        if not cticks:
+            cticks = styles[style].get("cticks", styles["default"]["cticks"])
+        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=cticks)
 
     warnings.filterwarnings("ignore", category=UserWarning)
     fig.tight_layout()  # Not necessary with ipympl

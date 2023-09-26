@@ -221,7 +221,7 @@ def obs_model(water_sat):
 
 fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # model.plt_field(ax, perm.Truth, "pperm")
-model.plt_field(ax, perm_transf(perm.Truth), "perm")
+model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True)
 fig.tight_layout()
 
 # #### Simulation

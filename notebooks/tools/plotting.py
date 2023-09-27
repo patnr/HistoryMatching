@@ -491,15 +491,15 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
-def figure12(title="", *args, figsize=(10, 3), **kwargs):
+def figure12(title="", *args, figsize=(10, 3.5), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
     title = dash_join("Optim. trajectories", title)
     fig, _ax = place.freshfig(title, *args, figsize=figsize, **kwargs)
     _ax.remove()
-    gs = GridSpec(2, 2)
-    ax0 = fig.add_subplot(gs[:, 0])
-    ax1 = fig.add_subplot(gs[0, 1])
-    ax2 = fig.add_subplot(gs[1, 1])
+    gs = GridSpec(2, 10)
+    ax0 = fig.add_subplot(gs[:, :7])
+    ax1 = fig.add_subplot(gs[0, 7:])
+    ax2 = fig.add_subplot(gs[1, 7:])
     for ax in (ax1, ax2):
         ax.yaxis.set_label_position("right")
         ax.yaxis.tick_right()

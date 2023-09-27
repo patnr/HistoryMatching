@@ -485,7 +485,7 @@ def dash_join(*txts):
 def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
              c="k", fontsize="large", bbox=None):
     if bbox is None:
-        bbox = dict(edgecolor="w", facecolor="w", alpha=.4,
+        bbox = dict(edgecolor="w", facecolor="w", alpha=.5,
                     boxstyle="round,pad=0")
     return ax.text(x, y, txt, c=c, fontsize=fontsize,
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)

@@ -169,7 +169,7 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def apply(fun, *args, leave=True, desc=None, **kwargs):
+def apply(fun, *args, pbar=True, leave=True, desc=None, **kwargs):
     """Apply `fun` along 0th axis of each `args` and `kwargs`.
 
     - Multiprocess and progressbar (without installing `p_tqdm`).
@@ -197,7 +197,10 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
         return fun(*positional, **kws)
 
     # tqdm settings
-    pbar = dict(total=len(args[0]), desc=desc, leave=leave)
+    if pbar:
+        pbar = lambda lst: tqdm(lst, total=len(args[0]), desc=desc, leave=leave)
+    else:
+        pbar = lambda lst: lst
 
     # Main
     if nCore > 1:
@@ -214,12 +217,12 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
 
         # Map must be non-blocking (so that tqdm can update) and ordered ⇒ imap
         # PS: the necessary blocking is provided by surrounding list().
-        output = list(tqdm(pool.imap(_fun, argsT), **pbar))
+        output = list(pbar(pool.imap(_fun, argsT)))
         pool.clear()
 
     else:
         output = []
-        for x in tqdm(argsT, **pbar):
+        for x in pbar(argsT):
             output.append(_fun(x))
 
     return output

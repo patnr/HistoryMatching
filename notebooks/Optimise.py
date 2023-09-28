@@ -24,13 +24,13 @@ import numpy as np
 import numpy.random as rnd
 import TPFA_ResSim as simulator
 
-from tools import geostat, mpl_setup, plotting, utils
+from tools import geostat, plotting, utils
 from tools.utils import center, apply, progbar
 # -
 
 # #### Config
 
-mpl_setup.init()
+plotting.init()
 np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
 
 # ## Define model

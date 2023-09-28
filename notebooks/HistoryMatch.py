@@ -49,8 +49,8 @@ remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 
 import numpy as np
 from matplotlib import pyplot as plt
-from tools import mpl_setup
-mpl_setup.init()
+from tools import plotting
+plotting.init()
 
 # Use numpy arrays for vectors, matrices. Examples:
 a  = np.arange(10)  # OR: np.array([0,1,2,3,4,5,6,7,8,9])

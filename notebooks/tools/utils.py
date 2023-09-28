@@ -10,7 +10,7 @@ def progbar(*args, **kwargs):
     """Essentially `tqdm()`, but with some defaults."""
     # Remove '<{remaining}' because it is somwhat unreliable,
     # and hard to distinguish at a glance from 'elapsed')
-    frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt} [⏱️ {elapsed}, {rate_fmt}{postfix}]"
+    frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt}, ⏱️ {elapsed}, {rate_fmt}{postfix}"
     kwargs.setdefault('bar_format', frmt)
 
     # Choose between Jupyter, std

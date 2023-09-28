@@ -5,3 +5,4 @@ git+https://github.com/patnr/TPFA-ResSim.git@85a424a5
 jupyter
 pathos
 threadpoolctl
+adjustText==0.8

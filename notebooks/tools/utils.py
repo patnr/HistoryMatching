@@ -2,7 +2,32 @@
 
 import numpy as np
 import scipy.linalg as sla
-from tqdm.auto import tqdm
+
+def progbar(*args, **kwargs):
+    """Essentially `tqdm()`, but with some defaults."""
+    # Remove '<{remaining}' because it is somwhat unreliable,
+    # and hard to distinguish at a glance from 'elapsed')
+    frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt} [⏱️ {elapsed}, {rate_fmt}{postfix}]"
+    kwargs.setdefault('bar_format', frmt)
+
+    # Choose between Jupyter, std
+    from tqdm.auto import tqdm
+
+    # Choose between std, rich (does not support 'bar_format'!)
+    # from tqdm.notebook import tqdm_notebook
+    # from tqdm.std import TqdmExperimentalWarning
+    # import warnings
+    # if not isinstance(dummy:=tqdm(disable=True), tqdm_notebook):
+    #     try:
+    #         from tqdm.rich import tqdm
+    #     except ImportError:
+    #         pass
+    # NB: To ignore initial warning:
+    # >>> with warnings.catch_warnings():
+    # ...     warnings.simplefilter("ignore", category=TqdmExperimentalWarning)
+
+    pbar = tqdm(*args, **kwargs)
+    return pbar
 
 
 def rinv(A, reg, tikh=True, nMax=None):
@@ -209,10 +234,10 @@ def apply(fun, *args, pbar=True, **kwargs):
             kws["desc"] = pbar
         elif isinstance(pbar, dict):
             kws.update(pbar)
-        pbar = tqdm(**kws)
+        pbar = progbar(**kws)
     else:
         # NOP
-        pbar = tqdm(disable=True)
+        pbar = progbar(disable=True)
 
     # Main
     if nCore > 1:

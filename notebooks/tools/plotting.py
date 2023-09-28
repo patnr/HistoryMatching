@@ -47,6 +47,12 @@ styles["NPV"] = dict(
     title  = "NPV",
     cmap   = plt.get_cmap("inferno"),
 )
+styles["domain"] = dict(
+    title  = "Model domain",
+    cmap   = plt.get_cmap("inferno"),
+    vmin   = 99,
+    vmax   = 99,
+)
 
 
 def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,

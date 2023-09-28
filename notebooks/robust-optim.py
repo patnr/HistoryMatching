@@ -201,7 +201,7 @@ def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
 def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100, verbose=True):
     """Gradient (i.e. steepest) descent/ascent."""
     # Re-usable progressbars (to limit flickering/scrolling in Jupyter)
-    with (progbar(range(nIter),desc="GD",          leave=True,  disable=not verbose) as pbar_gd,
+    with (progbar(total=nIter, desc="GD",          leave=True,  disable=not verbose) as pbar_gd,
           progbar(total=10000, desc="→ ens_grad",  leave=False, disable=not verbose) as pbar_en,
           progbar(total=10000, desc="→ backtrack", leave=False, disable=not verbose) as pbar_ls):
         # Init
@@ -209,7 +209,8 @@ def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100, ve
         path = [x]
         objs = [J]
         info = ["Running ⏳"]
-        for itr in pbar_gd:
+        for itr in range(nIter):
+            pbar_gd.update()
             grad = nabla(objective, x, pbar_en)
             update = line_search(x, J, objective, grad, pbar_ls)
             if update:

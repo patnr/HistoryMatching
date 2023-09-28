@@ -169,13 +169,14 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def apply(fun, *args, pbar=True, leave=True, desc=None, **kwargs):
+def apply(fun, *args, pbar=True, **kwargs):
     """Apply `fun` along 0th axis of each `args` and `kwargs`.
 
-    - Multiprocess and progressbar (without installing `p_tqdm`).
+    - Multiprocessing
+        - Progressbar (also re-useable), not using `p_tqdm`.
+        - Alternative for-loop implementation for easier debugging.
+        - Zipping and unpacking input `args`.
     - Robust interpretation of `nCPU`.
-    - Alternative for-loop implementation for easier debugging.
-    - Zipping and unpacking `inputs`.
     """
     # Set nCore
     is_int = type(nCPU) == int  # NB: `isinstance(True, int)` is True
@@ -188,7 +189,7 @@ def apply(fun, *args, pbar=True, leave=True, desc=None, **kwargs):
     nPositional = len(args)
     args = list(args) + list(kwargs.values())
     # Zip, i.e. transpose, for `map` compatibility
-    argsT = list(zip(*args, strict=True))
+    inputs = list(zip(*args, strict=True))
 
     def _fun(x):
         """Unpack zipped args `x` and call `fun`."""
@@ -196,11 +197,22 @@ def apply(fun, *args, pbar=True, leave=True, desc=None, **kwargs):
         kws = dict(zip(kwargs, named))
         return fun(*positional, **kws)
 
-    # tqdm settings
-    if pbar:
-        pbar = lambda lst: tqdm(lst, total=len(args[0]), desc=desc, leave=leave)
+    # Progress-bar initialisation
+    if "tqdm" in str(type(pbar)).lower():
+        # Reset existing
+        pbar.do_close = False
+        pbar.reset(total=len(args[0]))
+    elif pbar:
+        # Create new
+        kws = dict(total=len(args[0]), desc=f"map({fun.__name__}, ...)", leave=True)
+        if isinstance(pbar, str):
+            kws["desc"] = pbar
+        elif isinstance(pbar, dict):
+            kws.update(pbar)
+        pbar = tqdm(**kws)
     else:
-        pbar = lambda lst: lst
+        # NOP
+        pbar = tqdm(disable=True)
 
     # Main
     if nCore > 1:
@@ -215,14 +227,26 @@ def apply(fun, *args, pbar=True, leave=True, desc=None, **kwargs):
         from pathos.multiprocessing import ProcessPool
         pool = ProcessPool(nCore)
 
-        # Map must be non-blocking (so that tqdm can update) and ordered ⇒ imap
-        # PS: the necessary blocking is provided by surrounding list().
-        output = list(pbar(pool.imap(_fun, argsT)))
+        # Map must be non-blocking (allow tqdm to update) and ordered ⇒ imap
+        # PS: Blocking is provided by the exterior list/for-loop.
+        work = pool.imap(_fun, inputs)
+        # output = list(tqdm(work, total))
+        output = []
+        for y in work:
+            output.append(y)
+            pbar.update()
         pool.clear()
 
     else:
+        # Without multiprocessing (⇒ easier debugging)
         output = []
-        for x in pbar(argsT):
+        for x in inputs:
             output.append(_fun(x))
+            pbar.update()
+
+    # Finalize progress-bar
+    pbar.refresh()
+    if getattr(pbar, "do_close", True):
+        pbar.close()
 
     return output

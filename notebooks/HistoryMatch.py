@@ -359,10 +359,10 @@ def comp1(perm, wsat0=wsat0):
 # "embarrasingly parallelizable", because each member simulation
 # is completely independent (requires no communication) from the others.
 
-def forward_model(*args, **kwargs):
+def forward_model(*args, leave=True, desc="Ens-run", **kwargs):
     """Parallelize forward model (`comp1`)."""
-    kwargs = dict(dict(desc="Ens-run", leave=True), **kwargs)
-    output = apply(comp1, *args, **kwargs)
+    pbar = dict(leave=leave, desc=desc)
+    output = apply(comp1, *args, pbar=pbar, **kwargs)
     return [np.asarray(y) for y in zip(*output)]
 
 # Configure the number of CPUs to use in `apply`. Can set to an `int` or False.

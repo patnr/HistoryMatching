@@ -93,9 +93,10 @@ plot_final_sweep(model)
 # ## NPV objective function
 # The NPV (objective) function,
 # similar to the `forward_model` of the history matching tutorial,
-# entails configuring and simulating the model.
-# But we also output some other variables and diagnostics,
-# and wrap it all in error penalisation.
+# entails configuring and running/simulating the model.
+# But the main output is now the economical net value (profit),
+# while some other variables are included as diagnostics.
+# Also, importantly, note the it's all wrapped in error penalisation.
 
 def npv(model, **params):
     """Discounted net present value (NPV) from model config."""

@@ -14,7 +14,7 @@ np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
 
 # ## Define model
 
-model = simulator.ResSim(Nx=4, Ny=5, Lx=2, Ly=1, name="Base model")
+model = simulator.ResSim(Nx=14, Ny=10, Lx=2, Ly=1, name="Base model")
 
 # +
 # seed = rnd.seed(3)
@@ -275,9 +275,9 @@ print("Global (exhaustive search) optimum:", f"{npv_avrg[argmax]:.4}",
       "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
 
 # #### Optimize, plot paths
-# EnOpt can also take quite long, since it involves $N$ model simulations,
-# for each control ensemble member (of which we also use $N$),
-# and each iteration.
+# EnOpt therefore becomes much slower,
+# since each of its $N$ control ensemble members at a given iteration
+# requires $M$ model simulations.
 
 # +
 fig, axs = plotting.figure12(obj.__name__)

@@ -259,15 +259,16 @@ model = original_model
 plotting.fields(model, uncertainty_ens, "perm");
 
 # ### Plot ensemble of objectives
+#
+# Note that this can take quite long,
+# since it involves $N$ model simulations for each grid cell.
 
 print("obj(u=mesh, x=ens)")
 ctrl_ens = np.stack(model.mesh, -1).reshape((-1, 2))
 npv_ens = apply(obj, x=uncertainty_ens)
 plotting.fields(model, npv_ens, "NPV", "xy of inj, conditional on perm");
 
-# ### Total/robust objective
-# Note that this can take quite long,
-# since it involves $N$ model simulations for each grid cell.
+# ### Total/robust global optimum
 
 npv_avrg = np.mean(npv_ens, 0) # == np.asarray(apply(obj1, ctrl_ens))
 argmax = npv_avrg.argmax()
@@ -315,6 +316,10 @@ for x in progbar(uncertainty_ens, desc="Nominal optim."):
     path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), verbose=False)
     nominal_ctrl_ens.append(path[-1])
 
+# Alternatively, we can get the globally nominally optima since we have already computed the npv for each pixel/cell for each uncertain ensemble member.
+
+nominal_ctrl_ens_global = model.ind2xy(np.asarray(npv_ens).argmax(axis=1)).T
+
 # #### Plot optima (`nominal_ctrl_ens`)
 
 cmap = plotting.plt.get_cmap('tab20')
@@ -327,7 +332,10 @@ for n, (x, y) in enumerate(nominal_ctrl_ens):
     color = cmap(n % 20)
     ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
-ax.scatter(*robust_ctrl, s=8**2, color="w")
+    if True:
+        x2, y2 = nominal_ctrl_ens_global[n]
+        ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
+ax.scatter(*robust_ctrl, s=8**2, color="w")    
 utils.adjust_text(lbls, precision=.1);
 fig.tight_layout()
 

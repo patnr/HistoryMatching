@@ -6,7 +6,8 @@
 # This is a tutorial on production optimisation using ensemble methods.
 # Please also have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
 # for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
-#
+
+# #### Install
 # If you're on **Google Colab**, run the cell below to install the requirements.
 # Otherwise (and assuming you have done the installation described in the README),
 # you can skip/delete this cell.
@@ -14,19 +15,20 @@
 remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 # !wget -qO- {remote}/master/colab_bootstrap.sh | bash -s
 
-# ## Imports
+# #### Imports
 
+# +
 import copy
 
 import numpy as np
 import numpy.random as rnd
 import TPFA_ResSim as simulator
-from mpl_tools.place import freshfig
-from tqdm.auto import tqdm as progbar
 
-import tools.plotting as plotting
-from tools import geostat, mpl_setup, utils
-from tools.utils import center, apply
+from tools import geostat, mpl_setup, plotting, utils
+from tools.utils import center, apply, progbar
+# -
+
+# #### Config
 
 mpl_setup.init()
 np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
@@ -67,7 +69,7 @@ model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
 # #### Plot
 
-fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
+fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
@@ -84,7 +86,7 @@ def plot_final_sweep(model):
     """Simulate reservoir, plot final oil saturation."""
     wsats = model.sim(dt, nTime, wsat0, pbar=False)
     title = "Final sweep" + (" -- " + model.name) if model.name else ""
-    fig, ax = freshfig(title, figsize=(1, .6), rel=True)
+    fig, ax = plotting.freshfig(title, figsize=(1, .6), rel=True)
     model.plt_field(ax, wsats[-1], "oil")
     fig.tight_layout()
 
@@ -374,7 +376,7 @@ npvs = apply(obj, x_grid, pbar="obj(x_grid)")
 
 # +
 # Plot objective
-fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
+fig, ax = plotting.freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
 ax.plot(x_grid, npvs, "slategrey", lw=3);
 
@@ -514,7 +516,7 @@ npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
 
 # +
 # Optimize
-fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)
+fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .4), rel=True)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(rate_grid, npvs, "slategrey")
@@ -547,7 +549,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Show well layout
 
-fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
+fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
@@ -619,7 +621,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # #### Optimize
 
-fig, ax = freshfig(obj.__name__, figsize=(1, .8), rel=True)
+fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .8), rel=True)
 rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
@@ -650,7 +652,7 @@ for i, prod_rates in enumerate(optimal_rates):
     emissions.append(other['inj_total'])
 
 
-fig, ax = freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
+fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
 ax.grid()
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")

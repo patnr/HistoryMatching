@@ -11,7 +11,7 @@ from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator, LogLocator
-from mpl_tools import place
+from mpl_tools.place import freshfig
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
 from TPFA_ResSim.plotting import styles
@@ -61,7 +61,7 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
 
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
-    fig, axs = place.freshfig(title, figsize=figsize, rel=True)
+    fig, axs = freshfig(title, figsize=figsize, rel=True)
     # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
         suptitle = fig._suptitle.get_text()
@@ -198,7 +198,7 @@ def captured_fig(output, num, **kwargs):
                 # I think it's related to being in an ipython widget, but can also
                 # be fixed by changing num (so that freshfig creates a new one).
                 plt.close(num)
-        fig, axs = place.freshfig(num, ipympl_show=False, **kwargs)
+        fig, axs = freshfig(num, ipympl_show=False, **kwargs)
         return fig, axs
 
     def decorator(f):
@@ -393,7 +393,7 @@ def toggle_items(wrapped):
 
         # To disable the interactivity, simply uncomment following line.
         # (if figure doesn't show, plt.close() it first, or change its title)
-        # plotter(*place.freshfig(**kw_subplots), None, **checkmarks); return
+        # plotter(*freshfig(**kw_subplots), None, **checkmarks); return
 
         output = wg.Output()
         plot = captured_fig(output, **kw_subplots)(plotter)
@@ -472,7 +472,7 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
 def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):
     """Plotter specialized for spectra."""
     title = dash_join("Spectrum", title)
-    fig, ax = place.freshfig(title, figsize=figsize, rel=True)
+    fig, ax = freshfig(title, figsize=figsize, rel=True)
     if semilogy:
         h = ax.semilogy(ydata)
     else:
@@ -500,7 +500,7 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
 def figure12(title="", *args, figsize=(10, 3.5), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
     title = dash_join("Optim. trajectories", title)
-    fig, _ax = place.freshfig(title, *args, figsize=figsize, **kwargs)
+    fig, _ax = freshfig(title, *args, figsize=figsize, **kwargs)
     _ax.remove()
     gs = GridSpec(2, 10)
     ax0 = fig.add_subplot(gs[:, :7])

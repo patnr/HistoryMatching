@@ -3,6 +3,9 @@
 import numpy as np
 import scipy.linalg as sla
 
+from adjustText import adjust_text  # noqa
+
+
 def progbar(*args, **kwargs):
     """Essentially `tqdm()`, but with some defaults."""
     # Remove '<{remaining}' because it is somwhat unreliable,

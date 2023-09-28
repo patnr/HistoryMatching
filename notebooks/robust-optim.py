@@ -5,13 +5,8 @@ import copy
 import numpy as np
 import numpy.random as rnd
 import TPFA_ResSim as simulator
-from mpl_tools.place import freshfig
-from adjustText import adjust_text
-from matplotlib import pyplot as plt
-from scipy.stats import gaussian_kde
 
-import tools.plotting as plotting
-from tools import geostat, mpl_setup, utils
+from tools import geostat, mpl_setup, plotting, utils
 from tools.utils import center, apply, progbar
 
 mpl_setup.init()
@@ -39,7 +34,7 @@ model.inj_rates  = rate0 * np.ones((1, 1)) / 1
 model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
 # +
-# fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
+# fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
 # model.plt_field(ax, model.K[0], "perm");
 # fig.tight_layout()
 # -
@@ -54,7 +49,7 @@ nTime = round(T/dt)
 #     """Simulate reservoir, plot final oil saturation."""
 #     wsats = model.sim(dt, nTime, wsat0, pbar=False)
 #     title = "Final sweep" + (" -- " + model.name) if model.name else ""
-#     fig, ax = freshfig(title, figsize=(1, .6), rel=True)
+#     fig, ax = plotting.freshfig(title, figsize=(1, .6), rel=True)
 #     model.plt_field(ax, wsats[-1], "oil")
 #     fig.tight_layout()
 
@@ -322,8 +317,8 @@ for x in progbar(uncertainty_ens, desc="Nominal optim."):
 
 # #### Plot optima (`nominal_ctrl_ens`)
 
-cmap = plt.get_cmap('tab20')
-fig, ax = freshfig("Optima", figsize=(7, 4))
+cmap = plotting.plt.get_cmap('tab20')
+fig, ax = plotting.freshfig("Optima", figsize=(7, 4))
 model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
                 wells=False, colorbar=False, grid=True);
 lbl_props = dict(fontsize="large", fontweight="bold")
@@ -333,7 +328,7 @@ for n, (x, y) in enumerate(nominal_ctrl_ens):
     ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
 ax.scatter(*robust_ctrl, s=8**2, color="w")
-adjust_text(lbls, precision=.1);
+utils.adjust_text(lbls, precision=.1);
 fig.tight_layout()
 
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
@@ -361,7 +356,9 @@ npvs_condnl = npvs_ens[1:]
 # The following code is a bit lengthy due to plotting details.
 
 # +
-fig, ax = freshfig("NPV densities for optimal controls", figsize=(7, 4))
+from scipy.stats import gaussian_kde
+
+fig, ax = plotting.freshfig("NPV densities for optimal controls", figsize=(7, 4))
 ax.set_xlabel("NPV")
 ax.set_ylabel("Density (pdf)");
 
@@ -393,7 +390,7 @@ ax.text(.02, .97, "\n".join(leg), transform=ax.transAxes, va="top", ha="left",
 
 ax.tick_params(axis="y", left=False, labelleft=False)
 ax.set(facecolor="k", ylim=0, xlim=(a, b))
-adjust_text(lbls)
+utils.adjust_text(lbls)
 fig.tight_layout()
 # -
 

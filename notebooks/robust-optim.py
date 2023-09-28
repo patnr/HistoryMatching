@@ -183,49 +183,52 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True, robust=False):
 
 def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
     """Set parameters of `backtrack`."""
-    def backtrack(x0, J0, objective, search_direction, pbar):
+    def backtrack(objective, u0, J0, search_direction, pbar):
         """Line search by bisection."""
         atol = max(1e-8, abs(J0)) * rtol
         pbar.reset(len(xSteps))
         for i, step_length in enumerate(xSteps):
-            dx = sign * step_length * search_direction
-            x1 = x0 + dx
-            J1 = objective(x1)
+            du = sign * step_length * search_direction
+            u1 = u0 + du
+            J1 = objective(u1)
             dJ = J1 - J0
-            pbar.update(1)
+            pbar.update()
             if sign*dJ > atol:
                 pbar.reset(len(xSteps))
-                return x1, J1, dict(nDeclined=i)
+                return u1, J1, dict(nDeclined=i)
     return backtrack
 
-def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100, verbose=True):
+
+def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, verbose=True):
     """Gradient (i.e. steepest) descent/ascent."""
-    # Re-usable progressbars (to limit flickering/scrolling in Jupyter)
-    with (progbar(total=nIter, desc="GD",          leave=True,  disable=not verbose) as pbar_gd,
-          progbar(total=10000, desc="→ ens_grad",  leave=False, disable=not verbose) as pbar_en,
-          progbar(total=10000, desc="→ backtrack", leave=False, disable=not verbose) as pbar_ls):
-        # Init
-        J = objective(x)
-        path = [x]
-        objs = [J]
-        info = ["Running ⏳"]
+
+    # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
+    with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=not verbose) as pbar_gd,
+          progbar(total=10000, desc="→ ens_grad",    leave=False, disable=not verbose) as pbar_en,
+          progbar(total=10000, desc="→ backtrack",   leave=False, disable=not verbose) as pbar_ls,
+          np.printoptions(precision=2, threshold=2, edgeitems=1)):
+
+        states = [[u, objective(u), "placeholder for {cause}"]]
+
         for itr in range(nIter):
+            u, J, info = states[-1]
+            pbar_gd.set_postfix(u=u, obj=J)
+
+            grad = nabla(objective, u, pbar_en)
+            updated = line_search(objective, u, J, grad, pbar_ls)
             pbar_gd.update()
-            grad = nabla(objective, x, pbar_en)
-            update = line_search(x, J, objective, grad, pbar_ls)
-            if update:
-                x, J, dct = update
-                path.append(x)
-                objs.append(J)
-                info.append(dct)
+
+            if updated:
+                states.append(updated)
             else:
-                info[0] = "Converged ✅"
+                cause = "✅ GD converged"
                 break
         else:
-            info[0] = "Ran out of iters ❌"
-    if verbose:
-        print(f"{info[0]:<9} {itr=:<5}  {x=!s}  {J=:.2f}")
-    return np.asarray(path), np.asarray(objs), info
+            cause = "❌ GD ran out of iters"
+        pbar_gd.set_description(cause)
+        states[0][-1] = cause
+
+    return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
 
 # ## Uncertain ens settings
 

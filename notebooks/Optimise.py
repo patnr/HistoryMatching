@@ -26,6 +26,7 @@ from tqdm.auto import tqdm as progbar
 
 import tools.plotting as plotting
 from tools import geostat, mpl_setup, utils
+from tools.utils import center, apply
 
 mpl_setup.init()
 np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
@@ -92,9 +93,10 @@ plot_final_sweep(model)
 # ## NPV objective function
 # The NPV (objective) function,
 # similar to the `forward_model` of the history matching tutorial,
-# entails configuring and simulating the model.
-# But we also output some other variables and diagnostics,
-# and wrap it all in error penalisation.
+# entails configuring and running/simulating the model.
+# But the main output is now the economical net value (profit),
+# while some other variables are included as diagnostics.
+# Also, importantly, note the it's all wrapped in error penalisation.
 
 def npv(model, **params):
     """Discounted net present value (NPV) from model config."""
@@ -117,14 +119,20 @@ def npv(model, **params):
         value, other = 0, None
     return value, other
 
-# Note that water injection is assigned a cost.
+# Note that water injection has a cost.
 # Is seems a reasonable simplification to let this serve as a stand-in
 # also for the cost of GHG emissions.
 # We don't bother with cost of water production,
 # since it is implicitly approximated by reduction in oil production.
 #
-# "Non-model" parameters are defined in the global namespace.
-# Their values are not motivated by any realism.
+# The following values are not motivated by any realism.
+# However, the 1-to-1 relationship implied by mass balance of the simulator
+# means that the (volumetric) price of injection must be cheapter than for oil
+# in order for production (even at 100% oil saturation) to be profitable.
+#
+# PS: since they just get defined in the global namespace,
+# they cannot be manipulated by our ensemble methods
+# (i.e. we cannot be "robust" to price fluctuations).
 
 price_of_inj = 5e3
 price_of_oil = 1e4
@@ -207,13 +215,12 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
         """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
         cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
         U = rnd.randn(nEns, len(u)) @ cholT
-        U = utils.center(U)[0]
-        J = utils.apply(obj, u + U, **pbar)
-        J = utils.center(J)[0]
+        dU = center(U)[0]
+        dJ = apply(obj, u + dU, pbar=pbar)
         if precond:
-            g = U.T @ J / (nEns-1)
+            g = dU.T @ dJ / (nEns-1)
         else:
-            g = utils.rinv(U, reg=.1, tikh=True) @ J
+            g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
         if normed:
             g /= utils.mnorm(g)
         return g
@@ -295,7 +302,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # over its entire 2D domain, and plot it.
 
 XY = np.stack(model.mesh, -1).reshape((-1, 2))
-npvs = utils.apply(obj, XY, desc="obj(entire domain)")
+npvs = apply(obj, XY, pbar="obj(mesh)")
 npvs = np.asarray(npvs)
 
 # We have in effect conducted an exhaustive computation of the objective function,
@@ -362,14 +369,14 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # Also note that we could of course have re-used `npv_inj_xy` to define `npv_x_with_fixed_y`.
 # This will be our approach for the subsequent case.
 
-xx = np.linspace(0, model.Lx, 201)
-npvs = utils.apply(obj, xx, desc="obj(entire domain)")
+x_grid = np.linspace(0, model.Lx, 201)
+npvs = apply(obj, x_grid, pbar="obj(x_grid)")
 
 # +
 # Plot objective
 fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
-ax.plot(xx, npvs, "slategrey", lw=3);
+ax.plot(x_grid, npvs, "slategrey", lw=3);
 
 # Optimize, plot paths
 u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
@@ -498,8 +505,8 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Again, we are able and can afford to compute and plot the entire objective.
 
-rates = np.linspace(0.1, 5, 21)
-npvs = utils.apply(obj, rates, desc="obj(entire domain)")
+rate_grid = np.linspace(0.1, 5, 21)
+npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
 
 # It makes sense that there is an optimum sweet spot somewhere in the middle.
 # - Little water injection ⇒ little oil production.
@@ -510,7 +517,7 @@ npvs = utils.apply(obj, rates, desc="obj(entire domain)")
 fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
-ax.plot(rates, npvs, "slategrey")
+ax.plot(rate_grid, npvs, "slategrey")
 
 for i, u0 in enumerate(np.array([[.1, 5]]).T):
     path, objs, info = GD(obj, u0, nabla_ens(.1))
@@ -530,8 +537,8 @@ obj = npv_in_inj_rates
 triangle = [0, 135, -135]
 wells = dict(
     inj_xy = ([[model.Lx/2, model.Ly/2]] +
-              [utils.xy_p_normed(th + 90, *model.domain[1]) for th in triangle]),
-    prod_xy = [utils.xy_p_normed(th - 90, *model.domain[1]) for th in triangle],
+              [utils.pCircle(th + 90, *model.domain[1]) for th in triangle]),
+    prod_xy = [utils.pCircle(th - 90, *model.domain[1]) for th in triangle],
     inj_rates  = rate0 * np.ones((4, 1)) / 4,
     prod_rates = rate0 * np.ones((3, 1)) / 3,
 )
@@ -551,8 +558,7 @@ fig.tight_layout()
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
     value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize(inj_rates, model.nProd))
-    termcolor = "\x1b[37;46;1m"
-    print("\x1b[45m NPV for these injection_rates:", f"\x1b[30;47;1m{value}")
+    print("\x1b[45m NPV for these injection_rates:", f"\x1b[30;47;1m{value}\x1b[0m")
     return info['wsats'][-1]
 
 
@@ -614,15 +620,15 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # #### Optimize
 
 fig, ax = freshfig(obj.__name__, figsize=(1, .8), rel=True)
-rates = np.logspace(-2, 1, 31)
+rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
 __default__ = price_of_inj
 cost_multiplier = np.arange(0.1, 1, 0.1)
 for i, xCost in enumerate(cost_multiplier):
     price_of_inj = __default__ * xCost
-    npvs = utils.apply(obj, rates, desc="obj(entire domain)")
-    ax.plot(rates, npvs, label=f"{xCost:.1}")
+    npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
+    ax.plot(rate_grid, npvs, label=f"{xCost:.1}")
     path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
     optimal_rates.append(path[-1])
 price_of_inj = __default__  # restore

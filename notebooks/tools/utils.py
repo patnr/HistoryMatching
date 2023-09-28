@@ -2,7 +2,32 @@
 
 import numpy as np
 import scipy.linalg as sla
-from tqdm.auto import tqdm
+
+def progbar(*args, **kwargs):
+    """Essentially `tqdm()`, but with some defaults."""
+    # Remove '<{remaining}' because it is somwhat unreliable,
+    # and hard to distinguish at a glance from 'elapsed')
+    frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt} [⏱️ {elapsed}, {rate_fmt}{postfix}]"
+    kwargs.setdefault('bar_format', frmt)
+
+    # Choose between Jupyter, std
+    from tqdm.auto import tqdm
+
+    # Choose between std, rich (does not support 'bar_format'!)
+    # from tqdm.notebook import tqdm_notebook
+    # from tqdm.std import TqdmExperimentalWarning
+    # import warnings
+    # if not isinstance(dummy:=tqdm(disable=True), tqdm_notebook):
+    #     try:
+    #         from tqdm.rich import tqdm
+    #     except ImportError:
+    #         pass
+    # NB: To ignore initial warning:
+    # >>> with warnings.catch_warnings():
+    # ...     warnings.simplefilter("ignore", category=TqdmExperimentalWarning)
+
+    pbar = tqdm(*args, **kwargs)
+    return pbar
 
 
 def rinv(A, reg, tikh=True, nMax=None):
@@ -28,8 +53,8 @@ def rinv(A, reg, tikh=True, nMax=None):
     return (VT.T * s1) @ U.T
 
 
-def xy_p_normed(degree, Lx, Ly, p=4, norm_val=.87):
-    """Compute `(x, y)` of `degree`, scale so `p-norm = norm_val`."""
+def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
+    """Compute `(x, y)` at angle `degree` with `p-norm = norm_val`."""
     # Also center in, and scale by, model domain, i.e. `Lx, Ly`
     radians = 2 * np.pi * degree / 360
     c = np.cos(radians)
@@ -169,13 +194,14 @@ nCPU = 1
 "Number of CPUs to use in parallelization"
 
 
-def apply(fun, *args, leave=True, desc=None, **kwargs):
+def apply(fun, *args, pbar=True, **kwargs):
     """Apply `fun` along 0th axis of each `args` and `kwargs`.
 
-    - Multiprocess and progressbar (without installing `p_tqdm`).
+    - Multiprocessing
+        - Progressbar (also re-useable), not using `p_tqdm`.
+        - Alternative for-loop implementation for easier debugging.
+        - Zipping and unpacking input `args`.
     - Robust interpretation of `nCPU`.
-    - Alternative for-loop implementation for easier debugging.
-    - Zipping and unpacking `inputs`.
     """
     # Set nCore
     is_int = type(nCPU) == int  # NB: `isinstance(True, int)` is True
@@ -188,7 +214,7 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
     nPositional = len(args)
     args = list(args) + list(kwargs.values())
     # Zip, i.e. transpose, for `map` compatibility
-    argsT = list(zip(*args, strict=True))
+    inputs = list(zip(*args, strict=True))
 
     def _fun(x):
         """Unpack zipped args `x` and call `fun`."""
@@ -196,8 +222,22 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
         kws = dict(zip(kwargs, named))
         return fun(*positional, **kws)
 
-    # tqdm settings
-    pbar = dict(total=len(args[0]), desc=desc, leave=leave)
+    # Progress-bar initialisation
+    if "tqdm" in str(type(pbar)).lower():
+        # Reset existing
+        pbar.do_close = False
+        pbar.reset(total=len(args[0]))
+    elif pbar:
+        # Create new
+        kws = dict(total=len(args[0]), desc=f"map({fun.__name__}, ...)", leave=True)
+        if isinstance(pbar, str):
+            kws["desc"] = pbar
+        elif isinstance(pbar, dict):
+            kws.update(pbar)
+        pbar = progbar(**kws)
+    else:
+        # NOP
+        pbar = progbar(disable=True)
 
     # Main
     if nCore > 1:
@@ -212,14 +252,26 @@ def apply(fun, *args, leave=True, desc=None, **kwargs):
         from pathos.multiprocessing import ProcessPool
         pool = ProcessPool(nCore)
 
-        # Map must be non-blocking (so that tqdm can update) and ordered ⇒ imap
-        # PS: the necessary blocking is provided by surrounding list().
-        output = list(tqdm(pool.imap(_fun, argsT), **pbar))
+        # Map must be non-blocking (allow tqdm to update) and ordered ⇒ imap
+        # PS: Blocking is provided by the exterior list/for-loop.
+        work = pool.imap(_fun, inputs)
+        # output = list(tqdm(work, total))
+        output = []
+        for y in work:
+            output.append(y)
+            pbar.update()
         pool.clear()
 
     else:
+        # Without multiprocessing (⇒ easier debugging)
         output = []
-        for x in tqdm(argsT, **pbar):
+        for x in inputs:
             output.append(_fun(x))
+            pbar.update()
+
+    # Finalize progress-bar
+    pbar.refresh()
+    if getattr(pbar, "do_close", True):
+        pbar.close()
 
     return output

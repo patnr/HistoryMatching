@@ -47,11 +47,18 @@ styles["NPV"] = dict(
     title  = "NPV",
     cmap   = plt.get_cmap("inferno"),
 )
+styles["domain"] = dict(
+    title  = "Model domain",
+    cmap   = plt.get_cmap("inferno"),
+    vmin   = 99,
+    vmax   = 99,
+)
 
 
-def fields(model, Zs, style, title="", figsize=(1.7, 1),
+def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
            label_color="k", wells=False, colorbar=True, **kwargs):
     """Do `model.plt_field(Z) for Z in Zs`."""
+
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
     fig, axs = place.freshfig(title, figsize=figsize, rel=True)
@@ -92,8 +99,9 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1),
         fig.suptitle(suptitle)
 
     if colorbar:
-        fig.colorbar(hh[0], cax=axs.cbar_axes[0],
-                     ticks=kwargs.pop("cticks", styles[style]["cticks"]))
+        if not cticks:
+            cticks = styles[style].get("cticks", styles["default"]["cticks"])
+        fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=cticks)
 
     warnings.filterwarnings("ignore", category=UserWarning)
     fig.tight_layout()  # Not necessary with ipympl
@@ -247,7 +255,7 @@ def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, *
 
         # Add crosshairs
         if "x" in kw and "y" in kw:
-            x, y = model.sub2xy_stretched(kw["x"], kw["y"])
+            x, y = model.sub2xy(kw["x"], kw["y"])
             d = dict(c="k", ls="--", lw=1)
             ax.axhline(y, **d)
             ax.axvline(x, **d)
@@ -483,21 +491,21 @@ def dash_join(*txts):
 def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
              c="k", fontsize="large", bbox=None):
     if bbox is None:
-        bbox = dict(edgecolor="w", facecolor="w", alpha=.4,
+        bbox = dict(edgecolor="w", facecolor="w", alpha=.5,
                     boxstyle="round,pad=0")
     return ax.text(x, y, txt, c=c, fontsize=fontsize,
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
-def figure12(title="", *args, figsize=(10, 3), **kwargs):
+def figure12(title="", *args, figsize=(10, 3.5), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
     title = dash_join("Optim. trajectories", title)
     fig, _ax = place.freshfig(title, *args, figsize=figsize, **kwargs)
     _ax.remove()
-    gs = GridSpec(2, 2)
-    ax0 = fig.add_subplot(gs[:, 0])
-    ax1 = fig.add_subplot(gs[0, 1])
-    ax2 = fig.add_subplot(gs[1, 1])
+    gs = GridSpec(2, 10)
+    ax0 = fig.add_subplot(gs[:, :7])
+    ax1 = fig.add_subplot(gs[0, 7:])
+    ax2 = fig.add_subplot(gs[1, 7:])
     for ax in (ax1, ax2):
         ax.yaxis.set_label_position("right")
         ax.yaxis.tick_right()

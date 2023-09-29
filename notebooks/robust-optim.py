@@ -129,7 +129,6 @@ class nabla_ens:
     chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
     nEns:    int   = 10    # Size of control perturbation ensemble
     precond: bool  = False # Use preconditioned form?
-    normed:  bool  = True
     robust:  bool  = False
 
     def apply(self, obj, u, pbar):
@@ -141,8 +140,6 @@ class nabla_ens:
             g = dU.T @ dJ / (self.nEns-1)
         else:
             g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
-        if self.normed:
-            g /= np.sqrt(np.mean(g*g))
         return g
 
     def obj_increments(self, obj, u, U, pbar):
@@ -193,7 +190,7 @@ class backtracker:
                 return u1, J1, dict(nDeclined=i)
 
 
-def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, verbose=True):
+def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, verbose=True):
     """Gradient (i.e. steepest) descent/ascent."""
 
     # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
@@ -209,6 +206,8 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, ve
             pbar_gd.set_postfix(u=u, obj=J)
 
             grad = nabla.apply(objective, u, pbar_en)
+            if nrmlz:
+                grad /= np.sqrt(np.mean(grad**2))
             updated = line_search.apply(objective, u, J, grad, pbar_ls)
             pbar_gd.update()
 

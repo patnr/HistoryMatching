@@ -19,6 +19,7 @@ remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 
 # +
 import copy
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.random as rnd
@@ -210,80 +211,96 @@ utils.nCPU = True
 # We wrap the gradient estimation function in another to fix its configuration parameters,
 # (to avoid having to pass them through the caller, i.e. gradient descent).
 
-def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
-    """Set parameters of `ens_grad`."""
-    pbar = dict(desc="ens_grad", leave=False)
-    def ens_grad(obj, u):
-        """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
-        cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
-        U = rnd.randn(nEns, len(u)) @ cholT
+@dataclass
+class nabla_ens:
+    """Ensemble gradient estimate (LLS regression)."""
+    chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
+    nEns:    int   = 10    # Size of control perturbation ensemble
+    precond: bool  = False # Use preconditioned form?
+    # Will be used later:
+    obj_ux:  None  = None  # Conditional objective function
+    X:       None  = None  # Uncertainty ensemble
+
+    def apply(self, obj, u, pbar):
+        """Estimate `∇ obj(u)`"""
+        U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
-        dJ = apply(obj, u + dU, pbar=pbar)
-        if precond:
-            g = dU.T @ dJ / (nEns-1)
+        dJ = self.obj_increments(obj, u, u + dU, pbar)
+        if self.precond:
+            g = dU.T @ dJ / (self.nEns-1)
         else:
             g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
-        if normed:
-            g /= np.sqrt(np.mean(g*g))
         return g
-    return ens_grad
+
+    def obj_increments(self, obj, u, U, pbar):
+        return apply(obj, U, pbar=pbar)  # don't need to `center`
 
 # #### Backtracking
 # Another ingredient to successful gradient descent is line search.
 #
-# Parameters:
-# - `sign=+/-1`: max/min-imization.
-# - `xSteps`: trial step lengths.
-# - `rtol`: convergence criterion.
-#   Specifies magnitude of improvement required to accept update of iterate.
-#   Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
-#   Setting to 0 is not recommended, because if the objective function is flat
-#   in the neighborhood, then the path could just go in circles on that flat.
+# PS: The `rtol` parameter specifies the improvement required to accept update of iterate.
+# Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
+# Setting to 0 is not recommended, because if the objective function is flat
+# in the neighborhood, then the path could just go in circles on that flat.
 
-def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
-    """Set parameters of `backtrack`."""
-    def backtrack(x0, J0, objective, search_direction):
-        """Line search by bisection."""
-        atol = max(1e-8, abs(J0)) * rtol
-        with progbar(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
-            for i, step_length in enumerate(xSteps):
-                pbar.update(1)
-                dx = sign * step_length * search_direction
-                x1 = x0 + dx
-                J1 = objective(x1)
-                dJ = J1 - J0
-                if sign*dJ > atol:
-                    pbar.update(len(xSteps))  # needed in Jupyter
-                    return x1, J1, dict(nDeclined=i)
-    return backtrack
+@dataclass
+class backtracker:
+    """Bisect until improvement."""
+    sign:   int   = +1                                  # Search for max(+1) or min(-1)
+    xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
+    rtol:   float = 1e-8                                # Convergence criterion
+    def apply(self, obj, u0, J0, search_direction, pbar):
+        atol = max(1e-8, abs(J0)) * self.rtol
+        pbar.reset(len(self.xSteps))
+        for i, step_length in enumerate(self.xSteps):
+            du = self.sign * step_length * search_direction
+            u1 = u0 + du
+            J1 = obj(u1)
+            dJ = J1 - J0
+            pbar.update()
+            if self.sign*dJ > atol:
+                pbar.reset(pbar.total)
+                return u1, J1, dict(nDeclined=i)
 
-# #### Gradient descent
 # Other acceleration techniques (AdaGrad, Nesterov, momentum,
 # of which git commit `9937d5b2` contains a working implementation)
 # could also be considered, but do not necessarily play nice with line search.
-#
+
+# #### Gradient descent
 # The following implements gradient descent (GD).
 
-def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
+def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, verbose=True):
     """Gradient (i.e. steepest) descent/ascent."""
-    J = objective(x)
-    path = [x]
-    objs = [J]
-    info = []  # ⇒ len+1 == len(path)
-    for itr in range(nIter):
-        grad = nabla(objective, x)
-        if (update := line_search(x, J, objective, grad)):
-            x, J, dct = update
-            path.append(x)
-            objs.append(J)
-            info.append(dct)
+
+    # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
+    with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=not verbose) as pbar_gd,
+          progbar(total=10000, desc="→ grad. comp.", leave=False, disable=not verbose) as pbar_en,
+          progbar(total=10000, desc="→ line_search", leave=False, disable=not verbose) as pbar_ls,
+          np.printoptions(precision=2, threshold=2, edgeitems=1)):
+
+        states = [[u, objective(u), "placeholder for {cause}"]]
+
+        for itr in range(nIter):
+            u, J, info = states[-1]
+            pbar_gd.set_postfix(u=u, obj=J)
+
+            grad = nabla.apply(objective, u, pbar_en)
+            if nrmlz:
+                grad /= np.sqrt(np.mean(grad**2))
+            updated = line_search.apply(objective, u, J, grad, pbar_ls)
+            pbar_gd.update()
+
+            if updated:
+                states.append(updated)
+            else:
+                cause = "✅ GD converged"
+                break
         else:
-            status = "Converged ✅"
-            break
-    else:
-        status = "Ran out of iters ❌"
-    print(f"{status:<9} {itr=:<5}  {x=!s}  {J=:.2f}")
-    return np.asarray(path), np.asarray(objs), info
+            cause = "❌ GD ran out of iters"
+        pbar_gd.set_description(cause)
+
+    states[0][-1] = cause
+    return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
 
 
 # ## Case: Optimize injector location

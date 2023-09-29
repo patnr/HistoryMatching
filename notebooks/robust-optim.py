@@ -129,7 +129,8 @@ class nabla_ens:
     chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
     nEns:    int   = 10    # Size of control perturbation ensemble
     precond: bool  = False # Use preconditioned form?
-    robust:  bool  = False
+    conditional: None = None
+    X:           None = None  # Uncertainty ensemble
 
     def apply(self, obj, u, pbar):
         """Estimate `∇ obj(u)`"""
@@ -144,10 +145,11 @@ class nabla_ens:
 
     def obj_increments(self, obj, u, U, pbar):
         """Compute `dJ := center(obj(U))`."""
-        if self.robust:
+        obj1 = self.conditional
+        if obj1:
             u1 = np.tile(u, (self.nEns, 1))  # replicate u
-            JU = apply(obj, U, x=uncertainty_ens, pbar=pbar)
-            Ju = apply(obj, u1, x=uncertainty_ens, pbar=pbar)
+            JU = apply(obj1, U, x=self.X, pbar=pbar)
+            Ju = apply(obj1, u1, x=self.X, pbar=pbar)
             dJ = np.asarray(JU) - Ju
         else:
             dJ = apply(obj, U, pbar=pbar)  # can omit `center`
@@ -229,46 +231,39 @@ rnd.seed(5)
 nEns = 31
 uncertainty_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
 
-
-def obj(u=None, x=None):
-    """Evaluate `obj(u, x)` for different sources of `(u, x)`."""
-    if u is None:
-        # Used for plotting objective for entire domain
-        return np.asarray([obj1(u, x) for u in ctrl_ens])
-    elif x is None:
-        # Defines robust objective
-        return np.mean([obj1(u, x) for x in uncertainty_ens])
-    else:
-        # A single, conditional objective evaluation
-        return obj1(u, x)
-
-
-# ## Case: Optimize injector location (x, y)
-
-def obj1(u, x):
-    """Objective (`npv` in `inj_xy=u`), conditional on given permability (`K=x`)."""
-    return npv(model, inj_xy=u, K=x)[0]
-
-model = original_model
-# print(f"Case: '{obj.__name__}' for '{model.name}'")
-
 # ### Plot ensemble (perm)
 
 plotting.fields(model, uncertainty_ens, "perm");
 
+# ### Robust obj
+
+def obj(u=None, x=None):
+    return np.mean([obj1(u, x) for x in uncertainty_ens])
+
+
+# ## Case: Optimize injector location (x, y)
+# The *conditional* objective consists of the `npv`
+# at some `inj_xy=u` for a (i.e. "one" whence "`obj1`") given permability `K=x`.
+
+def obj1(u, x):
+    return npv(model, inj_xy=u, K=x)[0]
+
+model = original_model
+# print(f"Case: '{obj1.__name__}' for '{model.name}'")
+
 # ### Plot ensemble of objectives
 #
-# Note that this can take quite long,
-# since it involves $N$ model simulations for each grid cell.
+# NB: since it involves $N$ model simulations for each grid cell,
+# this can take quite long.
 
-print("obj(u=mesh, x=ens)")
-ctrl_ens = np.stack(model.mesh, -1).reshape((-1, 2))
-npv_ens = apply(obj, x=uncertainty_ens)
-plotting.fields(model, npv_ens, "NPV", "xy of inj, conditional on perm");
+print("obj1(u=mesh, x=ens)")
+XY = np.stack(model.mesh, -1).reshape((-1, 2))
+npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uncertainty_ens)
+plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
 
 # ### Total/robust global optimum
 
-npv_avrg = np.mean(npv_ens, 0) # == np.asarray(apply(obj1, ctrl_ens))
+npv_avrg = np.mean(npv_mesh, 0)
 argmax = npv_avrg.argmax()
 print("Global (exhaustive search) optimum:",
       f"obj={npv_avrg[argmax]:.4}",
@@ -280,7 +275,7 @@ print("Global (exhaustive search) optimum:",
 # requires $M$ model simulations.
 
 # +
-fig, axs = plotting.figure12(obj.__name__)
+fig, axs = plotting.figure12(obj1.__name__)
 model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False);
 
 # Use "naive" ensemble gradient
@@ -292,7 +287,7 @@ for color in ['C0', 'C2']:
 # Use StoSAG ensemble gradient
 for color in ['C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1, robust=True, nEns=nEns))
+    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, conditional=obj1, X=uncertainty_ens))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
 fig.tight_layout()
@@ -317,7 +312,7 @@ for x in progbar(uncertainty_ens, desc="Nominal optim."):
 
 # Alternatively, we can get the globally nominally optima since we have already computed the npv for each pixel/cell for each uncertain ensemble member.
 
-nominal_ctrl_ens_global = model.ind2xy(np.asarray(npv_ens).argmax(axis=1)).T
+nominal_ctrl_ens_global = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
 
 # #### Plot optima (`nominal_ctrl_ens`)
 
@@ -345,12 +340,9 @@ fig.tight_layout()
 # We can assess (evaluate) each nominally optimal control vector
 # for each realisation in `uncertainty_ens`.
 
-print("obj(ens, ens)")
-ctrl_ens = [robust_ctrl] + nominal_ctrl_ens
-npvs_ens = apply(obj, x=uncertainty_ens)
-npvs_ens = np.asarray(npvs_ens).T
-npvs_robust = npvs_ens[0]
-npvs_condnl = npvs_ens[1:]
+print("obj1(ctrl_ens, uncertainty_ens)")
+npvs_condnl = apply(lambda u: [obj1(u, x) for x in uncertainty_ens], nominal_ctrl_ens)
+npvs_robust = apply(lambda x: obj1(robust_ctrl, x), uncertainty_ens)
 
 # Note that `npvs_condnl` is of shape `(nEns, nEns)`,
 # each row corresponding to a nominally optimal control parameter vector.
@@ -369,7 +361,7 @@ fig, ax = plotting.freshfig("NPV densities for optimal controls", figsize=(7, 4)
 ax.set_xlabel("NPV")
 ax.set_ylabel("Density (pdf)");
 
-a, b = npvs_condnl.min(), npvs_condnl.max()
+a, b = np.min(npvs_condnl), np.max(npvs_condnl)
 npv_grid = np.linspace(a, b, 100)
 
 lbls = []
@@ -388,8 +380,8 @@ ax.plot(npv_grid, gaussian_kde(npvs_robust).evaluate(npv_grid), "w", lw=3)
 
 # Legend showing mean values
 leg = (f"         Mean    Min",
-       f"Robust:  {npvs_robust.mean():<6.3g}  {npvs_robust.min():.3g}",
-       f"Nominal: {npvs_condnl.mean():<6.3g}  {npvs_condnl.min():.3g}")
+       f"Robust:  {np.mean(npvs_robust):<6.3g}  {np.min(npvs_robust):.3g}",
+       f"Nominal: {np.mean(npvs_condnl):<6.3g}  {np.min(npvs_condnl):.3g}")
 ax.text(.02, .97, "\n".join(leg), transform=ax.transAxes, va="top", ha="left",
         fontsize="medium", fontfamily="monospace", bbox=dict(
             facecolor='lightyellow', edgecolor='k', alpha=0.99,

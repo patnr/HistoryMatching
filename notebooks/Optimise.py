@@ -605,11 +605,11 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # the resulting suggested values in the interactive widget above.
 # Were you able to find equally good settings?
 
-# ## Case: 5-spot similar to Angga -- Make Pareto front
-# Compared to Angga:
+# # Pareto front
+# Compared to Angga 5-spot case:
 #
 # - No compressibility
-# - 20x20 vs. 60x60
+# - Different model rectangle
 # - Simplified geology (permeability)
 # - Injection is constant in time and across wells
 #
@@ -674,3 +674,236 @@ ax.grid()
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
 fig.tight_layout()
+
+
+# # Robust optimisation
+# Robust optimisation problems have a particular structure,
+# namely the objective is an *average*:
+
+def obj(u=None, x=None):
+    return np.mean([obj1(u, x) for x in uq_ens])
+
+# Of course, we still have to define the
+# - ensemble of providing uncertainty quantification (`uq_ens`)
+#   of some parameter(s), over which the average is computed.
+# - conditional objective (`obj1`),
+#   thus labelled because it applies to 1 member in `uq_ens`.
+
+# We can exploit the structure of the robust-optimisation `obj` above
+# by the following patch to the way `nabla_ens` computes the increments of `obj`.
+
+def dJ_StoSAG(self, obj, u, U, pbar):
+    if self.obj_ux:
+        u1 = np.tile(u, (self.nEns, 1))  # replicate u
+        JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
+        Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
+        dJ = np.asarray(JU) - Ju
+    else:
+        # Regular/"naive" form
+        dJ = apply(obj, U, pbar=pbar)
+    return dJ
+
+nabla_ens.obj_increments = dJ_StoSAG
+
+# Note that the computational cost of is $2 N$ simulations
+# rather than $N^2$ (assuming ensembles of equal size, $N$).
+# For small $N$ this cost saving is not palpable,
+# especially since backtracking will also perform a few iterations of $N$ evaluations.
+# But if $N > 30$ the cost savings become salient.
+#
+# PS: The cost of `nabla_ens.obj_increments` could be further reduced to just $N$ simulations
+# by not computing `Ju`, instead obtaining these objective values
+# from the latest `backtracker` evaluations.
+# However, for the sake of code simplicity,
+# we do not implement the necessary intercommunication,
+# preferring to keep `GD` and `backtracker` entirely generic,
+# i.e. unaware of any conditional objectives.
+
+# ## Case: Optimize injector location (x, y) under uncertain permeability
+
+# ### Uncertainty
+
+nEns = 31
+rnd.seed(5)
+uq_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
+
+# #### Plot
+
+plotting.fields(model, uq_ens, "perm");
+
+# ### Conditional objective
+# The *conditional* objective consists of the `npv`
+# at some `inj_xy=u` for a  given permability `K=x`.
+
+def obj1(u, x):
+    return npv(model, inj_xy=u, K=x)[0]
+
+model = original_model
+
+# print(f"Case: '{obj1.__name__}' for '{model.name}'")
+
+# ### Ensemble of objectives
+#
+# NB: since it involves $N$ model simulations for each grid cell,
+# computing the ensemble of conditional objective surfaces can take quite long.
+# So you should skip these computations if you're on a slow computer.
+
+try:
+    import google.colab  # type: ignore
+    my_computer_is_fast = False # Colab is slow
+except ImportError:
+    my_computer_is_fast = True
+
+
+if my_computer_is_fast:
+    print("obj1(u=mesh, x=ens)")
+    XY = np.stack(model.mesh, -1).reshape((-1, 2))
+    npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uq_ens)
+    plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
+
+    # Thus we know the global optimum of the total/robust objective.
+    npv_avrg = np.mean(npv_mesh, 0)
+    argmax = npv_avrg.argmax()
+    print("Global (exhaustive search) optimum:",
+          f"obj={npv_avrg[argmax]:.4}",
+          "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+
+# ### Optimize, plot paths
+# EnOpt therefore becomes much slower,
+# since each of its $N$ control ensemble members at a given iteration
+# requires $M$ model simulations.
+
+# +
+fig, axs = plotting.figure12(obj1.__name__)
+if my_computer_is_fast:
+    model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False);
+
+    # Use "naive" ensemble gradient
+    for color in ['C0', 'C2']:
+        u0 = rnd.rand(2) * model.domain[1]
+        path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns))
+        plotting.add_path12(*axs, path, objs, color=color, labels=False)
+
+# Use StoSAG ensemble gradient
+for color in ['C7', 'C9']:
+    u0 = rnd.rand(2) * model.domain[1]
+    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens))
+    plotting.add_path12(*axs, path, objs, color=color, labels=False)
+
+fig.tight_layout()
+# -
+
+# Clearly, optimising the full objective with "naive" EnOpt is very costly,
+# but is significantly faster using robust EnOpt (StoSAG), in particular if $N >= 30$.
+# Let us store the optimum of the last trial of StoSAG.
+
+ctrl_robust = path[-1]
+
+# ### Nominally (conditionally/individually) optimal controls
+#
+# It is also (academically) interesting to consider the optimum for the conditional objective,
+# i.e. for a single uncertain parameter member/realisation vector in `uq_ens`.
+# We can thus generate an ensemble of such nominally optimal control strategies.
+
+ctrl_ens_nominal = []
+for x in progbar(uq_ens, desc="Nominal optim."):
+    u0 = rnd.rand(2) * model.domain[1]
+    path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), verbose=False)
+    ctrl_ens_nominal.append(path[-1])
+
+# Alternatively, since we have already computed the npv for each pixel/cell
+# for each uncertain ensemble member, we can get the globally nominally optima.
+
+if my_computer_is_fast:
+    ctrl_ens_nominal2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
+
+# #### Plot optima (`ctrl_ens_nominal`)
+# The following myriad of matplotlib code produces a scatter plot of the nominal optima
+# for the injector well. The location is labelled with the corresponding uncertainty realisation.
+
+cmap = plotting.plt.get_cmap('tab20')
+fig, ax = plotting.freshfig("Optima", figsize=(7, 4))
+model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
+                wells=False, colorbar=False, grid=True);
+lbl_props = dict(fontsize="large", fontweight="bold")
+lbls = []
+for n, (x, y) in enumerate(ctrl_ens_nominal):
+    color = cmap(n % 20)
+    ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
+    lbls.append(ax.text(x, y, n, c=color, **lbl_props))
+    if my_computer_is_fast:
+        x2, y2 = ctrl_ens_nominal2[n]
+        ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
+ax.scatter(*ctrl_robust, s=8**2, color="w")
+utils.adjust_text(lbls, precision=.1);
+fig.tight_layout()
+
+# Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
+# It can be seen that EnOpt mostly, but not always, finds the global optimum
+# for this case.
+#
+# ### Histogram (KDE) for each control strategy
+
+# Let us assess (evaluate) the performance of the robust optimal control vector
+# for each of the parameter possibilities (i.e. each realisation in `uq_ens`).
+# PS: this was of course already computed as part of the iterative optimisation
+# procedure, but was not included it among its outputs.
+
+npvs_robust = apply(lambda x: obj1(ctrl_robust, x), uq_ens)
+
+# We can do the same for each nominally optimal control vector.
+# PS: we could also do the same for `ctrl_ens_nominal2`.
+
+print("obj1(ctrl_ens, uq_ens)")
+npvs_condnl = apply(lambda u: [obj1(u, x) for x in uq_ens], ctrl_ens_nominal)
+
+# Note that `npvs_condnl` is of shape `(nEns, nEns)`,
+# the first index (i.e. each row) corresponds to a nominally optimal control parameter vector.
+# We can construct a histogram for each one,
+# but it's difficult to visualize several histograms together.
+# Instead, following [Essen2009](#Essen2009), we use (Gaussian) kernel density estimation (KDE)
+# to create a "continuous" histogram, i.e. an approximate probability density.
+# The following code is a bit lengthy due to plotting details.
+
+# +
+from scipy.stats import gaussian_kde
+
+fig, ax = plotting.freshfig("NPV densities for optimal controls", figsize=(7, 4))
+ax.set_xlabel("NPV")
+ax.set_ylabel("Density (pdf)");
+
+a, b = np.min(npvs_condnl), np.max(npvs_condnl)
+npv_grid = np.linspace(a, b, 100)
+
+lbls = []
+for n, npvs_n in enumerate(npvs_condnl):
+    color = cmap(n % 20)
+    kde = gaussian_kde(npvs_n)
+    ax.plot(npv_grid, kde(npv_grid), c=color, lw=.8, alpha=.7)
+
+    # Label curves
+    x = a + n*(b-a)/nEns
+    lbls.append(ax.text(x, kde(x).item(), n, c=color, **lbl_props))
+    ax.scatter(x, kde(x), s=2, c=color)
+
+# Add robust strategy
+ax.plot(npv_grid, gaussian_kde(npvs_robust).evaluate(npv_grid), "w", lw=3)
+
+# Legend showing mean values
+leg = (f"         Mean    Min",
+       f"Robust:  {np.mean(npvs_robust):<6.3g}  {np.min(npvs_robust):.3g}",
+       f"Nominal: {np.mean(npvs_condnl):<6.3g}  {np.min(npvs_condnl):.3g}")
+ax.text(.02, .97, "\n".join(leg), transform=ax.transAxes, va="top", ha="left",
+        fontsize="medium", fontfamily="monospace", bbox=dict(
+            facecolor='lightyellow', edgecolor='k', alpha=0.99,
+            boxstyle="round,pad=0.25"))
+
+ax.tick_params(axis="y", left=False, labelleft=False)
+ax.set(facecolor="k", ylim=0, xlim=(a, b))
+utils.adjust_text(lbls)
+fig.tight_layout()
+# -
+
+# ## References
+
+# <a id="Essen2009">[Essen2009]</a>: van Essen, G., M. Zandvliet, P. Van den Hof, O. Bosgra, and J.-D. Jansen. Robust waterflooding optimization of multiple geological scenarios. SPE Journal, 14(01):202–210, 2009.

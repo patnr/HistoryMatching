@@ -72,7 +72,7 @@ def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
     return x, y
 
 
-def mnorm(x, axis=0):
+def _mnorm(x, axis=0):
     """L2 norm. Uses `mean` (unlike usual `sum`) for dimension agnosticity."""
     # return numpy.linalg.norm(xx/sqrt(len(xx)), ord=2)
     return np.sqrt(np.mean(x*x, axis))
@@ -103,7 +103,6 @@ def RMSMs(series, ref):
 
         err = x - y.mean(0)
         dev = y - y.mean(0)
-        print(f"{k:8}: {mnorm(err, None):6.4f}   {mnorm(dev, None):6.4f}")
 
 
 def svd0(A):
@@ -142,6 +141,7 @@ def pows(U, sig):
     def compute(expo):
         return (U * sig**expo) @ U.T
     return compute
+        print(f"{k:8}: {_mnorm(err, None):6.4f}   {_mnorm(dev, None):6.4f}")
 
 
 def center(E, axis=0, rescale=False):

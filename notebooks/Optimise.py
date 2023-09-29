@@ -224,7 +224,7 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
         else:
             g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
         if normed:
-            g /= utils.mnorm(g)
+            g /= np.sqrt(np.mean(g*g))
         return g
     return ens_grad
 

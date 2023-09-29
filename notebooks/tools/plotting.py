@@ -17,8 +17,6 @@ from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
 from TPFA_ResSim.plotting import styles
 
-from .utils import mnorm
-
 # Colormap for correlations
 cmap_corr = plt.get_cmap("bwr")
 # Set out-of-bounds colors for correlation plot
@@ -631,7 +629,8 @@ def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
         ax3.sharex(ax2)
         ax2.tick_params(labelbottom=False)
         xx = np.arange(len(path)-1) + .5
-        yy = mnorm(np.diff(path, axis=0), -1)
+        dd = np.diff(path, axis=0)
+        yy = np.sqrt(np.mean(dd*dd, -1))  # == norm / sqrt(len)
         ax3.plot(xx, yy, color=color or "C1", marker='.', ms=3**2)
         ax3.set_ylabel('|Step|')
         ax3.grid()

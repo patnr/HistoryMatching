@@ -1,6 +1,7 @@
 # ## Imports
 
 import copy
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.random as rnd
@@ -122,42 +123,38 @@ def partial_volumes(model, wsats, inj_or_prod):
 
 utils.nCPU = True
 
-def color_noise(Z, L):
-    """Multiply `Z` (1d or 2d) by Cholesky factor -- or scalar -- `L`."""
-    if getattr(L, 'ndim', 0):
-        X = Z @ L.T
-    else:
-        X = Z * L
-    return X
+@dataclass
+class nabla_ens:
+    """Ensemble gradient estimate (LLS regression)."""
+    chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
+    nEns:    int   = 10    # Size of control perturbation ensemble
+    precond: bool  = False # Use preconditioned form?
+    normed:  bool  = True
+    robust:  bool  = False
 
-def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True, robust=False):
-    """Set parameters of `ens_grad`."""
-    def ens_grad(obj, u, pbar):
-        """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
-        # Ensemble of controls (U)
-        U = color_noise(rnd.randn(nEns, len(u)), chol)
+    def apply(self, obj, u, pbar):
+        """Estimate `∇ obj(u)`"""
+        U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
-        U = u + dU
+        dJ = self.obj_increments(obj, u, u + dU, pbar)
+        if self.precond:
+            g = dU.T @ dJ / (self.nEns-1)
+        else:
+            g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
+        if self.normed:
+            g /= np.sqrt(np.mean(g*g))
+        return g
 
-        # Increments (dJ)
-        if robust:
-            u1 = np.tile(u, (nEns, 1))  # replicate u
+    def obj_increments(self, obj, u, U, pbar):
+        """Compute `dJ := center(obj(U))`."""
+        if self.robust:
+            u1 = np.tile(u, (self.nEns, 1))  # replicate u
             JU = apply(obj, U, x=uncertainty_ens, pbar=pbar)
             Ju = apply(obj, u1, x=uncertainty_ens, pbar=pbar)
             dJ = np.asarray(JU) - Ju
         else:
-            dJ = apply(obj, U, pbar=pbar)
-
-        if precond:
-            g = dU.T @ dJ / (nEns-1)
-        else:
-            g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
-
-        if normed:
-            g /= np.sqrt(np.mean(g*g))
-
-        return g
-    return ens_grad
+            dJ = apply(obj, U, pbar=pbar)  # can omit `center`
+        return dJ
 
 # Note that `ens_grad` is aware that the objective might also accept
 # a second input argument, namely the uncertain parameter vector for robust objective problems:
@@ -170,28 +167,30 @@ def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True, robust=False):
 #
 # PS: The cost of `ens_grad` could be further reduced to just $N$ simulations
 # by not computing `Ju`, instead obtaining these objective values
-# from the latest `backtrack` evaluations.
+# from the latest `backtracker` evaluations.
 # However, for the sake of code simplicity,
 # we do not implement the necessary intercommunication,
 # preferring to keep `GD` and `backtracker` entirely generic,
 # i.e. unaware of the robust objective possiblity.
 
-def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
-    """Set parameters of `backtrack`."""
-    def backtrack(objective, u0, J0, search_direction, pbar):
-        """Line search by bisection."""
-        atol = max(1e-8, abs(J0)) * rtol
-        pbar.reset(len(xSteps))
-        for i, step_length in enumerate(xSteps):
-            du = sign * step_length * search_direction
+@dataclass
+class backtracker:
+    """Bisect until improvement."""
+    sign:   int   = +1                                  # Search for max(+1) or min(-1)
+    xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
+    rtol:   float = 1e-8                                # Convergence criterion
+    def apply(self, obj, u0, J0, search_direction, pbar):
+        atol = max(1e-8, abs(J0)) * self.rtol
+        pbar.reset(len(self.xSteps))
+        for i, step_length in enumerate(self.xSteps):
+            du = self.sign * step_length * search_direction
             u1 = u0 + du
-            J1 = objective(u1)
+            J1 = obj(u1)
             dJ = J1 - J0
             pbar.update()
-            if sign*dJ > atol:
-                pbar.reset(len(xSteps))
+            if self.sign*dJ > atol:
+                pbar.reset(pbar.total)
                 return u1, J1, dict(nDeclined=i)
-    return backtrack
 
 
 def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, verbose=True):
@@ -209,8 +208,8 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, ve
             u, J, info = states[-1]
             pbar_gd.set_postfix(u=u, obj=J)
 
-            grad = nabla(objective, u, pbar_en)
-            updated = line_search(objective, u, J, grad, pbar_ls)
+            grad = nabla.apply(objective, u, pbar_en)
+            updated = line_search.apply(objective, u, J, grad, pbar_ls)
             pbar_gd.update()
 
             if updated:

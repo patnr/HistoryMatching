@@ -1,6 +1,7 @@
 """Common tools."""
 
 import numpy as np
+import numpy.random as rnd
 import scipy.linalg as sla
 
 from adjustText import adjust_text  # noqa
@@ -52,6 +53,18 @@ def corr(a, b):
     Corr = Corr.clip(-999, 999)
 
     return Corr
+
+
+def gaussian_noise(N, M, L):
+    """Sample 0-mean multivariate Gaussian/Normal ensemble."""
+    # L can be Cholesky factor or scalar std. dev
+    try:
+        Z = rnd.randn(N, len(L))
+        X = Z @ L.T
+    except TypeError:
+        Z = rnd.randn(N, M)
+        X = Z * L
+    return X
 
 
 def rinv(A, reg, tikh=True, nMax=None):

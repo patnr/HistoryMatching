@@ -129,8 +129,8 @@ class nabla_ens:
     chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
     nEns:    int   = 10    # Size of control perturbation ensemble
     precond: bool  = False # Use preconditioned form?
-    conditional: None = None
-    X:           None = None  # Uncertainty ensemble
+    obj_ux:  None  = None  # Conditional objective function
+    X:       None  = None  # Uncertainty ensemble
 
     def apply(self, obj, u, pbar):
         """Estimate `∇ obj(u)`"""
@@ -145,11 +145,10 @@ class nabla_ens:
 
     def obj_increments(self, obj, u, U, pbar):
         """Compute `dJ := center(obj(U))`."""
-        obj1 = self.conditional
         if obj1:
             u1 = np.tile(u, (self.nEns, 1))  # replicate u
-            JU = apply(obj1, U, x=self.X, pbar=pbar)
-            Ju = apply(obj1, u1, x=self.X, pbar=pbar)
+            JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
+            Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
             dJ = np.asarray(JU) - Ju
         else:
             dJ = apply(obj, U, pbar=pbar)  # can omit `center`
@@ -230,13 +229,13 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 # The objective is an *average*:
 
 def obj(u=None, x=None):
-    return np.mean([obj1(u, x) for x in uncertainty_ens])
+    return np.mean([obj1(u, x) for x in uq_ens])
 
 # Of course, we still have to define the
-# - ensemble of uncertain parameters (`uncertainty_ens`),
-#   over which the average is computed.
+# - ensemble of providing uncertainty quantification (`uq_ens`)
+#   of some parameter(s), over which the average is computed.
 # - conditional objective (`obj1`),
-#   thus labelled because it applies to 1 member in `uncertainty_ens`.
+#   thus labelled because it applies to 1 member in `uq_ens`.
 
 # ## Case: Optimize injector location (x, y) under uncertain permeability
 
@@ -244,11 +243,11 @@ def obj(u=None, x=None):
 
 nEns = 31
 rnd.seed(5)
-uncertainty_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
+uq_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
 
 # #### Plot
 
-plotting.fields(model, uncertainty_ens, "perm");
+plotting.fields(model, uq_ens, "perm");
 
 # ### Conditional objective
 # The *conditional* objective consists of the `npv`
@@ -277,7 +276,7 @@ except ImportError:
 if my_computer_is_fast:
     print("obj1(u=mesh, x=ens)")
     XY = np.stack(model.mesh, -1).reshape((-1, 2))
-    npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uncertainty_ens)
+    npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uq_ens)
     plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
 
     # Thus we know the global optimum of the total/robust objective.
@@ -306,7 +305,7 @@ if my_computer_is_fast:
 # Use StoSAG ensemble gradient
 for color in ['C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, conditional=obj1, X=uncertainty_ens))
+    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, conditional=obj1, X=uq_ens))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
 fig.tight_layout()
@@ -316,27 +315,27 @@ fig.tight_layout()
 # but is significantly faster using robust EnOpt (StoSAG), in particular if $N >= 30$.
 # Let us store the optimum of the last trial of StoSAG.
 
-robust_ctrl = path[-1]
+ctrl_robust = path[-1]
 
 # ### Nominally (conditionally/individually) optimal controls
 #
 # It is also (academically) interesting to consider the optimum for the conditional objective,
-# i.e. for a single uncertain parameter member/realisation vector in `uncertainty_ens`.
+# i.e. for a single uncertain parameter member/realisation vector in `uq_ens`.
 # We can thus generate an ensemble of such nominally optimal control strategies.
 
-nominal_ctrl_ens = []
-for x in progbar(uncertainty_ens, desc="Nominal optim."):
+ctrl_ens_nominal = []
+for x in progbar(uq_ens, desc="Nominal optim."):
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), verbose=False)
-    nominal_ctrl_ens.append(path[-1])
+    ctrl_ens_nominal.append(path[-1])
 
 # Alternatively, since we have already computed the npv for each pixel/cell
 # for each uncertain ensemble member, we can get the globally nominally optima.
 
 if my_computer_is_fast:
-    nominal_ctrl_ens2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
+    ctrl_ens_nominal2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
 
-# #### Plot optima (`nominal_ctrl_ens`)
+# #### Plot optima (`ctrl_ens_nominal`)
 # The following myriad of matplotlib code produces a scatter plot of the nominal optima
 # for the injector well. The location is labelled with the corresponding uncertainty realisation.
 
@@ -346,14 +345,14 @@ model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
                 wells=False, colorbar=False, grid=True);
 lbl_props = dict(fontsize="large", fontweight="bold")
 lbls = []
-for n, (x, y) in enumerate(nominal_ctrl_ens):
+for n, (x, y) in enumerate(ctrl_ens_nominal):
     color = cmap(n % 20)
     ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
     if my_computer_is_fast:
-        x2, y2 = nominal_ctrl_ens2[n]
+        x2, y2 = ctrl_ens_nominal2[n]
         ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
-ax.scatter(*robust_ctrl, s=8**2, color="w")
+ax.scatter(*ctrl_robust, s=8**2, color="w")
 utils.adjust_text(lbls, precision=.1);
 fig.tight_layout()
 
@@ -362,15 +361,22 @@ fig.tight_layout()
 # for this case.
 #
 # ### Histogram (KDE) for each control strategy
-# We can assess (evaluate) each nominally optimal control vector
-# for each realisation in `uncertainty_ens`.
 
-print("obj1(ctrl_ens, uncertainty_ens)")
-npvs_condnl = apply(lambda u: [obj1(u, x) for x in uncertainty_ens], nominal_ctrl_ens)
-npvs_robust = apply(lambda x: obj1(robust_ctrl, x), uncertainty_ens)
+# Let us assess (evaluate) the performance of the robust optimal control vector
+# for each of the parameter possibilities (i.e. each realisation in `uq_ens`).
+# PS: this was of course already computed as part of the iterative optimisation
+# procedure, but was not included it among its outputs.
+
+npvs_robust = apply(lambda x: obj1(ctrl_robust, x), uq_ens)
+
+# We can do the same for each nominally optimal control vector.
+# PS: we could also do the same for `ctrl_ens_nominal2`.
+
+print("obj1(ctrl_ens, uq_ens)")
+npvs_condnl = apply(lambda u: [obj1(u, x) for x in uq_ens], ctrl_ens_nominal)
 
 # Note that `npvs_condnl` is of shape `(nEns, nEns)`,
-# the first index (i.e. each rows) corresponds to a nominally optimal control parameter vector.
+# the first index (i.e. each row) corresponds to a nominally optimal control parameter vector.
 # We can construct a histogram for each one,
 # but it's difficult to visualize several histograms together.
 # Instead, following [Essen2009](#Essen2009), we use (Gaussian) kernel density estimation (KDE)

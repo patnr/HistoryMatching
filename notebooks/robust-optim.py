@@ -145,7 +145,7 @@ class nabla_ens:
 
     def obj_increments(self, obj, u, U, pbar):
         """Compute `dJ := center(obj(U))`."""
-        if obj1:
+        if self.obj_ux:
             u1 = np.tile(u, (self.nEns, 1))  # replicate u
             JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
             Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
@@ -305,7 +305,7 @@ if my_computer_is_fast:
 # Use StoSAG ensemble gradient
 for color in ['C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, conditional=obj1, X=uq_ens))
+    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
 fig.tight_layout()

@@ -925,14 +925,14 @@ plotting.fields(model, perm.LES, "pperm", "LES (posterior)");
 
 def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
-    N = len(Y)
-    Y0       = sla.pinv(T) @ Y        # "De-condition"
-    V, s, UT = utils.svd0(Y0)         # Decompose
-    Cowp     = utils.pows(V, utils.pad0(s**2, N) + N-1)
-    Cow1     = Cowp(-1.0)             # Posterior cov of w
-    grad     = Y0@dy - w*(N-1)        # Cost function gradient
-    dw       = grad@Cow1              # Gauss-Newton step
-    T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+    Y0       = sla.pinv(T) @ Y                       # "De-condition"
+    nExs     = Y0.shape[0] - Y0.shape[1]             # nEns - len(y), i.e. "Excess N"
+    V, s, UT = sla.svd(Y0, full_matrices=(nExs>0))   # Decompose
+    cow1s    = N-1 + np.pad(s**2, (0, max(0, nExs))) # Postr. cov_w^{-1} spectrum
+    cowp     = lambda p: (V * cow1s**p) @ V.T        # Postr. cov_w^{-p}
+    grad     = Y0@dy - w*(N-1)                       # Cost function gradient
+    dw       = grad@cowp(-1.0)                       # Gauss-Newton step
+    T        = cowp(-.5) * sqrt(N-1)                 # Transform matrix
     return dw, T
 
 

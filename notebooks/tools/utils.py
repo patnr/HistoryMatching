@@ -103,44 +103,6 @@ def print_RMSMs(series, ref):
 
         err = x - y.mean(0)
         dev = y - y.mean(0)
-
-
-def svd0(A):
-    """Similar to Matlab's svd(A,0).
-
-    Compute the
-
-     - full    svd if nrows > ncols
-     - reduced svd otherwise.
-
-    As in Matlab: svd(A,0),
-    except that the input and output are transposed, in keeping with DAPPER convention.
-    It contrasts with scipy.linalg's svd(full_matrice=False) and Matlab's svd(A,'econ'),
-    both of which always compute the reduced svd.
-
-    .. seealso:: tsvd() for rank (and threshold) truncation.
-    """
-    M, N = A.shape
-    if M > N:
-        return sla.svd(A, full_matrices=True)
-    return sla.svd(A, full_matrices=False)
-
-
-def pad0(ss, N):
-    """Pad ss with zeros so that len(ss)==N."""
-    out = np.zeros(N)
-    out[:len(ss)] = ss
-    return out
-
-
-def pows(U, sig):
-    """Prepare the computation of the matrix power of a symmetric matrix.
-
-    The input matrix is specified by its eigen-vectors (U) and -values (sig).
-    """
-    def compute(expo):
-        return (U * sig**expo) @ U.T
-    return compute
         print(f"{k:8}: {_mnorm(err, None):6.4f}   {_mnorm(dev, None):6.4f}")
 
 

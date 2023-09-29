@@ -6,7 +6,8 @@
 # This is a tutorial on production optimisation using ensemble methods.
 # Please also have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
 # for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
-#
+
+# #### Install
 # If you're on **Google Colab**, run the cell below to install the requirements.
 # Otherwise (and assuming you have done the installation described in the README),
 # you can skip/delete this cell.
@@ -14,21 +15,23 @@
 remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 # !wget -qO- {remote}/master/colab_bootstrap.sh | bash -s
 
-# ## Imports
+# #### Imports
 
+# +
 import copy
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.random as rnd
 import TPFA_ResSim as simulator
-from mpl_tools.place import freshfig
-from tqdm.auto import tqdm as progbar
 
-import tools.plotting as plotting
-from tools import geostat, mpl_setup, utils
-from tools.utils import center, apply
+from tools import geostat, plotting, utils
+from tools.utils import center, apply, progbar
+# -
 
-mpl_setup.init()
+# #### Config
+
+plotting.init()
 np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
 
 # ## Define model
@@ -67,7 +70,7 @@ model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
 # #### Plot
 
-fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
+fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
@@ -84,7 +87,7 @@ def plot_final_sweep(model):
     """Simulate reservoir, plot final oil saturation."""
     wsats = model.sim(dt, nTime, wsat0, pbar=False)
     title = "Final sweep" + (" -- " + model.name) if model.name else ""
-    fig, ax = freshfig(title, figsize=(1, .6), rel=True)
+    fig, ax = plotting.freshfig(title, figsize=(1, .6), rel=True)
     model.plt_field(ax, wsats[-1], "oil")
     fig.tight_layout()
 
@@ -208,80 +211,96 @@ utils.nCPU = True
 # We wrap the gradient estimation function in another to fix its configuration parameters,
 # (to avoid having to pass them through the caller, i.e. gradient descent).
 
-def nabla_ens(chol=1.0, nEns=10, precond=False, normed=True):
-    """Set parameters of `ens_grad`."""
-    pbar = dict(desc="ens_grad", leave=False)
-    def ens_grad(obj, u):
-        """Compute ensemble gradient (LLS regression) for `obj` centered on `u`."""
-        cholT = chol.T if isinstance(chol, np.ndarray) else chol * np.eye(len(u))
-        U = rnd.randn(nEns, len(u)) @ cholT
+@dataclass
+class nabla_ens:
+    """Ensemble gradient estimate (LLS regression)."""
+    chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
+    nEns:    int   = 10    # Size of control perturbation ensemble
+    precond: bool  = False # Use preconditioned form?
+    # Will be used later:
+    obj_ux:  None  = None  # Conditional objective function
+    X:       None  = None  # Uncertainty ensemble
+
+    def apply(self, obj, u, pbar):
+        """Estimate `∇ obj(u)`"""
+        U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
-        dJ = apply(obj, u + dU, pbar=pbar)
-        if precond:
-            g = dU.T @ dJ / (nEns-1)
+        dJ = self.obj_increments(obj, u, u + dU, pbar)
+        if self.precond:
+            g = dU.T @ dJ / (self.nEns-1)
         else:
             g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
-        if normed:
-            g /= utils.mnorm(g)
         return g
-    return ens_grad
+
+    def obj_increments(self, obj, u, U, pbar):
+        return apply(obj, U, pbar=pbar)  # don't need to `center`
 
 # #### Backtracking
 # Another ingredient to successful gradient descent is line search.
 #
-# Parameters:
-# - `sign=+/-1`: max/min-imization.
-# - `xSteps`: trial step lengths.
-# - `rtol`: convergence criterion.
-#   Specifies magnitude of improvement required to accept update of iterate.
-#   Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
-#   Setting to 0 is not recommended, because if the objective function is flat
-#   in the neighborhood, then the path could just go in circles on that flat.
+# PS: The `rtol` parameter specifies the improvement required to accept update of iterate.
+# Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
+# Setting to 0 is not recommended, because if the objective function is flat
+# in the neighborhood, then the path could just go in circles on that flat.
 
-def backtracker(sign=+1, xSteps=tuple(1/2**(i+1) for i in range(8)), rtol=1e-8):
-    """Set parameters of `backtrack`."""
-    def backtrack(x0, J0, objective, search_direction):
-        """Line search by bisection."""
-        atol = max(1e-8, abs(J0)) * rtol
-        with progbar(total=len(xSteps), desc="Backtrack", leave=False) as pbar:
-            for i, step_length in enumerate(xSteps):
-                pbar.update(1)
-                dx = sign * step_length * search_direction
-                x1 = x0 + dx
-                J1 = objective(x1)
-                dJ = J1 - J0
-                if sign*dJ > atol:
-                    pbar.update(len(xSteps))  # needed in Jupyter
-                    return x1, J1, dict(nDeclined=i)
-    return backtrack
+@dataclass
+class backtracker:
+    """Bisect until improvement."""
+    sign:   int   = +1                                  # Search for max(+1) or min(-1)
+    xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
+    rtol:   float = 1e-8                                # Convergence criterion
+    def apply(self, obj, u0, J0, search_direction, pbar):
+        atol = max(1e-8, abs(J0)) * self.rtol
+        pbar.reset(len(self.xSteps))
+        for i, step_length in enumerate(self.xSteps):
+            du = self.sign * step_length * search_direction
+            u1 = u0 + du
+            J1 = obj(u1)
+            dJ = J1 - J0
+            pbar.update()
+            if self.sign*dJ > atol:
+                pbar.reset(pbar.total)
+                return u1, J1, dict(nDeclined=i)
 
-# #### Gradient descent
 # Other acceleration techniques (AdaGrad, Nesterov, momentum,
 # of which git commit `9937d5b2` contains a working implementation)
 # could also be considered, but do not necessarily play nice with line search.
-#
+
+# #### Gradient descent
 # The following implements gradient descent (GD).
 
-def GD(objective, x, nabla=nabla_ens(), line_search=backtracker(), nIter=100):
+def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, verbose=True):
     """Gradient (i.e. steepest) descent/ascent."""
-    J = objective(x)
-    path = [x]
-    objs = [J]
-    info = []  # ⇒ len+1 == len(path)
-    for itr in range(nIter):
-        grad = nabla(objective, x)
-        if (update := line_search(x, J, objective, grad)):
-            x, J, dct = update
-            path.append(x)
-            objs.append(J)
-            info.append(dct)
+
+    # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
+    with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=not verbose) as pbar_gd,
+          progbar(total=10000, desc="→ grad. comp.", leave=False, disable=not verbose) as pbar_en,
+          progbar(total=10000, desc="→ line_search", leave=False, disable=not verbose) as pbar_ls,
+          np.printoptions(precision=2, threshold=2, edgeitems=1)):
+
+        states = [[u, objective(u), "placeholder for {cause}"]]
+
+        for itr in range(nIter):
+            u, J, info = states[-1]
+            pbar_gd.set_postfix(u=u, obj=J)
+
+            grad = nabla.apply(objective, u, pbar_en)
+            if nrmlz:
+                grad /= np.sqrt(np.mean(grad**2))
+            updated = line_search.apply(objective, u, J, grad, pbar_ls)
+            pbar_gd.update()
+
+            if updated:
+                states.append(updated)
+            else:
+                cause = "✅ GD converged"
+                break
         else:
-            status = "Converged ✅"
-            break
-    else:
-        status = "Ran out of iters ❌"
-    print(f"{status:<9} {itr=:<5}  {x=!s}  {J=:.2f}")
-    return np.asarray(path), np.asarray(objs), info
+            cause = "❌ GD ran out of iters"
+        pbar_gd.set_description(cause)
+
+    states[0][-1] = cause
+    return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
 
 
 # ## Case: Optimize injector location
@@ -374,7 +393,7 @@ npvs = apply(obj, x_grid, pbar="obj(x_grid)")
 
 # +
 # Plot objective
-fig, ax = freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
+fig, ax = plotting.freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
 ax.plot(x_grid, npvs, "slategrey", lw=3);
 
@@ -514,7 +533,7 @@ npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
 
 # +
 # Optimize
-fig, ax = freshfig(obj.__name__, figsize=(1, .4), rel=True)
+fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .4), rel=True)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(rate_grid, npvs, "slategrey")
@@ -547,7 +566,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Show well layout
 
-fig, ax = freshfig(model.name, figsize=(1, .6), rel=True)
+fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
 model.plt_field(ax, model.K[0], "perm");
 fig.tight_layout()
 
@@ -586,11 +605,11 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # the resulting suggested values in the interactive widget above.
 # Were you able to find equally good settings?
 
-# ## Case: 5-spot similar to Angga -- Make Pareto front
-# Compared to Angga:
+# # Pareto front
+# Compared to Angga 5-spot case:
 #
 # - No compressibility
-# - 20x20 vs. 60x60
+# - Different model rectangle
 # - Simplified geology (permeability)
 # - Injection is constant in time and across wells
 #
@@ -619,7 +638,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # #### Optimize
 
-fig, ax = freshfig(obj.__name__, figsize=(1, .8), rel=True)
+fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .8), rel=True)
 rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
@@ -650,8 +669,241 @@ for i, prod_rates in enumerate(optimal_rates):
     emissions.append(other['inj_total'])
 
 
-fig, ax = freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
+fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
 ax.grid()
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
 fig.tight_layout()
+
+
+# # Robust optimisation
+# Robust optimisation problems have a particular structure,
+# namely the objective is an *average*:
+
+def obj(u=None, x=None):
+    return np.mean([obj1(u, x) for x in uq_ens])
+
+# Of course, we still have to define the
+# - ensemble of providing uncertainty quantification (`uq_ens`)
+#   of some parameter(s), over which the average is computed.
+# - conditional objective (`obj1`),
+#   thus labelled because it applies to 1 member in `uq_ens`.
+
+# We can exploit the structure of the robust-optimisation `obj` above
+# by the following patch to the way `nabla_ens` computes the increments of `obj`.
+
+def dJ_StoSAG(self, obj, u, U, pbar):
+    if self.obj_ux:
+        u1 = np.tile(u, (self.nEns, 1))  # replicate u
+        JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
+        Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
+        dJ = np.asarray(JU) - Ju
+    else:
+        # Regular/"naive" form
+        dJ = apply(obj, U, pbar=pbar)
+    return dJ
+
+nabla_ens.obj_increments = dJ_StoSAG
+
+# Note that the computational cost of is $2 N$ simulations
+# rather than $N^2$ (assuming ensembles of equal size, $N$).
+# For small $N$ this cost saving is not palpable,
+# especially since backtracking will also perform a few iterations of $N$ evaluations.
+# But if $N > 30$ the cost savings become salient.
+#
+# PS: The cost of `nabla_ens.obj_increments` could be further reduced to just $N$ simulations
+# by not computing `Ju`, instead obtaining these objective values
+# from the latest `backtracker` evaluations.
+# However, for the sake of code simplicity,
+# we do not implement the necessary intercommunication,
+# preferring to keep `GD` and `backtracker` entirely generic,
+# i.e. unaware of any conditional objectives.
+
+# ## Case: Optimize injector location (x, y) under uncertain permeability
+
+# ### Uncertainty
+
+nEns = 31
+rnd.seed(5)
+uq_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
+
+# #### Plot
+
+plotting.fields(model, uq_ens, "perm");
+
+# ### Conditional objective
+# The *conditional* objective consists of the `npv`
+# at some `inj_xy=u` for a  given permability `K=x`.
+
+def obj1(u, x):
+    return npv(model, inj_xy=u, K=x)[0]
+
+model = original_model
+
+# print(f"Case: '{obj1.__name__}' for '{model.name}'")
+
+# ### Ensemble of objectives
+#
+# NB: since it involves $N$ model simulations for each grid cell,
+# computing the ensemble of conditional objective surfaces can take quite long.
+# So you should skip these computations if you're on a slow computer.
+
+try:
+    import google.colab  # type: ignore
+    my_computer_is_fast = False # Colab is slow
+except ImportError:
+    my_computer_is_fast = True
+
+
+if my_computer_is_fast:
+    print("obj1(u=mesh, x=ens)")
+    XY = np.stack(model.mesh, -1).reshape((-1, 2))
+    npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uq_ens)
+    plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
+
+    # Thus we know the global optimum of the total/robust objective.
+    npv_avrg = np.mean(npv_mesh, 0)
+    argmax = npv_avrg.argmax()
+    print("Global (exhaustive search) optimum:",
+          f"obj={npv_avrg[argmax]:.4}",
+          "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+
+# ### Optimize, plot paths
+# EnOpt therefore becomes much slower,
+# since each of its $N$ control ensemble members at a given iteration
+# requires $M$ model simulations.
+
+# +
+fig, axs = plotting.figure12(obj1.__name__)
+if my_computer_is_fast:
+    model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False);
+
+    # Use "naive" ensemble gradient
+    for color in ['C0', 'C2']:
+        u0 = rnd.rand(2) * model.domain[1]
+        path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns))
+        plotting.add_path12(*axs, path, objs, color=color, labels=False)
+
+# Use StoSAG ensemble gradient
+for color in ['C7', 'C9']:
+    u0 = rnd.rand(2) * model.domain[1]
+    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens))
+    plotting.add_path12(*axs, path, objs, color=color, labels=False)
+
+fig.tight_layout()
+# -
+
+# Clearly, optimising the full objective with "naive" EnOpt is very costly,
+# but is significantly faster using robust EnOpt (StoSAG), in particular if $N >= 30$.
+# Let us store the optimum of the last trial of StoSAG.
+
+ctrl_robust = path[-1]
+
+# ### Nominally (conditionally/individually) optimal controls
+#
+# It is also (academically) interesting to consider the optimum for the conditional objective,
+# i.e. for a single uncertain parameter member/realisation vector in `uq_ens`.
+# We can thus generate an ensemble of such nominally optimal control strategies.
+
+ctrl_ens_nominal = []
+for x in progbar(uq_ens, desc="Nominal optim."):
+    u0 = rnd.rand(2) * model.domain[1]
+    path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), verbose=False)
+    ctrl_ens_nominal.append(path[-1])
+
+# Alternatively, since we have already computed the npv for each pixel/cell
+# for each uncertain ensemble member, we can get the globally nominally optima.
+
+if my_computer_is_fast:
+    ctrl_ens_nominal2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
+
+# #### Plot optima (`ctrl_ens_nominal`)
+# The following myriad of matplotlib code produces a scatter plot of the nominal optima
+# for the injector well. The location is labelled with the corresponding uncertainty realisation.
+
+cmap = plotting.plt.get_cmap('tab20')
+fig, ax = plotting.freshfig("Optima", figsize=(7, 4))
+model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
+                wells=False, colorbar=False, grid=True);
+lbl_props = dict(fontsize="large", fontweight="bold")
+lbls = []
+for n, (x, y) in enumerate(ctrl_ens_nominal):
+    color = cmap(n % 20)
+    ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
+    lbls.append(ax.text(x, y, n, c=color, **lbl_props))
+    if my_computer_is_fast:
+        x2, y2 = ctrl_ens_nominal2[n]
+        ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
+ax.scatter(*ctrl_robust, s=8**2, color="w")
+utils.adjust_text(lbls, precision=.1);
+fig.tight_layout()
+
+# Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
+# It can be seen that EnOpt mostly, but not always, finds the global optimum
+# for this case.
+#
+# ### Histogram (KDE) for each control strategy
+
+# Let us assess (evaluate) the performance of the robust optimal control vector
+# for each of the parameter possibilities (i.e. each realisation in `uq_ens`).
+# PS: this was of course already computed as part of the iterative optimisation
+# procedure, but was not included it among its outputs.
+
+npvs_robust = apply(lambda x: obj1(ctrl_robust, x), uq_ens)
+
+# We can do the same for each nominally optimal control vector.
+# PS: we could also do the same for `ctrl_ens_nominal2`.
+
+print("obj1(ctrl_ens, uq_ens)")
+npvs_condnl = apply(lambda u: [obj1(u, x) for x in uq_ens], ctrl_ens_nominal)
+
+# Note that `npvs_condnl` is of shape `(nEns, nEns)`,
+# the first index (i.e. each row) corresponds to a nominally optimal control parameter vector.
+# We can construct a histogram for each one,
+# but it's difficult to visualize several histograms together.
+# Instead, following [Essen2009](#Essen2009), we use (Gaussian) kernel density estimation (KDE)
+# to create a "continuous" histogram, i.e. an approximate probability density.
+# The following code is a bit lengthy due to plotting details.
+
+# +
+from scipy.stats import gaussian_kde
+
+fig, ax = plotting.freshfig("NPV densities for optimal controls", figsize=(7, 4))
+ax.set_xlabel("NPV")
+ax.set_ylabel("Density (pdf)");
+
+a, b = np.min(npvs_condnl), np.max(npvs_condnl)
+npv_grid = np.linspace(a, b, 100)
+
+lbls = []
+for n, npvs_n in enumerate(npvs_condnl):
+    color = cmap(n % 20)
+    kde = gaussian_kde(npvs_n)
+    ax.plot(npv_grid, kde(npv_grid), c=color, lw=.8, alpha=.7)
+
+    # Label curves
+    x = a + n*(b-a)/nEns
+    lbls.append(ax.text(x, kde(x).item(), n, c=color, **lbl_props))
+    ax.scatter(x, kde(x), s=2, c=color)
+
+# Add robust strategy
+ax.plot(npv_grid, gaussian_kde(npvs_robust).evaluate(npv_grid), "w", lw=3)
+
+# Legend showing mean values
+leg = (f"         Mean    Min",
+       f"Robust:  {np.mean(npvs_robust):<6.3g}  {np.min(npvs_robust):.3g}",
+       f"Nominal: {np.mean(npvs_condnl):<6.3g}  {np.min(npvs_condnl):.3g}")
+ax.text(.02, .97, "\n".join(leg), transform=ax.transAxes, va="top", ha="left",
+        fontsize="medium", fontfamily="monospace", bbox=dict(
+            facecolor='lightyellow', edgecolor='k', alpha=0.99,
+            boxstyle="round,pad=0.25"))
+
+ax.tick_params(axis="y", left=False, labelleft=False)
+ax.set(facecolor="k", ylim=0, xlim=(a, b))
+utils.adjust_text(lbls)
+fig.tight_layout()
+# -
+
+# ## References
+
+# <a id="Essen2009">[Essen2009]</a>: van Essen, G., M. Zandvliet, P. Van den Hof, O. Bosgra, and J.-D. Jansen. Robust waterflooding optimization of multiple geological scenarios. SPE Journal, 14(01):202–210, 2009.

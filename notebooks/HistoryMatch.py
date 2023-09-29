@@ -49,8 +49,8 @@ remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 
 import numpy as np
 from matplotlib import pyplot as plt
-from tools import mpl_setup
-mpl_setup.init()
+from tools import plotting
+plotting.init()
 
 # Use numpy arrays for vectors, matrices. Examples:
 a  = np.arange(10)  # OR: np.array([0,1,2,3,4,5,6,7,8,9])
@@ -81,10 +81,8 @@ plt.legend();
 import copy
 import numpy.random as rnd
 import scipy.linalg as sla
-from mpl_tools.place import freshfig
 from numpy import sqrt
 from struct_tools import DotDict as Dict
-from tqdm.auto import tqdm as progbar
 
 # ## Problem case (simulator, truth, obs)
 
@@ -105,8 +103,7 @@ seed = rnd.seed(4)  # very easy
 
 import TPFA_ResSim as simulator
 import tools.localization as loc
-import tools.plotting as plotting
-from tools import geostat, utils
+from tools import geostat, plotting, utils
 from tools.utils import center, apply
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
@@ -209,7 +206,7 @@ model.prod_rates = np.ones((nProd, 1)) / nProd
 # Let's take a moment to visualize the (true) model permeability field,
 # and the well locations. Note that they have all been collocated to cell centres.
 
-fig, ax = freshfig("True perm. field", figsize=(1.5, 1), rel=1)
+fig, ax = plotting.freshfig("True perm. field", figsize=(1.5, 1), rel=1)
 # model.plt_field(ax, perm.Truth, "pperm")
 model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True)
 fig.tight_layout()
@@ -258,7 +255,7 @@ for iT in range(nTime):
 
 # Plot of observations (and their noise):
 
-fig, ax = freshfig("Observations", figsize=(2, .7), rel=True)
+fig, ax = plotting.freshfig("Observations", figsize=(2, .7), rel=True)
 model.plt_production(ax, prod.past.Truth, prod.past.Noisy);
 
 # Note that several observations are above 1,
@@ -288,7 +285,7 @@ print("Prior var.:", np.var(perm.Prior))
 # Note that the histogram of the truth is simply counting the values of a single field,
 # whereas the histogram of the ensemble counts the values of `N` fields.
 
-fig, ax = freshfig("Perm.", figsize=(1.5, .7), rel=1)
+fig, ax = plotting.freshfig("Perm.", figsize=(1.5, .7), rel=1)
 bins = np.linspace(*plotting.styles["pperm"]["levels"][[0, -1]], 32)
 for label, perm_field in perm.items():
     x = perm_field.ravel()
@@ -547,7 +544,7 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # Here is a plot of the paths.
 
-fig, ax = freshfig("Trajectories of maxima of corr. fields", figsize=(1.5, 1), rel=1)
+fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields", figsize=(1.5, 1), rel=1)
 model.plt_field(ax, np.zeros(model.shape), "corr", colorbar=False)
 for i, xy_path in enumerate(xy_max_corr):
     color = dict(color=f"C{i}")
@@ -581,7 +578,7 @@ fig.tight_layout()
 # conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
 # function.  It is illustrated here.
 
-fig, ax = freshfig("Tapering ('bump') functions", figsize=(1.5, .8), rel=1)
+fig, ax = plotting.freshfig("Tapering ('bump') functions", figsize=(1.5, .8), rel=1)
 dists = np.linspace(-1, 1, 1001)
 for sharpness in [.01, .1, 1, 10, 100, 1000]:
     coeffs = loc.bump_function(dists, sharpness)
@@ -874,7 +871,7 @@ colors = rnd.choice(len(domains), len(domains), False)
 Z = np.zeros(model.shape)
 for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
-fig, ax = freshfig("Computing domains", figsize=(1, .5), rel=1)
+fig, ax = plotting.freshfig("Computing domains", figsize=(1, .5), rel=1)
 ax.imshow(Z, cmap="tab20", aspect=.5);
 
 # The tapering will be a function of the batch's mean distance to the observations.
@@ -928,14 +925,14 @@ plotting.fields(model, perm.LES, "pperm", "LES (posterior)");
 
 def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
-    N = len(Y)
-    Y0       = sla.pinv(T) @ Y        # "De-condition"
-    V, s, UT = utils.svd0(Y0)         # Decompose
-    Cowp     = utils.pows(V, utils.pad0(s**2, N) + N-1)
-    Cow1     = Cowp(-1.0)             # Posterior cov of w
-    grad     = Y0@dy - w*(N-1)        # Cost function gradient
-    dw       = grad@Cow1              # Gauss-Newton step
-    T        = Cowp(-.5) * sqrt(N-1)  # Transform matrix
+    Y0       = sla.pinv(T) @ Y                       # "De-condition"
+    nExs     = Y0.shape[0] - Y0.shape[1]             # nEns - len(y), i.e. "Excess N"
+    V, s, UT = sla.svd(Y0, full_matrices=(nExs>0))   # Decompose
+    cow1s    = N-1 + np.pad(s**2, (0, max(0, nExs))) # Postr. cov_w^{-1} spectrum
+    cowp     = lambda p: (V * cow1s**p) @ V.T        # Postr. cov_w^{-p}
+    grad     = Y0@dy - w*(N-1)                       # Cost function gradient
+    dw       = grad@cowp(-1.0)                       # Gauss-Newton step
+    T        = cowp(-.5) * sqrt(N-1)                 # Transform matrix
     return dw, T
 
 
@@ -956,9 +953,10 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     w      = np.zeros(N)  # Control vector for the mean state.
     T      = np.eye(N)    # Anomalies transform matrix.
 
-    for itr in progbar(range(nIter), desc="Iter.ES"):
+    for itr in utils.progbar(range(nIter), desc="Iter.ES"):
         # Compute rmse (vs. supposedly unknown Truth)
-        stat.rmse += [utils.mnorm(E.mean(0) - perm.Truth, None)]
+        err = E.mean(0) - perm.Truth
+        stat.rmse += [np.sqrt(np.mean(err*err))]  # == norm / sqrt(len)
 
         # Forecast.
         _, Eo = forward_model(E, leave=False)
@@ -1024,7 +1022,7 @@ plotting.fields(model, perm.IES, "pperm", "IES (posterior)");
 # monotonic. Re-running the experiments with a different seed is instructive. It may be
 # observed that the iterations are not always very successful.
 
-fig, ax = freshfig("IES Objective function")
+fig, ax = plotting.freshfig("IES Objective function")
 ls = dict(postr="-", prior=":", lklhd="--")
 for name, J in diagnostics.obj.items():
     ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
@@ -1056,10 +1054,10 @@ ax2.tick_params(axis='y', labelcolor="r")
 # #### RMS summary
 # RMS stands for "root-mean-square(d)" and is a summary measure for deviations.
 # With ensemble methods, it is (typically, and in this case study) applied
-# to the deviation from the **ensemble mean**, whence the trailing `M` in `RMSMs` below.
+# to the deviation from the **ensemble mean**, whence the trailing `M` in `print_RMSMs` below.
 
 print("Stats vs. true field\n")
-utils.RMSMs(perm, ref="Truth")
+utils.print_RMSMs(perm, ref="Truth")
 
 # #### Field plots
 # Let's plot mean fields.
@@ -1127,7 +1125,7 @@ plotting.productions(prod.past, "Past");
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)\n")
-utils.RMSMs(prod.past, ref="Noisy")
+utils.print_RMSMs(prod.past, ref="Noisy")
 
 # Note that, here, the "err" is comptuted vs. the observations,
 # not the (supposedly unknown) truth. In any case,
@@ -1180,7 +1178,7 @@ plotting.productions(prod.futr, "Future");
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production\n")
-utils.RMSMs(prod.futr, ref="Truth")
+utils.print_RMSMs(prod.futr, ref="Truth")
 
 # ## Final comments
 

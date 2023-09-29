@@ -5,18 +5,17 @@ import warnings
 
 import ipywidgets as wg
 import matplotlib as mpl
+import mpl_tools
 import numpy as np
 import struct_tools
 from IPython.display import clear_output, display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator, LogLocator
-from mpl_tools import place
+from mpl_tools.place import freshfig
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
 from TPFA_ResSim.plotting import styles
-
-from .utils import mnorm
 
 # Colormap for correlations
 cmap_corr = plt.get_cmap("bwr")
@@ -61,7 +60,7 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
 
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
-    fig, axs = place.freshfig(title, figsize=figsize, rel=True)
+    fig, axs = freshfig(title, figsize=figsize, rel=True)
     # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
         suptitle = fig._suptitle.get_text()
@@ -108,6 +107,94 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
     # warnings.resetwarnings()  # Don't! Causes warnings from (mpl?) libraries
 
     return fig, axs, hh
+
+
+def init():
+    """Configure mpl.
+
+    ## On the choice of backend:
+
+    - In scripts, `Qt5Agg` is nice coz it (is interactive and) allows
+      programmatic (automatic) placement of figures on screen.
+    - In notebooks `%matplotib notebook` (nbAgg) is interactive,
+      so cooler than `%matplotlib inline`.
+    - On my local machine, `%matplotlib inline` always makes figures display
+      as string: <Figure size ...>, despite `plt.show()`, `plt.pause(0.1)`, etc.
+    - However, `%matplotlib widget/ipympl` ('module://ipympl.backend_nbagg')
+      is also interactive, and compatible with BOTH jupyter-notebook and -lab.
+      It may also be selected via `import ipympl`.
+    - Colab only supports `%matplotlib inline` (but could look into "plotly")
+      https://stackoverflow.com/a/64297121
+
+    ## On IPython magics vs `mpl.use()`:
+
+    The magics (like `%matplotlib notebook/ipympl`) set `plt.ion()` and some rcParams.
+    They could probably be used in a module via `get_ipython().run_line_magic()`
+    however, here I choose to instead use `mpl.use(...)` or `import ipympl`.
+    - If you do `import ipympl` BEFORE `import matplotlib.pyplot` then
+      the figures only display as the text string <Figure size ...>.
+    - If you do mpl.use("nbAgg") BEFORE `import matplotlib.pyplot` then
+      you must remember to do `plt.ion()` too.
+      PS: this "interactive" is not to be confused with "interactive backends".
+      PS: check status with `plt.isinteractive`.
+
+    ## About figures not displaying on 2nd run (cell execution):
+
+    This seems to be an issue with ipympl when the figure `num` is re-used.
+    Should be fixed in `freshfig` as of mpl-tools 0.2.55.
+
+    ## About "run all (cells)":
+
+    On my Mac, the figures sometimes don't display, or are "inline" instead of "nbAgg".
+
+    ## About animation displaying twice:
+
+    The solution seems to be to split the creation and display cells, and using %%capture.
+    This worked both locally and on Colab.
+    - [Ref](https://stackoverflow.com/q/47138023)
+    - [Ref](https://stackoverflow.com/a/36685236)
+    On my Mac, `%matplotlib inline` did not have this issue, but plenty others (see above).
+    However, on Colab (i.e. `%matplotlib inline`), the animation still displayed double.
+    """
+    if mpl_tools.is_notebook_or_qt:
+        mpl.rc('animation', html="jshtml")
+
+        # mpl.rcParams["figure.figsize"] = [5, 3.5]
+        # NB: Non-default figsize/fontsize may cause axis labels/titles
+        # that do not fit within the figure, or trespass into the axes
+        # (unless fixed by tight_layout, but that is sometimes not possible)
+        # Moreover, in general, for presentations, you will use the web-browser
+        # zoom functionality, which also zooms in figure and font sizes,
+        # reducing the need to change defaults.
+        mpl.rcParams.update({"legend.fontsize": "large"})
+        mpl.rcParams["font.size"] = 12
+
+        try:
+            # Colab
+            import google.colab  # type: ignore # noqa
+
+            # [colab-specific adjustments]
+
+        except ImportError:
+            # Local Jupyter
+            try:
+                # Similar to `%matplotlib widget/ipympl`
+                # Equivalently: mpl.use('module://ipympl.backend_nbagg')
+                import ipympl  # noqa
+                # pass  # revert to inline
+
+            except ImportError:
+                # Similar to `%matplotlib notebook`.
+                mpl.use("nbAgg")
+
+    else:
+        # Script run
+        mpl.rcParams.update({'font.size': 10})
+        try:
+            mpl.use("Qt5Agg")
+        except ImportError:
+            pass  # fall back to e.g. MacOS backend
+    plt.ion()
 
 
 def captured_fig(output, num, **kwargs):
@@ -198,7 +285,7 @@ def captured_fig(output, num, **kwargs):
                 # I think it's related to being in an ipython widget, but can also
                 # be fixed by changing num (so that freshfig creates a new one).
                 plt.close(num)
-        fig, axs = place.freshfig(num, ipympl_show=False, **kwargs)
+        fig, axs = freshfig(num, ipympl_show=False, **kwargs)
         return fig, axs
 
     def decorator(f):
@@ -393,7 +480,7 @@ def toggle_items(wrapped):
 
         # To disable the interactivity, simply uncomment following line.
         # (if figure doesn't show, plt.close() it first, or change its title)
-        # plotter(*place.freshfig(**kw_subplots), None, **checkmarks); return
+        # plotter(*freshfig(**kw_subplots), None, **checkmarks); return
 
         output = wg.Output()
         plot = captured_fig(output, **kw_subplots)(plotter)
@@ -472,7 +559,7 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
 def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):
     """Plotter specialized for spectra."""
     title = dash_join("Spectrum", title)
-    fig, ax = place.freshfig(title, figsize=figsize, rel=True)
+    fig, ax = freshfig(title, figsize=figsize, rel=True)
     if semilogy:
         h = ax.semilogy(ydata)
     else:
@@ -500,7 +587,7 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
 def figure12(title="", *args, figsize=(10, 3.5), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
     title = dash_join("Optim. trajectories", title)
-    fig, _ax = place.freshfig(title, *args, figsize=figsize, **kwargs)
+    fig, _ax = freshfig(title, *args, figsize=figsize, **kwargs)
     _ax.remove()
     gs = GridSpec(2, 10)
     ax0 = fig.add_subplot(gs[:, :7])
@@ -542,7 +629,8 @@ def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
         ax3.sharex(ax2)
         ax2.tick_params(labelbottom=False)
         xx = np.arange(len(path)-1) + .5
-        yy = mnorm(np.diff(path, axis=0), -1)
+        dd = np.diff(path, axis=0)
+        yy = np.sqrt(np.mean(dd*dd, -1))  # == norm / sqrt(len)
         ax3.plot(xx, yy, color=color or "C1", marker='.', ms=3**2)
         ax3.set_ylabel('|Step|')
         ax3.grid()

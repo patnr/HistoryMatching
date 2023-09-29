@@ -6,106 +6,6 @@ import scipy.linalg as sla
 from adjustText import adjust_text  # noqa
 
 
-def progbar(*args, **kwargs):
-    """Essentially `tqdm()`, but with some defaults."""
-    # Remove '<{remaining}' because it is somwhat unreliable,
-    # and hard to distinguish at a glance from 'elapsed')
-    frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt}, ⏱️ {elapsed}, {rate_fmt}{postfix}"
-    kwargs.setdefault('bar_format', frmt)
-
-    # Choose between Jupyter, std
-    from tqdm.auto import tqdm
-
-    # Choose between std, rich (does not support 'bar_format'!)
-    # from tqdm.notebook import tqdm_notebook
-    # from tqdm.std import TqdmExperimentalWarning
-    # import warnings
-    # if not isinstance(dummy:=tqdm(disable=True), tqdm_notebook):
-    #     try:
-    #         from tqdm.rich import tqdm
-    #     except ImportError:
-    #         pass
-    # NB: To ignore initial warning:
-    # >>> with warnings.catch_warnings():
-    # ...     warnings.simplefilter("ignore", category=TqdmExperimentalWarning)
-
-    pbar = tqdm(*args, **kwargs)
-    return pbar
-
-
-def rinv(A, reg, tikh=True, nMax=None):
-    """Reproduces `sla.pinv(..., rtol=reg)` for `tikh=False`."""
-    # Decompose
-    U, s, VT = sla.svd(A, full_matrices=False)
-
-    # "Relativize" the regularisation param
-    reg = reg * s[0]
-
-    # Compute inverse (regularized or truncated)
-    if tikh:
-        s1 = s / (s**2 + reg**2)
-    else:
-        s0 = s >= reg
-        s1 = np.zeros_like(s)
-        s1[s0] = 1/s[s0]
-
-    if nMax:
-        s1[nMax:] = 0
-
-    # Re-compose
-    return (VT.T * s1) @ U.T
-
-
-def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
-    """Compute `(x, y)` at angle `degree` with `p-norm = norm_val`."""
-    # Also center in, and scale by, model domain, i.e. `Lx, Ly`
-    radians = 2 * np.pi * degree / 360
-    c = np.cos(radians)
-    s = np.sin(radians)
-    norm = (np.abs(c)**p + np.abs(s)**p)**(1/p)
-    x = norm_val/norm * c
-    y = norm_val/norm * s
-    x = Lx/2 * (1 + x)
-    y = Ly/2 * (1 + y)
-    x = np.round(x, 2)
-    y = np.round(y, 2)
-    return x, y
-
-
-def _mnorm(x, axis=0):
-    """L2 norm. Uses `mean` (unlike usual `sum`) for dimension agnosticity."""
-    # return numpy.linalg.norm(xx/sqrt(len(xx)), ord=2)
-    return np.sqrt(np.mean(x*x, axis))
-
-
-def print_RMSMs(series, ref):
-    """Print RMS err. and dev., from the Mean (along axis 0), for each item in `series`.
-
-    The `ref` must point to a data series that is *not* an ensemble.
-    All series (including `ref`) can have both singleton and `squeeze`d axis 0.
-    """
-    x = series[ref]
-
-    # Ensure reference's axis 0 is singleton.
-    if x.shape[0] != 1:
-        x = x[None, :]
-
-    # Print table heading
-    header = "Series    rms err  rms dev"
-    print(header, "-"*len(header), sep="\n")
-
-    for k, y in series.items():
-
-        # Ensure non-ensemble series also has singleton axis 0
-        if y.ndim < x.ndim:
-            y = y[None, :]
-            assert y.shape == x.shape
-
-        err = x - y.mean(0)
-        dev = y - y.mean(0)
-        print(f"{k:8}: {_mnorm(err, None):6.4f}   {_mnorm(dev, None):6.4f}")
-
-
 def center(E, axis=0, rescale=False):
     """Center ensemble, `E`. Also return the mean.
 
@@ -152,6 +52,79 @@ def corr(a, b):
     Corr = Corr.clip(-999, 999)
 
     return Corr
+
+
+def rinv(A, reg, tikh=True, nMax=None):
+    """Reproduces `sla.pinv(..., rtol=reg)` for `tikh=False`."""
+    # Decompose
+    U, s, VT = sla.svd(A, full_matrices=False)
+
+    # "Relativize" the regularisation param
+    reg = reg * s[0]
+
+    # Compute inverse (regularized or truncated)
+    if tikh:
+        s1 = s / (s**2 + reg**2)
+    else:
+        s0 = s >= reg
+        s1 = np.zeros_like(s)
+        s1[s0] = 1/s[s0]
+
+    if nMax:
+        s1[nMax:] = 0
+
+    # Re-compose
+    return (VT.T * s1) @ U.T
+
+
+def print_RMSMs(series, ref):
+    """Print RMS err. and dev., from the Mean (along axis 0), for each item in `series`.
+
+    The `ref` must point to a data series that is *not* an ensemble.
+    All series (including `ref`) can have both singleton and `squeeze`d axis 0.
+    """
+    x = series[ref]
+
+    # Ensure reference's axis 0 is singleton.
+    if x.shape[0] != 1:
+        x = x[None, :]
+
+    # Print table heading
+    header = "Series    rms err  rms dev"
+    print(header, "-"*len(header), sep="\n")
+
+    for k, y in series.items():
+
+        # Ensure non-ensemble series also has singleton axis 0
+        if y.ndim < x.ndim:
+            y = y[None, :]
+            assert y.shape == x.shape
+
+        err = x - y.mean(0)
+        dev = y - y.mean(0)
+        print(f"{k:8}: {_mnorm(err, None):6.4f}   {_mnorm(dev, None):6.4f}")
+
+
+def _mnorm(x, axis=0):
+    """L2 norm. Uses `mean` (unlike usual `sum`) for dimension agnosticity."""
+    # return numpy.linalg.norm(xx/sqrt(len(xx)), ord=2)
+    return np.sqrt(np.mean(x*x, axis))
+
+
+def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
+    """Compute `(x, y)` at angle `degree` with `p-norm = norm_val`."""
+    # Also center in, and scale by, model domain, i.e. `Lx, Ly`
+    radians = 2 * np.pi * degree / 360
+    c = np.cos(radians)
+    s = np.sin(radians)
+    norm = (np.abs(c)**p + np.abs(s)**p)**(1/p)
+    x = norm_val/norm * c
+    y = norm_val/norm * s
+    x = Lx/2 * (1 + x)
+    y = Ly/2 * (1 + y)
+    x = np.round(x, 2)
+    y = np.round(y, 2)
+    return x, y
 
 
 nCPU = 1
@@ -239,3 +212,30 @@ def apply(fun, *args, pbar=True, **kwargs):
         pbar.close()
 
     return output
+
+
+def progbar(*args, **kwargs):
+    """Essentially `tqdm()`, but with some defaults."""
+    # Remove '<{remaining}' because it is somwhat unreliable,
+    # and hard to distinguish at a glance from 'elapsed')
+    frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt}, ⏱️ {elapsed}, {rate_fmt}{postfix}"
+    kwargs.setdefault('bar_format', frmt)
+
+    # Choose between Jupyter, std
+    from tqdm.auto import tqdm
+
+    # Choose between std, rich (does not support 'bar_format'!)
+    # from tqdm.notebook import tqdm_notebook
+    # from tqdm.std import TqdmExperimentalWarning
+    # import warnings
+    # if not isinstance(dummy:=tqdm(disable=True), tqdm_notebook):
+    #     try:
+    #         from tqdm.rich import tqdm
+    #     except ImportError:
+    #         pass
+    # NB: To ignore initial warning:
+    # >>> with warnings.catch_warnings():
+    # ...     warnings.simplefilter("ignore", category=TqdmExperimentalWarning)
+
+    pbar = tqdm(*args, **kwargs)
+    return pbar

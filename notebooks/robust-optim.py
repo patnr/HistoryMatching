@@ -198,8 +198,8 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, ve
 
     # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
     with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=not verbose) as pbar_gd,
-          progbar(total=10000, desc="→ ens_grad",    leave=False, disable=not verbose) as pbar_en,
-          progbar(total=10000, desc="→ backtrack",   leave=False, disable=not verbose) as pbar_ls,
+          progbar(total=10000, desc="→ grad. comp.", leave=False, disable=not verbose) as pbar_en,
+          progbar(total=10000, desc="→ line_search", leave=False, disable=not verbose) as pbar_ls,
           np.printoptions(precision=2, threshold=2, edgeitems=1)):
 
         states = [[u, objective(u), "placeholder for {cause}"]]
@@ -220,8 +220,8 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nIter=100, ve
         else:
             cause = "❌ GD ran out of iters"
         pbar_gd.set_description(cause)
-        states[0][-1] = cause
 
+    states[0][-1] = cause
     return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
 
 # ## Uncertain ens settings
@@ -271,8 +271,9 @@ plotting.fields(model, npv_ens, "NPV", "xy of inj, conditional on perm");
 
 npv_avrg = np.mean(npv_ens, 0) # == np.asarray(apply(obj1, ctrl_ens))
 argmax = npv_avrg.argmax()
-print("Global (exhaustive search) optimum:", f"{npv_avrg[argmax]:.4}",
-      "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+print("Global (exhaustive search) optimum:",
+      f"obj={npv_avrg[argmax]:.4}",
+      "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
 
 # #### Optimize, plot paths
 # EnOpt therefore becomes much slower,
@@ -334,7 +335,7 @@ for n, (x, y) in enumerate(nominal_ctrl_ens):
     if True:
         x2, y2 = nominal_ctrl_ens_global[n]
         ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
-ax.scatter(*robust_ctrl, s=8**2, color="w")    
+ax.scatter(*robust_ctrl, s=8**2, color="w")
 utils.adjust_text(lbls, precision=.1);
 fig.tight_layout()
 

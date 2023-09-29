@@ -145,14 +145,13 @@ def pows(U, sig):
 
 
 def center(E, axis=0, rescale=False):
-    """Center ensemble, `E`.
+    """Center ensemble, `E`. Also return the mean.
 
     Makes use of `keepdims` and broadcasting.
 
-    If it is known that the true/theoretical mean of (the members of) `E`
-    is actually zero, it might be beneficial make it so for `E`, but at the same
-    time compensate for the reduction in the (expected) variance this implies.
-    This is done if `rescale`.
+    If the true/theoretical mean of (the members of) `E` is known and zero,
+    it might be beneficial center `E` but also compensate for the reduction
+    in the (expected) variance this implies. This is done if `rescale`.
     """
     x = np.mean(E, axis=axis, keepdims=True)
     X = E - x

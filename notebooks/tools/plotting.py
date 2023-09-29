@@ -213,7 +213,7 @@ def captured_fig(output, num, **kwargs):
     ... display(dashboard)
 
     BUT, there is some trickery about making figures actually show up.
-    Especially making it work simultaneously on local/Colab.
+    Especially making it work both with ipympl and Colab (inline).
 
     - The approach taken here uses `with w.Output`.
     - In `DA-tutorials`, I found you can make the figures appear on Colab

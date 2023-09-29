@@ -26,7 +26,7 @@ import numpy.random as rnd
 import TPFA_ResSim as simulator
 
 from tools import geostat, plotting, utils
-from tools.utils import center, apply, progbar
+from tools.utils import center, apply, progbar, as_vectors
 # -
 
 # #### Config
@@ -71,7 +71,7 @@ model.prod_rates = rate0 * np.ones((4, 1)) / 4
 # #### Plot
 
 fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
-model.plt_field(ax, model.K[0], "perm");
+model.plt_field(ax, model.K[0], "perm", grid=True);
 fig.tight_layout()
 
 # #### Simulations
@@ -204,12 +204,11 @@ utils.nCPU = True
 # It should be noted that -- in some cases -- it is best to leave the parallelisation to the
 # model/simulator/objective function itself since it is "closer to the metal"
 # and so can therefore do more speed optimisation. For example if the simulations
-# can be vectorized over ensemble members, then multi-threaded `numpy` is likey faster).
+# can be vectorized over ensemble members, then multi-threaded `numpy` is likey faster,
+# c.f. the `quadratic` example below.
 
 # #### Ensemble gradient estimator
 # EnOpt consists of gradient descent with ensemble gradient estimation.
-# We wrap the gradient estimation function in another to fix its configuration parameters,
-# (to avoid having to pass them through the caller, i.e. gradient descent).
 
 @dataclass
 class nabla_ens:
@@ -221,7 +220,7 @@ class nabla_ens:
     obj_ux:  None  = None  # Conditional objective function
     X:       None  = None  # Uncertainty ensemble
 
-    def apply(self, obj, u, pbar):
+    def eval(self, obj, u, pbar):
         """Estimate `∇ obj(u)`"""
         U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
@@ -249,7 +248,7 @@ class backtracker:
     sign:   int   = +1                                  # Search for max(+1) or min(-1)
     xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
     rtol:   float = 1e-8                                # Convergence criterion
-    def apply(self, obj, u0, J0, search_direction, pbar):
+    def eval(self, obj, u0, J0, search_direction, pbar):
         atol = max(1e-8, abs(J0)) * self.rtol
         pbar.reset(len(self.xSteps))
         for i, step_length in enumerate(self.xSteps):
@@ -269,13 +268,13 @@ class backtracker:
 # #### Gradient descent
 # The following implements gradient descent (GD).
 
-def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, verbose=True):
+def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, quiet=False):
     """Gradient (i.e. steepest) descent/ascent."""
 
     # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
-    with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=not verbose) as pbar_gd,
-          progbar(total=10000, desc="→ grad. comp.", leave=False, disable=not verbose) as pbar_en,
-          progbar(total=10000, desc="→ line_search", leave=False, disable=not verbose) as pbar_ls,
+    with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=quiet) as pbar_gd,
+          progbar(total=10000, desc="→ grad. comp.", leave=False, disable=quiet) as pbar_en,
+          progbar(total=10000, desc="→ line_search", leave=False, disable=quiet) as pbar_ls,
           np.printoptions(precision=2, threshold=2, edgeitems=1)):
 
         states = [[u, objective(u), "placeholder for {cause}"]]
@@ -284,10 +283,10 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
             u, J, info = states[-1]
             pbar_gd.set_postfix(u=u, obj=J)
 
-            grad = nabla.apply(objective, u, pbar_en)
+            grad = nabla.eval(objective, u, pbar_en)
             if nrmlz:
                 grad /= np.sqrt(np.mean(grad**2))
-            updated = line_search.apply(objective, u, J, grad, pbar_ls)
+            updated = line_search.eval(objective, u, J, grad, pbar_ls)
             pbar_gd.update()
 
             if updated:
@@ -302,6 +301,39 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
     states[0][-1] = cause
     return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
 
+
+# ## Sanity check
+# It is always wise to do some dead simple testing.
+# Let's try a quadratic form, upended, centered on 0.
+
+def quadratic(u):
+    u = u - [model.Lx/2, model.Ly/2]
+    return - np.mean(u*u, axis=-1)
+
+
+# +
+from ipywidgets.widgets import interact
+
+# This objective is so simple that multiprocessing will have too much overhead ⇒ deactivate
+utils.nCPU = False
+
+@interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
+def plot(seed=5, sdev=.1, nTrial=5, nEns=10, nIter=10, precond=False, nrmlz=True):
+    fig, axs = plotting.figure12(quadratic.__name__)
+    model.plt_field(axs[0], quadratic(as_vectors(*model.mesh)),
+                    cmap="cividis", wells=False);
+    for i in range(nTrial):
+        rnd.seed(100*seed + i)
+        u0 = rnd.rand(2) * model.domain[1]
+        path, objs, info = GD(quadratic, u0, nabla_ens(sdev, nEns, precond),
+                              nrmlz=nrmlz, nIter=nIter, quiet=True)
+        plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
+    fig.tight_layout()
+# -
+
+# Reactivate multiprocessing
+
+utils.nCPU = True
 
 # ## Case: Optimize injector location
 # Let's try optimising the location (x, y) of the injector well.
@@ -320,8 +352,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
 
-XY = np.stack(model.mesh, -1).reshape((-1, 2))
-npvs = apply(obj, XY, pbar="obj(mesh)")
+npvs = apply(obj, as_vectors(*model.mesh), pbar="obj(mesh)")
 npvs = np.asarray(npvs)
 
 # We have in effect conducted an exhaustive computation of the objective function,
@@ -757,8 +788,7 @@ except ImportError:
 
 if my_computer_is_fast:
     print("obj1(u=mesh, x=ens)")
-    XY = np.stack(model.mesh, -1).reshape((-1, 2))
-    npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uq_ens)
+    npv_mesh = apply(lambda x: [obj1(u, x) for u in as_vectors(*model.mesh)], uq_ens)
     plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
 
     # Thus we know the global optimum of the total/robust objective.
@@ -808,7 +838,7 @@ ctrl_robust = path[-1]
 ctrl_ens_nominal = []
 for x in progbar(uq_ens, desc="Nominal optim."):
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), verbose=False)
+    path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), quiet=True)
     ctrl_ens_nominal.append(path[-1])
 
 # Alternatively, since we have already computed the npv for each pixel/cell

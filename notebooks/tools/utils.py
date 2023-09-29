@@ -78,7 +78,7 @@ def _mnorm(x, axis=0):
     return np.sqrt(np.mean(x*x, axis))
 
 
-def RMSMs(series, ref):
+def print_RMSMs(series, ref):
     """Print RMS err. and dev., from the Mean (along axis 0), for each item in `series`.
 
     The `ref` must point to a data series that is *not* an ensemble.

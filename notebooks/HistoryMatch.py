@@ -1054,10 +1054,10 @@ ax2.tick_params(axis='y', labelcolor="r")
 # #### RMS summary
 # RMS stands for "root-mean-square(d)" and is a summary measure for deviations.
 # With ensemble methods, it is (typically, and in this case study) applied
-# to the deviation from the **ensemble mean**, whence the trailing `M` in `RMSMs` below.
+# to the deviation from the **ensemble mean**, whence the trailing `M` in `print_RMSMs` below.
 
 print("Stats vs. true field\n")
-utils.RMSMs(perm, ref="Truth")
+utils.print_RMSMs(perm, ref="Truth")
 
 # #### Field plots
 # Let's plot mean fields.
@@ -1125,7 +1125,7 @@ plotting.productions(prod.past, "Past");
 # #### RMS summary
 
 print("Stats vs. past production (i.e. NOISY observations)\n")
-utils.RMSMs(prod.past, ref="Noisy")
+utils.print_RMSMs(prod.past, ref="Noisy")
 
 # Note that, here, the "err" is comptuted vs. the observations,
 # not the (supposedly unknown) truth. In any case,
@@ -1178,7 +1178,7 @@ plotting.productions(prod.futr, "Future");
 # #### RMS summary
 
 print("Stats vs. (supposedly unknown) future production\n")
-utils.RMSMs(prod.futr, ref="Truth")
+utils.print_RMSMs(prod.futr, ref="Truth")
 
 # ## Final comments
 

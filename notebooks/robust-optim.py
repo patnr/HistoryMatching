@@ -225,64 +225,83 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
     states[0][-1] = cause
     return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
 
-# ## Uncertain ens settings
-
-rnd.seed(5)
-nEns = 31
-uncertainty_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
-
-# ### Plot ensemble (perm)
-
-plotting.fields(model, uncertainty_ens, "perm");
-
-# ### Robust obj
+# # Robust optimisation
+# Robust optimisation problems have a particular structure that we will exploit.
+# The objective is an *average*:
 
 def obj(u=None, x=None):
     return np.mean([obj1(u, x) for x in uncertainty_ens])
 
+# Of course, we still have to define the
+# - ensemble of uncertain parameters (`uncertainty_ens`),
+#   over which the average is computed.
+# - conditional objective (`obj1`),
+#   thus labelled because it applies to 1 member in `uncertainty_ens`.
 
-# ## Case: Optimize injector location (x, y)
+# ## Case: Optimize injector location (x, y) under uncertain permeability
+
+# ### Uncertainty
+
+nEns = 31
+rnd.seed(5)
+uncertainty_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
+
+# #### Plot
+
+plotting.fields(model, uncertainty_ens, "perm");
+
+# ### Conditional objective
 # The *conditional* objective consists of the `npv`
-# at some `inj_xy=u` for a (i.e. "one" whence "`obj1`") given permability `K=x`.
+# at some `inj_xy=u` for a  given permability `K=x`.
 
 def obj1(u, x):
     return npv(model, inj_xy=u, K=x)[0]
 
 model = original_model
+
 # print(f"Case: '{obj1.__name__}' for '{model.name}'")
 
-# ### Plot ensemble of objectives
+# ### Ensemble of objectives
 #
 # NB: since it involves $N$ model simulations for each grid cell,
-# this can take quite long.
+# computing the ensemble of conditional objective surfaces can take quite long.
+# So you should skip these computations if you're on a slow computer.
 
-print("obj1(u=mesh, x=ens)")
-XY = np.stack(model.mesh, -1).reshape((-1, 2))
-npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uncertainty_ens)
-plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
+try:
+    import google.colab  # type: ignore
+    my_computer_is_fast = False # Colab is slow
+except ImportError:
+    my_computer_is_fast = True
 
-# ### Total/robust global optimum
 
-npv_avrg = np.mean(npv_mesh, 0)
-argmax = npv_avrg.argmax()
-print("Global (exhaustive search) optimum:",
-      f"obj={npv_avrg[argmax]:.4}",
-      "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+if my_computer_is_fast:
+    print("obj1(u=mesh, x=ens)")
+    XY = np.stack(model.mesh, -1).reshape((-1, 2))
+    npv_mesh = apply(lambda x: [obj1(u, x) for u in XY], uncertainty_ens)
+    plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
 
-# #### Optimize, plot paths
+    # Thus we know the global optimum of the total/robust objective.
+    npv_avrg = np.mean(npv_mesh, 0)
+    argmax = npv_avrg.argmax()
+    print("Global (exhaustive search) optimum:",
+          f"obj={npv_avrg[argmax]:.4}",
+          "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+
+# ### Optimize, plot paths
 # EnOpt therefore becomes much slower,
 # since each of its $N$ control ensemble members at a given iteration
 # requires $M$ model simulations.
 
 # +
 fig, axs = plotting.figure12(obj1.__name__)
-model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False);
+if my_computer_is_fast:
+    model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False);
 
-# Use "naive" ensemble gradient
-for color in ['C0', 'C2']:
-    u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns))
-    plotting.add_path12(*axs, path, objs, color=color, labels=False)
+    # Use "naive" ensemble gradient
+    for color in ['C0', 'C2']:
+        u0 = rnd.rand(2) * model.domain[1]
+        path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns))
+        plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
 # Use StoSAG ensemble gradient
 for color in ['C7', 'C9']:
@@ -293,15 +312,16 @@ for color in ['C7', 'C9']:
 fig.tight_layout()
 # -
 
-# Clearly, optimising the full objective is very costly, and will therefore not be pursued further.
-# Let us store one of the trials of EnOpt with StoSAG robust ensemble gradient.
+# Clearly, optimising the full objective with "naive" EnOpt is very costly,
+# but is significantly faster using robust EnOpt (StoSAG), in particular if $N >= 30$.
+# Let us store the optimum of the last trial of StoSAG.
 
 robust_ctrl = path[-1]
 
 # ### Nominally (conditionally/individually) optimal controls
 #
-# It is also interesting to consider the optimum for the conditional objective,
-# i.e. given an uncertain parameter member/realisation in `uncertainty_ens`.
+# It is also (academically) interesting to consider the optimum for the conditional objective,
+# i.e. for a single uncertain parameter member/realisation vector in `uncertainty_ens`.
 # We can thus generate an ensemble of such nominally optimal control strategies.
 
 nominal_ctrl_ens = []
@@ -310,11 +330,15 @@ for x in progbar(uncertainty_ens, desc="Nominal optim."):
     path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), verbose=False)
     nominal_ctrl_ens.append(path[-1])
 
-# Alternatively, we can get the globally nominally optima since we have already computed the npv for each pixel/cell for each uncertain ensemble member.
+# Alternatively, since we have already computed the npv for each pixel/cell
+# for each uncertain ensemble member, we can get the globally nominally optima.
 
-nominal_ctrl_ens_global = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
+if my_computer_is_fast:
+    nominal_ctrl_ens2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
 
 # #### Plot optima (`nominal_ctrl_ens`)
+# The following myriad of matplotlib code produces a scatter plot of the nominal optima
+# for the injector well. The location is labelled with the corresponding uncertainty realisation.
 
 cmap = plotting.plt.get_cmap('tab20')
 fig, ax = plotting.freshfig("Optima", figsize=(7, 4))
@@ -326,13 +350,14 @@ for n, (x, y) in enumerate(nominal_ctrl_ens):
     color = cmap(n % 20)
     ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
-    if True:
-        x2, y2 = nominal_ctrl_ens_global[n]
+    if my_computer_is_fast:
+        x2, y2 = nominal_ctrl_ens2[n]
         ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
 ax.scatter(*robust_ctrl, s=8**2, color="w")
 utils.adjust_text(lbls, precision=.1);
 fig.tight_layout()
 
+# Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.
 #
@@ -345,13 +370,11 @@ npvs_condnl = apply(lambda u: [obj1(u, x) for x in uncertainty_ens], nominal_ctr
 npvs_robust = apply(lambda x: obj1(robust_ctrl, x), uncertainty_ens)
 
 # Note that `npvs_condnl` is of shape `(nEns, nEns)`,
-# each row corresponding to a nominally optimal control parameter vector.
+# the first index (i.e. each rows) corresponds to a nominally optimal control parameter vector.
 # We can construct a histogram for each one,
 # but it's difficult to visualize several histograms together.
 # Instead, following [Essen2009](#Essen2009), we use (Gaussian) kernel density estimation (KDE)
 # to create a "continuous" histogram, i.e. an approximate probability density.
-
-# #### Plot
 # The following code is a bit lengthy due to plotting details.
 
 # +

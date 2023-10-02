@@ -140,7 +140,7 @@ def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
     return x, y
 
 
-def as_vectors(*arrs):
+def mesh2list(*arrs):
     """Reshape `np.meshgrid` output to 2d whose last axis is the "physical" dim."""
     return np.stack(arrs, -1).reshape(-1, len(arrs))
 

@@ -26,7 +26,7 @@ import numpy.random as rnd
 import TPFA_ResSim as simulator
 
 from tools import geostat, plotting, utils
-from tools.utils import center, apply, progbar, as_vectors
+from tools.utils import center, apply, progbar, mesh2list
 # -
 
 # #### Config
@@ -313,6 +313,7 @@ def quadratic(u):
 
 # +
 from ipywidgets.widgets import interact
+qsurf = quadratic(mesh2list(*model.mesh))
 
 # This objective is so simple that multiprocessing will have too much overhead ⇒ deactivate
 utils.nCPU = False
@@ -320,8 +321,7 @@ utils.nCPU = False
 @interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
 def plot(seed=5, sdev=.1, nTrial=5, nEns=10, nIter=10, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
-    model.plt_field(axs[0], quadratic(as_vectors(*model.mesh)),
-                    cmap="cividis", wells=False);
+    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False);
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]
@@ -352,7 +352,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
 
-npvs = apply(obj, as_vectors(*model.mesh), pbar="obj(mesh)")
+npvs = apply(obj, mesh2list(*model.mesh), pbar="obj(mesh)")
 npvs = np.asarray(npvs)
 
 # We have in effect conducted an exhaustive computation of the objective function,
@@ -788,7 +788,7 @@ except ImportError:
 
 if my_computer_is_fast:
     print("obj1(u=mesh, x=ens)")
-    npv_mesh = apply(lambda x: [obj1(u, x) for u in as_vectors(*model.mesh)], uq_ens)
+    npv_mesh = apply(lambda x: [obj1(u, x) for u in mesh2list(*model.mesh)], uq_ens)
     plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
 
     # Thus we know the global optimum of the total/robust objective.

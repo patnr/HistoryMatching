@@ -99,7 +99,7 @@ plot_final_sweep(model)
 # entails configuring and running/simulating the model.
 # But the main output is now the economical net value (profit),
 # while some other variables are included as diagnostics.
-# Also, importantly, note the it's all wrapped in error penalisation.
+# Also, importantly, note that it's all wrapped in error penalisation.
 
 def npv(model, **params):
     """Discounted net present value (NPV) from model config."""
@@ -125,23 +125,23 @@ def npv(model, **params):
 # Note that water injection has a cost.
 # Is seems a reasonable simplification to let this serve as a stand-in
 # also for the cost of GHG emissions.
-# We don't bother with cost of water production,
+# We don't bother with cost of water *production*,
 # since it is implicitly approximated by reduction in oil production.
 #
 # The following values are not motivated by any realism.
 # However, the 1-to-1 relationship implied by mass balance of the simulator
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
-#
-# PS: since they just get defined in the global namespace,
-# they cannot be manipulated by our ensemble methods
-# (i.e. we cannot be "robust" to price fluctuations).
 
 price_of_inj = 5e3
 price_of_oil = 1e4
 discounts = .99 ** np.arange(nTime)
 
-# #### Setter
+# Note that, being defined in the global namespace,
+# these values cannot be manipulated by our ensemble methods.
+# *I.e. we cannot atm. optimise "robustly" with respect to price fluctuations.*
+
+# #### Parameter setter
 # Unlike the history matching tutorial, we define a parameter setter also
 # outside of the forward model. This will be convenient since we will do
 # several distinct "cases", i.e. model configurations with differences not
@@ -163,7 +163,7 @@ def remake(model, **params):
 
 original_model = remake(model)
 
-# #### Extract well flux from saturation fields
+# #### Extracting well flux from saturation fields
 # Also contains some minor bookkeeping
 # (for example, unify treatment of constant/variable rates).
 
@@ -194,19 +194,7 @@ def partial_volumes(model, wsats, inj_or_prod):
 
 
 # ## EnOpt
-
-# #### Multiprocessing
-# Ensemble methods are easily parallelizable, achieved hereunder by `apply`
-# that we "map" on ensemble simulations.
-
-utils.nCPU = True
-
-# It should be noted that -- in some cases -- it is best to leave the parallelisation to the
-# model/simulator/objective function itself since it is "closer to the metal"
-# and so can therefore do more speed optimisation. For example if the simulations
-# can be vectorized over ensemble members, then multi-threaded `numpy` is likey faster,
-# c.f. the `quadratic` example below.
-
+#
 # #### Ensemble gradient estimator
 # EnOpt consists of gradient descent with ensemble gradient estimation.
 
@@ -234,13 +222,18 @@ class nabla_ens:
     def obj_increments(self, obj, u, U, pbar):
         return apply(obj, U, pbar=pbar)  # don't need to `center`
 
+# Note the use of `apply` (which, similar to `map`, can replace a for loop)
+# to compute `obj(u)` for each `u` in the ensemble `U`,
+# which is done using multiprocessing (parallelisation).
+
 # #### Backtracking
 # Another ingredient to successful gradient descent is line search.
 #
-# PS: The `rtol` parameter specifies the improvement required to accept update of iterate.
-# Larger values ⇒ +reluctance to accept update ⇒ *faster* declaration of convergence.
+# *PS: The `rtol>0` parameter specifies the minimal improvement required
+# to accept the updated iterate.
+# Larger values ⇒ more reluctance to accept update ⇒ *faster* declaration of convergence.
 # Setting to 0 is not recommended, because if the objective function is flat
-# in the neighborhood, then the path could just go in circles on that flat.
+# in the neighborhood, then the path could just go in circles on that flat.*
 
 @dataclass
 class backtracker:
@@ -271,13 +264,13 @@ class backtracker:
 def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, quiet=False):
     """Gradient (i.e. steepest) descent/ascent."""
 
-    # Reusable progress bars (limits flickering scroll in Jupyter) with short np printout
+    # Reusable progress bars (limits flickering scroll in Jupyter) w/ short np printout
     with (progbar(total=nIter, desc="⏳ GD running", leave=True,  disable=quiet) as pbar_gd,
           progbar(total=10000, desc="→ grad. comp.", leave=False, disable=quiet) as pbar_en,
           progbar(total=10000, desc="→ line_search", leave=False, disable=quiet) as pbar_ls,
           np.printoptions(precision=2, threshold=2, edgeitems=1)):
 
-        states = [[u, objective(u), "placeholder for {cause}"]]
+        states = [[u, objective(u), "{cause for stopping}"]]
 
         for itr in range(nIter):
             u, J, info = states[-1]
@@ -311,15 +304,28 @@ def quadratic(u):
     return - np.mean(u*u, axis=-1)
 
 
-# +
-from ipywidgets.widgets import interact
+# Note that this objective function supports ensemble input (`u`) without the use of `apply`.
+# To illustrate:
+
 qsurf = quadratic(mesh2list(*model.mesh))
 
-# This objective is so simple that multiprocessing will have too much overhead ⇒ deactivate
+# Thus -- for this case -- it would have been better had we not used `apply` in `nabla_ens`,
+# since multi-threaded `numpy` has less overhead than multiprocessing and is therefore faster.
+# More generally, it may *sometimes* be better to leave parallelisation to the
+# model/simulator/objective function, since it is "closer to the metal"
+# and can therefore do more speed optimisations.
+#
+# In fact, due to the overhead of multiprocessing, it is better that `apply` use a plain for loop for this trivial case.
+
 utils.nCPU = False
 
+# Anyway, let's try out `GD` on the quadratic.
+
+# +
+from ipywidgets.widgets import interact
+
 @interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
-def plot(seed=5, sdev=.1, nTrial=5, nEns=10, nIter=10, precond=False, nrmlz=True):
+def plot( seed=5,       sdev=.1,        nTrial=5,       nEns=10,       nIter=10, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
     model.plt_field(axs[0], qsurf, cmap="cividis", wells=False);
     for i in range(nTrial):
@@ -331,13 +337,13 @@ def plot(seed=5, sdev=.1, nTrial=5, nEns=10, nIter=10, precond=False, nrmlz=True
     fig.tight_layout()
 # -
 
-# Reactivate multiprocessing
+# Providing you have multiple CPU's available (i.e. not on Colab),
+# the following will all go faster by turning on multiprocessing.
 
 utils.nCPU = True
 
 # ## Case: Optimize injector location
 # Let's try optimising the location (x, y) of the injector well.
-#
 # The objective function is simply a thin wrapper around `npv`
 # which translates its single (vector) input argument into `kwargs`,
 # and discards all output except the scalar NPV.
@@ -363,7 +369,7 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
       "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
 
 # Note that the optimum is not quite in the centre of the domain,
-# which is caused by the randomness (including asymmetry) of the permeability field.
+# which is caused by the asymmetry of the permeability field.
 #
 # Now let's try EnOpt from a few different starting/initial guesses,
 # and plot the optimisation paths along with the contours of the objective
@@ -382,7 +388,8 @@ for color in ['C0', 'C2', 'C7', 'C9']:
 fig.tight_layout()
 # -
 
-# ##### Comments
+# Note that
+#
 # - The increase in objective function for each step is guaranteed by the line search
 #   (but could cause getting stuck in a local minimum). It is also what causes
 #   the step size to vanish towards later iterations.
@@ -399,25 +406,29 @@ plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__
 
 # ## Case: Optimize x-coordinate of single injector
 #
-# The setters in `remake` and ResSim simplify much in defining the forward model.
+# The setters in `remake` and ResSim simplify defining the objective.
 # Still, sometimes we need to pre-process the arguments some more.
-# For example, suppose we only want to vary the x-coordinate of the injector,
+# For example, suppose we only want to vary the x-coordinate of the injector(s),
 # while keeping the y-coordinate fixed.
 
+# +
 def npv_x_with_fixed_y(xs):
     xys = np.stack([xs, xs], -1) # ⇒ (1d or 2d)
     xys[..., 1] = y  # fix constant value
     return npv(model, inj_xy=xys)[0]
 
-obj = npv_x_with_fixed_y
-model = original_model
 y = model.Ly/2
-print(f"Case: '{obj.__name__}' for '{model.name}'")
+# -
 
 # *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
 # which works both when it's 1d and 2d.*
 # Also note that we could of course have re-used `npv_inj_xy` to define `npv_x_with_fixed_y`.
 # This will be our approach for the subsequent case.
+
+# +
+obj = npv_x_with_fixed_y
+model = original_model
+print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 x_grid = np.linspace(0, model.Lx, 201)
 npvs = apply(obj, x_grid, pbar="obj(x_grid)")
@@ -439,7 +450,7 @@ fig.tight_layout()
 
 # Note that the objective functions appears to jump at regular intervals.
 # This would be even more apparent (no slanting of the "walls") with a higher resolution.
-# The phenomenon is due to the fact that the model always collocates wells with grid nodes.
+# The phenomenon is due to the fact that the model always collocates wells with grid cell centres.
 # Other than this, as we might expect, the objective is nice and convex,
 # and EnOpt is able to find the minimum, for several different starting positions,
 # without much trouble.
@@ -532,18 +543,18 @@ fig.tight_layout()
 plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}"))
 
 # ## Case: Optimize single rate
-
+#
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint),
 # and vice-versa.
+#
+# Thus, as above, we need to pre-compute something before calling `npv()`.
 
+# +
 def equalize(rates, nWell):
     """Distribute the total rate equally among `nWell`."""
     return np.tile(rates.sum(0) / nWell, (nWell, 1))
 
-# Thus, as above, we need to pre-compute something before calling `npv()`.
-
-# +
 def npv_in_inj_rates(inj_rates):
     prod_rates = equalize(inj_rates, model.nProd)
     return npv(model, inj_rates=inj_rates, prod_rates=prod_rates)[0]
@@ -644,7 +655,7 @@ path, objs, info = GD(obj, u0, nabla_ens(.1))
 # - Simplified geology (permeability)
 # - Injection is constant in time and across wells
 #
-# Only the 1st item is hard to change.
+# Only the 1st item would be hard to change.
 
 # +
 model = remake(original_model,
@@ -715,7 +726,7 @@ def obj(u=None, x=None):
     return np.mean([obj1(u, x) for x in uq_ens])
 
 # Of course, we still have to define the
-# - ensemble of providing uncertainty quantification (`uq_ens`)
+# - ensemble (`uq_ens`) providing the uncertainty quantification (UQ)
 #   of some parameter(s), over which the average is computed.
 # - conditional objective (`obj1`),
 #   thus labelled because it applies to 1 member in `uq_ens`.
@@ -752,13 +763,13 @@ nabla_ens.obj_increments = dJ_StoSAG
 
 # ## Case: Optimize injector location (x, y) under uncertain permeability
 
-# ### Uncertainty
+# ### Uncertainty quantification
 
 nEns = 31
 rnd.seed(5)
 uq_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
 
-# #### Plot
+# Plot
 
 plotting.fields(model, uq_ens, "perm");
 
@@ -766,12 +777,13 @@ plotting.fields(model, uq_ens, "perm");
 # The *conditional* objective consists of the `npv`
 # at some `inj_xy=u` for a  given permability `K=x`.
 
+# +
 def obj1(u, x):
     return npv(model, inj_xy=u, K=x)[0]
 
 model = original_model
-
-# print(f"Case: '{obj1.__name__}' for '{model.name}'")
+print(f"Case: '{obj1.__name__}' for '{model.name}'")
+# -
 
 # ### Ensemble of objectives
 #
@@ -799,9 +811,6 @@ if my_computer_is_fast:
           "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
 
 # ### Optimize, plot paths
-# EnOpt therefore becomes much slower,
-# since each of its $N$ control ensemble members at a given iteration
-# requires $M$ model simulations.
 
 # +
 fig, axs = plotting.figure12(obj1.__name__)
@@ -824,7 +833,7 @@ fig.tight_layout()
 # -
 
 # Clearly, optimising the full objective with "naive" EnOpt is very costly,
-# but is significantly faster using robust EnOpt (StoSAG), in particular if $N >= 30$.
+# but is significantly faster using robust EnOpt (StoSAG), in particular if $N > 30$.
 # Let us store the optimum of the last trial of StoSAG.
 
 ctrl_robust = path[-1]
@@ -847,9 +856,8 @@ for x in progbar(uq_ens, desc="Nominal optim."):
 if my_computer_is_fast:
     ctrl_ens_nominal2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
 
-# #### Plot optima (`ctrl_ens_nominal`)
-# The following myriad of matplotlib code produces a scatter plot of the nominal optima
-# for the injector well. The location is labelled with the corresponding uncertainty realisation.
+# The following matplotlib code produces a scatter plot of the nominal optima (`ctrl_ens_nominal`)
+# for the injector well. The scatter locations are labelled with the corresponding uncertainty realisation.
 
 cmap = plotting.plt.get_cmap('tab20')
 fig, ax = plotting.freshfig("Optima", figsize=(7, 4))
@@ -863,7 +871,7 @@ for n, (x, y) in enumerate(ctrl_ens_nominal):
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
     if my_computer_is_fast:
         x2, y2 = ctrl_ens_nominal2[n]
-        ax.plot([x, x2], [y, y2], '-', color=color, lw=.5)
+        ax.plot([x, x2], [y, y2], '-', color=color, lw=1)
 ax.scatter(*ctrl_robust, s=8**2, color="w")
 utils.adjust_text(lbls, precision=.1);
 fig.tight_layout()
@@ -871,18 +879,18 @@ fig.tight_layout()
 # Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.
-#
+
 # ### Histogram (KDE) for each control strategy
 
 # Let us assess (evaluate) the performance of the robust optimal control vector
 # for each of the parameter possibilities (i.e. each realisation in `uq_ens`).
-# PS: this was of course already computed as part of the iterative optimisation
-# procedure, but was not included it among its outputs.
+# *PS: this was of course already computed as part of the iterative optimisation
+# procedure, but was not included it among its outputs.*
 
 npvs_robust = apply(lambda x: obj1(ctrl_robust, x), uq_ens)
 
 # We can do the same for each nominally optimal control vector.
-# PS: we could also do the same for `ctrl_ens_nominal2`.
+# *PS: we could also do the same for `ctrl_ens_nominal2`.*
 
 print("obj1(ctrl_ens, uq_ens)")
 npvs_condnl = apply(lambda u: [obj1(u, x) for x in uq_ens], ctrl_ens_nominal)
@@ -909,7 +917,7 @@ lbls = []
 for n, npvs_n in enumerate(npvs_condnl):
     color = cmap(n % 20)
     kde = gaussian_kde(npvs_n)
-    ax.plot(npv_grid, kde(npv_grid), c=color, lw=.8, alpha=.7)
+    ax.plot(npv_grid, kde(npv_grid), c=color, lw=1.2, alpha=.7)
 
     # Label curves
     x = a + n*(b-a)/nEns

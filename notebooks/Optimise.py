@@ -661,9 +661,11 @@ def obj(u=None, x=None):
 
 # We can exploit the structure of the robust-optimisation `obj` above
 # by the following patch to the way `nabla_ens` computes the increments of `obj`.
+#
 
 def dJ_StoSAG(self, obj, u, U, pbar):
     if self.obj_ux:
+        # StoSAG
         u1 = np.tile(u, (self.nEns, 1))  # replicate u
         JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
         Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
@@ -871,7 +873,7 @@ fig.tight_layout()
 # -
 
 # # Multi-objective optimisation
-# Compared to Angga 5-spot case:
+# Compared to [Angga2022](#Angga2022) 5-spot case:
 #
 # - No compressibility
 # - Different model rectangle
@@ -882,7 +884,7 @@ fig.tight_layout()
 
 # +
 model = remake(original_model,
-    name = "Angga",
+    name = "Angga2022-5spot",
     prod_xy = [[model.Lx/2, model.Ly/2]],
     inj_xy = xy_4corners,
     prod_rates  = rate0 * np.ones((1, 1)) / 1,
@@ -942,4 +944,12 @@ fig.tight_layout()
 
 # ## References
 
-# <a id="Essen2009">[Essen2009]</a>: van Essen, G., M. Zandvliet, P. Van den Hof, O. Bosgra, and J.-D. Jansen. Robust waterflooding optimization of multiple geological scenarios. SPE Journal, 14(01):202–210, 2009.
+# <a id="Essen2009">[Essen2009]</a>: van Essen, G., M. Zandvliet, P. Van den Hof, O. Bosgra, and J.-D. Jansen. *Robust waterflooding optimization of multiple geological scenarios.* **SPE Journal**, 14(01):202–210, 2009.
+#
+# <a id="Angga2022">[Angga2022]</a>: Angga, I. G. A. G., M. Bellout, B. S. Kristoffersen, P. E. S. Bergmo, P. A. Slotte, and C. F. Berg. *Effect of CO2 tax on energy use in oil production: waterflooding optimization under different emission costs.* **SN Applied Sciences**, 4(11):313, 2022
+#
+# <a id="">[Fonseca2017]</a>: Fonseca, R. M., B. Chen, J. D. Jansen, and A. Reynolds. *A stochastic simplex approximate gradient (StoSAG) for optimization under uncertainty.* **International Journal for Numerical Methods in Engineering**, 109(13):1756– 1776, 2017. doi: 10.1002/nme.5342.
+#
+# <a id="">[Raanes2023]</a>: Raanes, P. N., A. S. Stordal, and R. J. Lorentzen. *Review of ensemble gradients for robust optimisation*, 2023. doi: 10.48550/arXiv.2304.12136
+#
+# <a id="">[Chen2009]</a>: Chen, Y., D. S. Oliver, and D. Zhang. *Efficient ensemble-based closed- loop production optimization.* **SPE Journal**, 14(04):634–645, 2009. doi: 10.2118/112873-PA.

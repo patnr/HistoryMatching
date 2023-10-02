@@ -641,80 +641,10 @@ plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, fi
 u0 = .7*np.ones(model.nInj)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 
+
 # Now try setting
 # the resulting suggested values in the interactive widget above.
 # Were you able to find equally good settings?
-
-# # Pareto front
-# Compared to Angga 5-spot case:
-#
-# - No compressibility
-# - Different model rectangle
-# - Simplified geology (permeability)
-# - Injection is constant in time and across wells
-#
-# Only the 1st item would be hard to change.
-
-# +
-model = remake(original_model,
-    name = "Angga",
-    prod_xy = [[model.Lx/2, model.Ly/2]],
-    inj_xy = xy_4corners,
-    prod_rates  = rate0 * np.ones((1, 1)) / 1,
-    inj_rates = rate0 * np.ones((4, 1)) / 4,
-)
-
-plot_final_sweep(model)
-
-
-# +
-def npv_in_prod_rates(prod_rates):
-    inj_rates = equalize(prod_rates, model.nInj)
-    return npv(model, prod_rates=prod_rates, inj_rates=inj_rates)[0]
-
-obj = npv_in_prod_rates
-print(f"Case: '{obj.__name__}' for '{model.name}'")
-# -
-
-# #### Optimize
-
-fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .8), rel=True)
-rate_grid = np.logspace(-2, 1, 31)
-optimal_rates = []
-# cost_multiplier = [.01, .04, .1, .4, .9, .99]
-__default__ = price_of_inj
-cost_multiplier = np.arange(0.1, 1, 0.1)
-for i, xCost in enumerate(cost_multiplier):
-    price_of_inj = __default__ * xCost
-    npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
-    ax.plot(rate_grid, npvs, label=f"{xCost:.1}")
-    path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
-    optimal_rates.append(path[-1])
-price_of_inj = __default__  # restore
-ax.set_ylim(1e-2)
-ax.legend(title="×price_of_inj")
-ax.set(xlabel="rate", ylabel="NPV")
-fig.tight_layout()
-ax.grid()
-
-# #### Pareto front
-# Breakdown npv (into emissions and sales) for optima
-
-sales = []
-emissions = []
-for i, prod_rates in enumerate(optimal_rates):
-    inj_rates = equalize(prod_rates, model.nInj)
-    value, other = npv(model, prod_rates=prod_rates, inj_rates=inj_rates)
-    sales.append(other['prod_total'])
-    emissions.append(other['inj_total'])
-
-
-fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
-ax.grid()
-ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
-ax.plot(sales, emissions, "o-")
-fig.tight_layout()
-
 
 # # Robust optimisation
 # Robust optimisation problems have a particular structure,
@@ -939,6 +869,76 @@ ax.set(facecolor="k", ylim=0, xlim=(a, b))
 utils.adjust_text(lbls)
 fig.tight_layout()
 # -
+
+# # Multi-objective optimisation
+# Compared to Angga 5-spot case:
+#
+# - No compressibility
+# - Different model rectangle
+# - Simplified geology (permeability)
+# - Injection is constant in time and across wells
+#
+# Only the 1st item would be hard to change.
+
+# +
+model = remake(original_model,
+    name = "Angga",
+    prod_xy = [[model.Lx/2, model.Ly/2]],
+    inj_xy = xy_4corners,
+    prod_rates  = rate0 * np.ones((1, 1)) / 1,
+    inj_rates = rate0 * np.ones((4, 1)) / 4,
+)
+
+plot_final_sweep(model)
+
+
+# +
+def npv_in_prod_rates(prod_rates):
+    inj_rates = equalize(prod_rates, model.nInj)
+    return npv(model, prod_rates=prod_rates, inj_rates=inj_rates)[0]
+
+obj = npv_in_prod_rates
+print(f"Case: '{obj.__name__}' for '{model.name}'")
+# -
+
+# #### Optimize
+
+fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .8), rel=True)
+rate_grid = np.logspace(-2, 1, 31)
+optimal_rates = []
+# cost_multiplier = [.01, .04, .1, .4, .9, .99]
+__default__ = price_of_inj
+cost_multiplier = np.arange(0.1, 1, 0.1)
+for i, xCost in enumerate(cost_multiplier):
+    price_of_inj = __default__ * xCost
+    npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
+    ax.plot(rate_grid, npvs, label=f"{xCost:.1}")
+    path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
+    optimal_rates.append(path[-1])
+price_of_inj = __default__  # restore
+ax.set_ylim(1e-2)
+ax.legend(title="×price_of_inj")
+ax.set(xlabel="rate", ylabel="NPV")
+fig.tight_layout()
+ax.grid()
+
+# #### Pareto front
+# Breakdown npv (into emissions and sales) for optima
+
+sales = []
+emissions = []
+for i, prod_rates in enumerate(optimal_rates):
+    inj_rates = equalize(prod_rates, model.nInj)
+    value, other = npv(model, prod_rates=prod_rates, inj_rates=inj_rates)
+    sales.append(other['prod_total'])
+    emissions.append(other['inj_total'])
+
+
+fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
+ax.grid()
+ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
+ax.plot(sales, emissions, "o-")
+fig.tight_layout()
 
 # ## References
 

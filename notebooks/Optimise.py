@@ -315,11 +315,9 @@ utils.nCPU = False
 
 # Anyway, let's try out `GD` on the quadratic.
 
-# +
-import matplotlib.pyplot as plt
-
-@plotting.interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20), ellip=(-1, 1, .1))
-def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=0, precond=False, nrmlz=True):
+@plotting.interact(seed=(1, 10), nTrial=(1, 20), ellip=(-1, 1, .1),
+                   sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20))
+def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
     quadratic.ellipticity = 10**ellip
 
@@ -336,8 +334,7 @@ def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=0, precond=False, n
                               nrmlz=nrmlz, nIter=nIter, quiet=True)
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
     fig.tight_layout()
-    plt.show()
-# -
+    plotting.plt.show()
 
 # Providing you have multiple CPU's available (i.e. not on Colab),
 # the following will all go faster by turning on multiprocessing.

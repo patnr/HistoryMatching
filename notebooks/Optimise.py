@@ -319,11 +319,10 @@ utils.nCPU = False
 # Anyway, let's try out `GD` on the quadratic.
 
 # +
-from ipywidgets.widgets import interact
 import matplotlib.pyplot as plt
 
-@interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20), ellip=(.1, 10))
 def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=1, precond=False, nrmlz=True):
+@plotting.interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20), ellip=(-1, 1, .1))
     fig, axs = plotting.figure12(quadratic.__name__)
     quadratic.ellipticity = ellip
     qsurf = quadratic(mesh2list(*model.mesh))

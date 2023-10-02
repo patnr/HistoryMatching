@@ -192,28 +192,65 @@ def init():
     plt.ion()
 
 
-def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
-    """`model.plt_field(compute())` in particular layout along w/ `compute.controls`.
+def interact(side="top", wrap=True, **kwargs):
+    """Like `ipywidgets.interact(**kwargs)` with some extras:
 
-    In general, I advise to create dashboards with custom layouts using `interactive`:
+    - `side` specifies control panel placement relative to figure output.
+    - If `wrap`: stack controls vertically (otherwise: horizontally).
 
-    - Like `interact()`, it creates control widgets from simple kwargs.
-    - Like `interactive_output()`, it delays `display()` until manually called.
-    - See source `ipywidgets/widgets/interaction.py` for other nuances.
-
-    Example:
-
-    >>> linked = interactive()
-    ... *ww, out = linked.children
-    ... dashboard = HBox([ww[0], out, ww[1]])
-    ... display(dashboard)
-
-    NB: earlier python/Jupyter/Colab/mpl/ipympl versions used to (see cdbb4c15)
-    require some trickery to make figures actually show up,
-    especially that works both on Colab (inline) and ipympl (when cell gets re-run),
-    ref <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
-    and `fig.canvas.{flush_events,draw}`.
+    Tested with ipympl and inline mpl backends.
     """
+    def decorator(plotter):
+        # NB: `plotter` must use `freshfig` and call `plt.show()` at the end.
+        #
+        # - Wrapping `plotter` with a function that takes care of it
+        #   doesn't work because then `interactive` fails to parse its kwargs.
+        # - If we do it in decorator then it must come at the very end,
+        #   otherwise "run all (cells) above" will place all regular figures
+        #   here (at least with ipympl). BUT putting it at the end
+        #   appears to make it impossible to control the layout
+        #   (controls always wind up above figure output).
+        #
+        # Earlier python/Jupyter/Colab/mpl/ipympl versions used to (see cdbb4c15)
+        # require even more trickery to make figures actually show up,
+        # especially that works both on Colab (inline) and ipympl (when cell gets re-run),
+        # ref <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
+        # and `fig.canvas.{flush_events,draw}`.
+
+        # Auto-parse kwargs, add 'observers'
+        # - Like `interact()`, it creates control widgets from simple kwargs.
+        # - Like `interactive_output()`, it delays `display()` until manually called.
+        # - See source `ipywidgets/widgets/interaction.py` for other nuances.
+        linked = wg.interactive(plotter, **kwargs)
+        *ww, out = linked.children
+
+        # Styling of individual control widgets
+        for w in ww:
+            try:
+                # Disable continuous_update on Colab
+                import google.colab  # type: ignore
+                w.continuous_update = False
+            except ImportError:
+                pass
+
+        cpanel = wg.HBox(ww, layout=dict(flex_flow='row wrap')) if wrap else wg.VBox(ww)
+        match side:
+            case "left":
+                dashboard = wg.HBox([cpanel, out])
+            case "right":
+                dashboard = wg.HBox([out, cpanel])
+            case "bottom":
+                dashboard = wg.VBox([out, cpanel])
+            case _: # top
+                dashboard = wg.VBox([cpanel, out])
+
+        display(dashboard)
+        linked.update()
+    return decorator
+
+
+def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
+    """`model.plt_field(compute())` in particular layout along w/ `compute.controls`."""
     title  = dash_join(styles[style]["title"], title)
     ctrls  = compute.controls.copy()  # gets modified
 

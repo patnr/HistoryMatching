@@ -674,13 +674,13 @@ def dJ_StoSAG(self, obj, u, U, pbar):
 
 nabla_ens.obj_increments = dJ_StoSAG
 
-# Note that the computational cost of is $2 N$ simulations
-# rather than $N^2$ (assuming ensembles of equal size, $N$).
-# For small $N$ this cost saving is not palpable,
-# especially since backtracking will also perform a few iterations of $N$ evaluations.
-# But if $N > 30$ the cost savings become salient.
+# Note that the computational cost of is $2 n_{\text{Ens}}$ simulations
+# rather than $n_{\text{Ens}}^2$ (assuming ensembles of equal size, $n_{\text{Ens}}$).
+# For small $n_{\text{Ens}}$ this cost saving is not palpable,
+# especially since backtracking will also perform a few iterations of $n_{\text{Ens}}$ evaluations.
+# But if $n_{\text{Ens}} > 30$ the cost savings become salient.
 #
-# PS: The cost of `nabla_ens.obj_increments` could be further reduced to just $N$ simulations
+# PS: The cost of `nabla_ens.obj_increments` could be further reduced to just $n_{\text{Ens}}$ simulations
 # by not computing `Ju`, instead obtaining these objective values
 # from the latest `backtracker` evaluations.
 # However, for the sake of code simplicity,
@@ -714,7 +714,7 @@ print(f"Case: '{obj1.__name__}' for '{model.name}'")
 
 # ### Ensemble of objectives
 #
-# NB: since it involves $N$ model simulations for each grid cell,
+# NB: since it involves $n_{\text{Ens}}$ model simulations for each grid cell,
 # computing the ensemble of conditional objective surfaces can take quite long.
 # So you should skip these computations if you're on a slow computer.
 
@@ -760,7 +760,7 @@ fig.tight_layout()
 # -
 
 # Clearly, optimising the full objective with "naive" EnOpt is very costly,
-# but is significantly faster using robust EnOpt (StoSAG), in particular if $N > 30$.
+# but is significantly faster using robust EnOpt (StoSAG), in particular if $n_{\text{Ens}} > 30$.
 # Let us store the optimum of the last trial of StoSAG.
 
 ctrl_robust = path[-1]

@@ -295,37 +295,38 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
 # ## Sanity check
 # It is always wise to do some dead simple testing.
-# Let's try a quadratic form, upended, centered on 0.
+# Let's try a quadratic form, upended, centered on the model domain.
 
 def quadratic(u):
+    e = getattr(quadratic, 'ellipticity')
     u = u - [model.Lx/2, model.Ly/2]
+    u = u * [1, e]
     return - np.mean(u*u, axis=-1)
 
-
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
-# To illustrate:
-
-qsurf = quadratic(mesh2list(*model.mesh))
-
 # Thus -- for this case -- it would have been better had we not used `apply` in `nabla_ens`,
 # since multi-threaded `numpy` has less overhead than multiprocessing and is therefore faster.
-# More generally, it may *sometimes* be better to leave parallelisation to the
+# Generally speaking, it may *sometimes* be better to leave parallelisation to the
 # model/simulator/objective function, since it is "closer to the metal"
 # and can therefore do more speed optimisations.
-#
-# In fact, due to the overhead of multiprocessing, it is better that `apply` use a plain for loop for this trivial case.
+# In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case.
 
 utils.nCPU = False
 
 # Anyway, let's try out `GD` on the quadratic.
 
-# +
-from ipywidgets.widgets import interact
-
-@interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
-def plot( seed=5,       sdev=.1,        nTrial=2,       nEns=10,       nIter=10, precond=False, nrmlz=True):
+@plotting.interact(seed=(1, 10), nTrial=(1, 20), ellip=(-1, 1, .1),
+                   sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20))
+def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
-    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False);
+    quadratic.ellipticity = 10**ellip
+
+    # Compute & plot objective on mesh
+    qsurf = quadratic(mesh2list(*model.mesh))
+    lvls = np.linspace(qsurf.min(), qsurf.max(), 11)
+    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
+
+    # Run EnOpt
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]
@@ -333,7 +334,7 @@ def plot( seed=5,       sdev=.1,        nTrial=2,       nEns=10,       nIter=10,
                               nrmlz=nrmlz, nIter=nIter, quiet=True)
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
     fig.tight_layout()
-# -
+    plotting.plt.show()
 
 # Providing you have multiple CPU's available (i.e. not on Colab),
 # the following will all go faster by turning on multiprocessing.
@@ -614,26 +615,22 @@ fig.tight_layout()
 # Define function that takes injection rates and computes final sweep, i.e. saturation field.
 # Also print (with terminal color codes) the resulting NPV.
 
-def final_sweep_given_inj_rates(**kwargs):
-    inj_rates = np.array([list(kwargs.values())]).T
-    value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize(inj_rates, model.nProd))
-    print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
-    return info['wsats'][-1]
-
-
-# By assigning `controls` to this function (the rate of each injector)...
-
-final_sweep_given_inj_rates.controls = dict(
+@plotting.interact(
     inj0_rate = (0, 1.4),
     inj1_rate = (0, 1.4),
     inj2_rate = (0, 1.4),
     inj3_rate = (0, 1.4),
+    side="right", wrap=False,
 )
+def interactive_rate_optim(**kwargs):
+    rates = np.array([list(kwargs.values())]).T
+    value, info = npv(model, inj_rates=rates, prod_rates=equalize(rates, model.nProd))
+    print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
+    fig, ax = plotting.freshfig(obj.__name__ + " - Interactive",
+                                wells=True, figsize=(1, .6), rel=True)
+    model.plt_field(ax, info['wsats'][-1], "oil")
+    plotting.plt.show()
 
-# ... the following widget allows us to "interactively" (but manually) optimize the rates.
-# This is of course only feasible because the model is so simple and runs so fast.
-
-plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, figsize=(1, .6))
 
 # #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).

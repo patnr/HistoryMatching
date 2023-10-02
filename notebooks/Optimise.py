@@ -323,7 +323,7 @@ utils.nCPU = False
 from ipywidgets.widgets import interact
 
 @interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
-def plot( seed=5,       sdev=.1,        nTrial=5,       nEns=10,       nIter=10, precond=False, nrmlz=True):
+def plot( seed=5,       sdev=.1,        nTrial=2,       nEns=10,       nIter=10, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
     model.plt_field(axs[0], qsurf, cmap="cividis", wells=False);
     for i in range(nTrial):

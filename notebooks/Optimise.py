@@ -325,8 +325,13 @@ def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=1, precond=False, n
 @plotting.interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20), ellip=(-1, 1, .1))
     fig, axs = plotting.figure12(quadratic.__name__)
     quadratic.ellipticity = ellip
+    
+    # Compute & plot objective on mesh
     qsurf = quadratic(mesh2list(*model.mesh))
-    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False)
+    lvls = np.linspace(qsurf.min(), qsurf.max(), 11)
+    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
+
+    # Run EnOpt
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]

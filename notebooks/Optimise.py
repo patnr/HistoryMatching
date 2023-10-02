@@ -297,14 +297,11 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 # It is always wise to do some dead simple testing.
 # Let's try a quadratic form, upended, centered on the model domain.
 
-# +
 def quadratic(u):
+    e = getattr(quadratic, 'ellipticity')
     u = u - [model.Lx/2, model.Ly/2]
-    u = u * [1, quadratic.ellipticity]
+    u = u * [1, e]
     return - np.mean(u*u, axis=-1)
-
-quadratic.ellipticity = 1
-# -
 
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
 # Thus -- for this case -- it would have been better had we not used `apply` in `nabla_ens`,
@@ -321,11 +318,11 @@ utils.nCPU = False
 # +
 import matplotlib.pyplot as plt
 
-def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=1, precond=False, nrmlz=True):
 @plotting.interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20), ellip=(-1, 1, .1))
+def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=0, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
-    quadratic.ellipticity = ellip
-    
+    quadratic.ellipticity = 10**ellip
+
     # Compute & plot objective on mesh
     qsurf = quadratic(mesh2list(*model.mesh))
     lvls = np.linspace(qsurf.min(), qsurf.max(), 11)

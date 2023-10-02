@@ -321,6 +321,7 @@ utils.nCPU = False
 
 # +
 from ipywidgets.widgets import interact
+import matplotlib.pyplot as plt
 
 @interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
 def plot( seed=5,       sdev=.1,        nTrial=2,       nEns=10,       nIter=10, precond=False, nrmlz=True):
@@ -333,6 +334,7 @@ def plot( seed=5,       sdev=.1,        nTrial=2,       nEns=10,       nIter=10,
                               nrmlz=nrmlz, nIter=nIter, quiet=True)
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
     fig.tight_layout()
+    plt.show()
 # -
 
 # Providing you have multiple CPU's available (i.e. not on Colab),

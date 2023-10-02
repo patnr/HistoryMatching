@@ -6,3 +6,4 @@ jupyter
 pathos
 threadpoolctl
 adjustText==0.8
+mpl-tools==0.3.2

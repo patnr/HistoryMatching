@@ -8,7 +8,7 @@ import matplotlib as mpl
 import mpl_tools
 import numpy as np
 import struct_tools
-from IPython.display import clear_output, display
+from IPython.display import display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator, LogLocator
@@ -131,17 +131,12 @@ def init():
     The magics (like `%matplotlib notebook/ipympl`) set `plt.ion()` and some rcParams.
     They could probably be used in a module via `get_ipython().run_line_magic()`
     however, here I choose to instead use `mpl.use(...)` or `import ipympl`.
-    - If you do `import ipympl` BEFORE `import matplotlib.pyplot` then
+    - Obsolete? If you do `import ipympl` BEFORE `import matplotlib.pyplot` then
       the figures only display as the text string <Figure size ...>.
     - If you do mpl.use("nbAgg") BEFORE `import matplotlib.pyplot` then
       you must remember to do `plt.ion()` too.
       PS: this "interactive" is not to be confused with "interactive backends".
       PS: check status with `plt.isinteractive`.
-
-    ## About figures not displaying on 2nd run (cell execution):
-
-    This seems to be an issue with ipympl when the figure `num` is re-used.
-    Should be fixed in `freshfig` as of mpl-tools 0.2.55.
 
     ## About "run all (cells)":
 
@@ -197,13 +192,14 @@ def init():
     plt.ion()
 
 
-def captured_fig(output, num, **kwargs):
-    """Decorator that provides `fig, ax` for use in Jupyter (IPywidget) *layouts*.
+def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
+    """`model.plt_field(compute())` in particular layout along w/ `compute.controls`.
 
     In general, I advise to create dashboards with custom layouts using `interactive`:
 
     - Like `interact()`, it creates control widgets from simple kwargs.
     - Like `interactive_output()`, it delays `display()` until manually called.
+    - See source `ipywidgets/widgets/interaction.py` for other nuances.
 
     Example:
 
@@ -212,123 +208,26 @@ def captured_fig(output, num, **kwargs):
     ... dashboard = HBox([ww[0], out, ww[1]])
     ... display(dashboard)
 
-    BUT, there is some trickery about making figures actually show up.
-    Especially making it work both with ipympl and Colab (inline).
-
-    - The approach taken here uses `with ipywidgets.Output`.
-    - In `DA-tutorials`, I found you can make the figures appear on Colab
-      also initially (which was a problem) by using `linked.update()`.
-
-    ## Cautions
-
-    - **figure creation** (done by this function) and `plt.show()` must be in callback,
-      i.e. part of the interactively called function.
-    - `tight_layout` must render. Better to use `constrained_layout`?
-
-    ## Refs
-
-    Main ref: <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
-    None of these quite worked on Colab or my Mac, but were useful:
-
-    - The source code `ipywidgets/widgets/interaction.py` is readable!
-    - `fig.canvas.{flush_events,draw}`: https://stackoverflow.com/a/58561439
-    - Layouts (better than docs):
-      https://coderzcolumn.com/tutorials/python/interactive-widgets-in-jupyter-notebook-using-ipywidgets
-    - Layouts: https://medium.com/kapernikov/ipywidgets-with-matplotlib-93646718eb84
-
-    Example for use in a notebook:
-    >>> output = wg.Output()
-    ... @captured_fig(output, "Title")
-    ... def plot(fig, ax, _newfig, x, y):
-    ...     a = np.arange(10)
-    ...     h = ax.plot((a/10)**x)
-    ...     h = ax.plot(np.sin(y*a))
-    ... xy0 = 1, 1
-    ... sx = wg.IntSlider(xy0[0], 0, 10)
-    ... sy = wg.IntSlider(xy0[1], 0, 10, orientation='vertical', continuous_update=False)
-    ... linked = wg.interactive(plot, x=sx, y=sy)
-    ... widgets = wg.VBox([wg.HBox([output, sy]), sx])
-    ... display(widgets)
-    ... plot(*xy0)
+    NB: earlier python/Jupyter/Colab/mpl/ipympl versions used to (see cdbb4c15)
+    require some trickery to make figures actually show up,
+    especially that works both on Colab (inline) and ipympl (when cell gets re-run),
+    ref <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
+    and `fig.canvas.{flush_events,draw}`.
     """
-    backend = mpl.get_backend()
-    inline_ish = "inline" in backend or "ipympl" in backend
-
-    def fig_ax(num):
-        """Create fig, axs. Deserving of particular attention, so factored out."""
-        # Figure creation
-        # Of course, for *interactive* mpl backends, this should only be run once.
-        # But running it from inside f (with appropriate checks for single execution)
-        # causes blank figure => Run outside of f().
-        # However, using `ipywidgets.Output` to capture output requires that it runs
-        # inside f. In this case it actually seems to work though (no blank figures).
-        if inline_ish:
-            # Rm previous (static) image. Necssary when using `ipywidgets.Output`
-            # Use `wait=True` because to avoid flickering, ref ipywidgets/issues/1582
-            clear_output(wait=True)
-        else:
-            # Check for existance, otherwise the first time it is run
-            # (no error is thrown but) duplicate figures get created
-            # (no longer seems to be an issue, but the check doesn't hurt)
-            if plt.fignum_exists(num):
-                # Fix issue: figure doesn't display **when cell is re-run**.
-                # I think it's related to being in an ipython widget, but can also
-                # be fixed by changing num (so that freshfig creates a new one).
-                plt.close(num)
-        fig, axs = freshfig(num, ipympl_show=False, **kwargs)
-        return fig, axs
-
-    def decorator(f):
-        """The actual decorator."""
-        fig, axs = None, None
-
-        def new(*args, **kwargs):
-            # Persistent figure (re-used after slider updates)
-            nonlocal fig, axs
-
-            with output:
-                if inline_ish or fig is None:
-                    fig, axs = fig_ax(num)
-                    newfig = True
-                else:
-                    newfig = False
-                    try:
-                        axs.clear()
-                    except AttributeError:
-                        for ax in axs.ravel():
-                            ax.clear()
-
-                # Main
-                f(fig, axs, newfig, *args, **kwargs)
-
-                if not inline_ish:
-                    # From https://stackoverflow.com/a/58561439
-                    fig.canvas.flush_events()
-                    fig.canvas.draw()
-                plt.show()
-
-        return new
-    return decorator
-
-
-def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
-    """Field computed on-the-fly controlled by interactive sliders."""
     title  = dash_join(styles[style]["title"], title)
     ctrls  = compute.controls.copy()  # gets modified
-    output = wg.Output()
 
-    @captured_fig(output, title, figsize=figsize, rel=rel)
-    def plot(fig, ax, newfig, **kw):
+    def plot(**kw):
+        fig, ax = freshfig(title, figsize=figsize, rel=rel)
+
         # Ignore warnings due to computing and plotting contour/nan
         with warnings.catch_warnings(), \
                 np.errstate(divide="ignore", invalid="ignore"):
             warnings.filterwarnings(
                 "ignore", category=UserWarning, module="matplotlib.contour")
-
             Z = compute(**kw)
-            model.plt_field(ax, Z, style, colorbar=newfig, **kwargs)
-            if newfig:
-                fig.tight_layout()
+
+        model.plt_field(ax, Z, style, colorbar=True, **kwargs)
 
         # Add crosshairs
         if "x" in kw and "y" in kw:
@@ -337,9 +236,12 @@ def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, *
             ax.axhline(y, **d)
             ax.axvline(x, **d)
 
+        fig.tight_layout()
+        plt.show()
+
     # Make widget/interactive plot
     linked = wg.interactive(plot, **ctrls)
-    *ww, _ = linked.children
+    *ww, output = linked.children
 
     # Adjust control styles
     for w in ww:
@@ -359,7 +261,7 @@ def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, *
 
     # Display
     display(layout)
-    plot(**{w.description: w.value for w in ww})
+    linked.update()
 
 
 def layout1(ww, output):
@@ -376,7 +278,13 @@ def layout1(ww, output):
     -----------------
     ```
 
+    Layouts (better docs):
+
+    - https://coderzcolumn.com/tutorials/python/interactive-widgets-in-jupyter-notebook-using-ipywidgets
+    - https://medium.com/kapernikov/ipywidgets-with-matplotlib-93646718eb84
+
     There are many interesting attributes and CSS possibilities.
+
     - https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20List.html
     - https://stackoverflow.com/q/52980565 .
     """
@@ -465,20 +373,11 @@ def ens_style(label, N=100):
 def toggle_items(wrapped):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
     def new(*args, **kwargs):
-        plotter, kw_subplots = wrapped(*args, **kwargs)
         checkmarks = {label: True for label in args[0]}
-
-        # To disable the interactivity, simply uncomment following line.
-        # (if figure doesn't show, plt.close() it first, or change its title)
-        # plotter(*freshfig(**kw_subplots), None, **checkmarks); return
-
-        output = wg.Output()
-        plot = captured_fig(output, **kw_subplots)(plotter)
-
-        linked = wg.interactive(plot, **checkmarks)
+        linked = wg.interactive(wrapped(*args, **kwargs), **checkmarks)
 
         # Adjust layout
-        *ww, _ = linked.children
+        *ww, output = linked.children
         for w in ww:
             # Narrower checkmark boxes (incl. text)
             w.layout.width = "100%"  # or "auto"
@@ -501,7 +400,7 @@ def toggle_items(wrapped):
         cpanel = wg.VBox(ww)
         layout = wg.HBox([output, cpanel])
         display(layout)
-        plot(**{w.description: w.value for w in ww})
+        linked.update()
     return new
 
 
@@ -517,7 +416,8 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
     kw_subplots = dict(num=title, figsize=figsize, rel=True,
                        **nRowCol(nProd), sharex=True, sharey=True)
 
-    def plot(fig, axs, _newfig, **labels):
+    def plot(**labels):
+        fig, axs = freshfig(**kw_subplots)
         axs = axs.ravel()
 
         # Turn off redundant axes
@@ -542,8 +442,9 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
 
                 # Rm duplicate labels
                 # plt.setp(ll[1:], label="_nolegend_")
+        plt.show()
 
-    return plot, kw_subplots
+    return plot
 
 
 def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):

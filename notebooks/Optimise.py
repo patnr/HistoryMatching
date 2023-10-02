@@ -281,7 +281,7 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
         for itr in range(nIter):
             u, J, info = states[-1]
-            pbar_gd.set_postfix(u=u, obj=J)
+            pbar_gd.set_postfix(u=f"{u}", obj=f"{J:.3g}📈")
 
             grad = nabla.eval(objective, u, pbar_en)
             if nrmlz:
@@ -608,7 +608,7 @@ fig.tight_layout()
 def final_sweep_given_inj_rates(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
     value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize(inj_rates, model.nProd))
-    print("\x1b[45m NPV for these injection_rates:", f"\x1b[30;47;1m{value}\x1b[0m")
+    print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
     return info['wsats'][-1]
 
 

@@ -133,8 +133,8 @@ def npv(model, **params):
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
 
-price_of_inj = 5e3
-price_of_oil = 1e4
+price_of_inj = 50
+price_of_oil = 100
 discounts = .99 ** np.arange(nTime)
 
 # Note that, being defined in the global namespace,
@@ -169,28 +169,26 @@ original_model = remake(model)
 
 def partial_volumes(model, wsats, inj_or_prod):
     """Essentially `saturation * rate` for `inj_or_prod` wells."""
-    # Saturations
-    if inj_or_prod == "prod":
-        # Oil (use trapezoid approx)
+    assert inj_or_prod in ['inj', 'prod']
+
+    if inj_or_prod == "inj":
+        rates = model.inj_rates
+        saturations = 1  # 100% water
+        
+    elif inj_or_prod == "prod":
+        rates = model.prod_rates
         well_inds = model.xy2ind(*model.prod_xy.T)
+        # Use trapezoidal rule to compute saturations on *intervals*
         saturations = 0.5 * (wsats[:-1, well_inds] +
                              wsats[+1:, well_inds])
         saturations = (1 - saturations).T  # water --> oil
-    elif inj_or_prod == "inj":
-        # Injector uses 100% water
-        saturations = 1
-    else:
-        raise KeyError
 
-    # Rates
-    rates = getattr(model, f"{inj_or_prod}_rates")
-    if (_nT := rates.shape[1]) == 1 and _nT != nTime:
-        # constant-in-time ⇒ replicate for all time steps
+    # Rates constant in time ⇒ replicate for all time steps
+    if rates.shape[1] == 1:
         rates = np.tile(rates, (1, nTime))
-
-    volume_per_rate = dt * model.hx * model.hx
-
-    return volume_per_rate * rates * saturations
+    
+    # PS: Do not scale with model hx*hy
+    return dt * rates * saturations
 
 
 # ## EnOpt

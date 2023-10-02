@@ -615,26 +615,22 @@ fig.tight_layout()
 # Define function that takes injection rates and computes final sweep, i.e. saturation field.
 # Also print (with terminal color codes) the resulting NPV.
 
-def final_sweep_given_inj_rates(**kwargs):
-    inj_rates = np.array([list(kwargs.values())]).T
-    value, info = npv(model, inj_rates=inj_rates, prod_rates=equalize(inj_rates, model.nProd))
-    print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
-    return info['wsats'][-1]
-
-
-# By assigning `controls` to this function (the rate of each injector)...
-
-final_sweep_given_inj_rates.controls = dict(
+@plotting.interact(
     inj0_rate = (0, 1.4),
     inj1_rate = (0, 1.4),
     inj2_rate = (0, 1.4),
     inj3_rate = (0, 1.4),
+    side="right", wrap=False,
 )
+def interactive_rate_optim(**kwargs):
+    rates = np.array([list(kwargs.values())]).T
+    value, info = npv(model, inj_rates=rates, prod_rates=equalize(rates, model.nProd))
+    print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
+    fig, ax = plotting.freshfig(obj.__name__ + " - Interactive",
+                                wells=True, figsize=(1, .6), rel=True)
+    model.plt_field(ax, info['wsats'][-1], "oil")
+    plotting.plt.show()
 
-# ... the following widget allows us to "interactively" (but manually) optimize the rates.
-# This is of course only feasible because the model is so simple and runs so fast.
-
-plotting.field_console(model, final_sweep_given_inj_rates, "oil", wells=True, figsize=(1, .6))
 
 # #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).

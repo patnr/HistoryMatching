@@ -233,7 +233,10 @@ def interact(side="top", wrap=True, **kwargs):
             except ImportError:
                 pass
 
-        cpanel = wg.HBox(ww, layout=dict(flex_flow='row wrap')) if wrap else wg.VBox(ww)
+        if wrap:
+            cpanel = wg.HBox(ww, layout=dict(flex_flow='row wrap'))
+        else:
+            cpanel = wg.VBox(ww, layout=dict(align_items='center', justify_content='center'))
         match side:
             case "left":
                 dashboard = wg.HBox([cpanel, out])
@@ -249,6 +252,7 @@ def interact(side="top", wrap=True, **kwargs):
     return decorator
 
 
+# TODO: unify with layout1 (and make use of interactive() above)
 def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
     """`model.plt_field(compute())` in particular layout along w/ `compute.controls`."""
     title  = dash_join(styles[style]["title"], title)

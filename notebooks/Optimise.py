@@ -295,25 +295,24 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
 # ## Sanity check
 # It is always wise to do some dead simple testing.
-# Let's try a quadratic form, upended, centered on 0.
+# Let's try a quadratic form, upended, centered on the model domain.
 
+# +
 def quadratic(u):
     u = u - [model.Lx/2, model.Ly/2]
+    u = u * [1, quadratic.ellipticity]
     return - np.mean(u*u, axis=-1)
 
+quadratic.ellipticity = 1
+# -
 
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
-# To illustrate:
-
-qsurf = quadratic(mesh2list(*model.mesh))
-
 # Thus -- for this case -- it would have been better had we not used `apply` in `nabla_ens`,
 # since multi-threaded `numpy` has less overhead than multiprocessing and is therefore faster.
-# More generally, it may *sometimes* be better to leave parallelisation to the
+# Generally speaking, it may *sometimes* be better to leave parallelisation to the
 # model/simulator/objective function, since it is "closer to the metal"
 # and can therefore do more speed optimisations.
-#
-# In fact, due to the overhead of multiprocessing, it is better that `apply` use a plain for loop for this trivial case.
+# In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case.
 
 utils.nCPU = False
 
@@ -323,10 +322,12 @@ utils.nCPU = False
 from ipywidgets.widgets import interact
 import matplotlib.pyplot as plt
 
-@interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20))
-def plot( seed=5,       sdev=.1,        nTrial=2,       nEns=10,       nIter=10, precond=False, nrmlz=True):
+@interact(seed=(1, 10), sdev=(0.01, 2), nTrial=(1, 20), nEns=(2, 100), nIter=(0, 20), ellip=(.1, 10))
+def plot(seed=5, sdev=.1, nTrial=2, nEns=10, nIter=10, ellip=1, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
-    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False);
+    quadratic.ellipticity = ellip
+    qsurf = quadratic(mesh2list(*model.mesh))
+    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False)
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]

@@ -200,8 +200,8 @@ def init():
 def captured_fig(output, num, **kwargs):
     """Decorator that provides `fig, ax` for use in Jupyter (IPywidget) *layouts*.
 
-    In general, I advise to create dashboards with custom layouts using `ìnteractive`:
-    The source code `ipywidgets/widgets/interaction.py` is fairly readable!
+    In general, I advise to create dashboards with custom layouts using `interactive`:
+
     - Like `interact()`, it creates control widgets from simple kwargs.
     - Like `interactive_output()`, it delays `display()` until manually called.
 
@@ -215,7 +215,7 @@ def captured_fig(output, num, **kwargs):
     BUT, there is some trickery about making figures actually show up.
     Especially making it work both with ipympl and Colab (inline).
 
-    - The approach taken here uses `with w.Output`.
+    - The approach taken here uses `with ipywidgets.Output`.
     - In `DA-tutorials`, I found you can make the figures appear on Colab
       also initially (which was a problem) by using `linked.update()`.
 
@@ -230,32 +230,22 @@ def captured_fig(output, num, **kwargs):
     Main ref: <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
     None of these quite worked on Colab or my Mac, but were useful:
 
-    - Use of `fig.canvas.flush_events()` and `fig.canvas.draw()`:
-      From https://stackoverflow.com/a/58561439
-    - Similar to the docs, but better:
+    - The source code `ipywidgets/widgets/interaction.py` is readable!
+    - `fig.canvas.{flush_events,draw}`: https://stackoverflow.com/a/58561439
+    - Layouts (better than docs):
       https://coderzcolumn.com/tutorials/python/interactive-widgets-in-jupyter-notebook-using-ipywidgets
-    - Fancy widget layout:
-      https://medium.com/kapernikov/ipywidgets-with-matplotlib-93646718eb84
-        - Uses ipympl (doesn't display on my mac)
-        - When testing on Colab (`inline` backend) the layout works,
-          except that the figure is placed below, not on the side.
-    - Side-by-side figures with interactivity
-      https://github.com/matplotlib/ipympl/issues/203#issuecomment-600500051
+    - Layouts: https://medium.com/kapernikov/ipywidgets-with-matplotlib-93646718eb84
 
     Example for use in a notebook:
     >>> output = wg.Output()
-    ... @captured_fig(output, "Title", figsize=(1.2, 1), rel=True)
+    ... @captured_fig(output, "Title")
     ... def plot(fig, ax, _newfig, x, y):
-    ...     A = np.arange(10)
-    ...     X, Y = np.meshgrid(A, A)
-    ...     X = x*X
-    ...     Y = y*Y
-    ...     h = ax.imshow(X + Y)
-    ...
+    ...     a = np.arange(10)
+    ...     h = ax.plot((a/10)**x)
+    ...     h = ax.plot(np.sin(y*a))
     ... xy0 = 1, 1
     ... sx = wg.IntSlider(xy0[0], 0, 10)
-    ... sy = wg.IntSlider(xy0[1], 0, 10,
-    ...                  orientation='vertical', continuous_update=False)
+    ... sy = wg.IntSlider(xy0[1], 0, 10, orientation='vertical', continuous_update=False)
     ... linked = wg.interactive(plot, x=sx, y=sy)
     ... widgets = wg.VBox([wg.HBox([output, sy]), sx])
     ... display(widgets)
@@ -278,7 +268,7 @@ def captured_fig(output, num, **kwargs):
             clear_output(wait=True)
         else:
             # Check for existance, otherwise the first time it is run
-            # (no error is thrown but) duplicate figures are created
+            # (no error is thrown but) duplicate figures get created
             # (no longer seems to be an issue, but the check doesn't hurt)
             if plt.fignum_exists(num):
                 # Fix issue: figure doesn't display **when cell is re-run**.

@@ -203,6 +203,7 @@ class nabla_ens:
     nEns:    int   = 10    # Size of control perturbation ensemble
     precond: bool  = False # Use preconditioned form?
     # Will be used later:
+    robustly:None  = None  # Method of treating robust objectives
     obj_ux:  None  = None  # Conditional objective function
     X:       None  = None  # Uncertainty ensemble
 
@@ -660,19 +661,26 @@ def obj(u=None, x=None):
 # by the following patch to the way `nabla_ens` computes the increments of `obj`.
 #
 
-def dJ_StoSAG(self, obj, u, U, pbar):
-    if self.obj_ux:
-        # StoSAG
+def dJ_robust(self, obj, u, U, pbar):
+    if self.robustly == "Paired":
+        dJ = apply(self.obj_ux, U, x=self.X, pbar=pbar)
+
+    elif self.robustly == "StoSAG":
         u1 = np.tile(u, (self.nEns, 1))  # replicate u
         JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
         Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
         dJ = np.asarray(JU) - Ju
-    else:
-        # Regular/"naive" form
+
+    elif self.robustly in ["Mean-model", "Fragile"]:
+        x1 = np.tile(self.X.mean(0), (self.nEns, 1))  # replicate x
+        dJ = apply(self.obj_ux, U, x=x1, pbar=pbar)
+
+    else:  # Regular/"naive" (M*N costly) form
         dJ = apply(obj, U, pbar=pbar)
+
     return dJ
 
-nabla_ens.obj_increments = dJ_StoSAG
+nabla_ens.obj_increments = dJ_robust
 
 # Note that the computational cost of is $2 n_{\text{Ens}}$ simulations
 # rather than $n_{\text{Ens}}^2$ (assuming ensembles of equal size, $n_{\text{Ens}}$).
@@ -724,7 +732,6 @@ try:
 except ImportError:
     my_computer_is_fast = True
 
-
 if my_computer_is_fast:
     print("obj1(u=mesh, x=ens)")
     npv_mesh = apply(lambda x: [obj1(u, x) for u in mesh2list(*model.mesh)], uq_ens)
@@ -753,7 +760,7 @@ if my_computer_is_fast:
 # Use StoSAG ensemble gradient
 for color in ['C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens))
+    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens, robustly="StoSAG"))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
 fig.tight_layout()
@@ -761,6 +768,9 @@ fig.tight_layout()
 
 # Clearly, optimising the full objective with "naive" EnOpt is very costly,
 # but is significantly faster using robust EnOpt (StoSAG), in particular if $n_{\text{Ens}} > 30$.
+#
+# You may also want to experiment with the other alternatives for `robustly`, i.e. "Mean-model" and "Paired".
+#
 # Let us store the optimum of the last trial of StoSAG.
 
 ctrl_robust = path[-1]

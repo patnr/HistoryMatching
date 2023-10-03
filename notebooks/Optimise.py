@@ -350,7 +350,6 @@ def npv_inj_xy(xys):
 
 obj = npv_inj_xy
 model = original_model
-print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # The model is sufficiently cheap that we can afford to compute the objective
 # over its entire 2D domain, and plot it.
@@ -420,7 +419,6 @@ y = model.Ly/2
 # +
 obj = npv_x_with_fixed_y
 model = original_model
-print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 x_grid = np.linspace(0, model.Lx, 201)
 npvs = apply(obj, x_grid, pbar="obj(x_grid)")
@@ -506,7 +504,6 @@ def npv_xy_transf(xys):
     return npv_inj_xy(coordinate_transform(xys))
 
 obj = npv_xy_transf
-print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
 # The objective is now a function of `2*nInj = 4` variables.
@@ -553,7 +550,6 @@ def npv_in_inj_rates(inj_rates):
 
 obj = npv_in_inj_rates
 model = original_model
-print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
 # Again, we are able and can afford to compute and plot the entire objective.
@@ -597,7 +593,6 @@ wells = dict(
     prod_rates = rate0 * np.ones((3, 1)) / 3,
 )
 model = remake(model, **wells, name="Triangle case")
-print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Show well layout
 
@@ -712,7 +707,6 @@ def obj1(u, x):
     return npv(model, inj_xy=u, K=x)[0]
 
 model = original_model
-print(f"Case: '{obj1.__name__}' for '{model.name}'")
 # -
 
 # ### Ensemble of objectives
@@ -728,7 +722,6 @@ except ImportError:
     my_computer_is_fast = True
 
 if my_computer_is_fast:
-    print("obj1(u=mesh, x=ens)")
     npv_mesh = apply(lambda x: [obj1(u, x) for u in mesh2list(*model.mesh)], uq_ens)
     plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
 
@@ -823,7 +816,6 @@ npvs_robust = apply(lambda x: obj1(ctrl_robust, x), uq_ens)
 # We can do the same for each nominally optimal control vector.
 # *PS: we could also do the same for `ctrl_ens_nominal2`.*
 
-print("obj1(ctrl_ens, uq_ens)")
 npvs_condnl = apply(lambda u: [obj1(u, x) for x in uq_ens], ctrl_ens_nominal)
 
 # Note that `npvs_condnl` is of shape `(nEns, nEns)`,
@@ -902,7 +894,6 @@ def npv_in_prod_rates(prod_rates):
     return npv(model, prod_rates=prod_rates, inj_rates=inj_rates)[0]
 
 obj = npv_in_prod_rates
-print(f"Case: '{obj.__name__}' for '{model.name}'")
 # -
 
 # #### Optimize

@@ -643,14 +643,18 @@ def obj(u=None, x=None):
     return np.mean([obj1(u, x) for x in uq_ens])
 
 # Of course, we still have to define the
+#
 # - ensemble (`uq_ens`) providing the uncertainty quantification (UQ)
 #   of some parameter(s), over which the average is computed.
 # - conditional objective (`obj1`),
 #   thus labelled because it applies to 1 member in `uq_ens`.
-
-# We can exploit the structure of the robust-optimisation `obj` above
-# by the following patch to the way `nabla_ens` computes the increments of `obj`.
 #
+# This objective function becomes very costly to evaluate,
+# since it involves $2 n_{\text{Ens}}$ evaluations/simulations.
+# But "there are no problems -- only opportunities" or
+# perhaps less pompously "every problem carries the seed of its own solution".
+# Indeed we can exploit the structure of the robust-optimisation `obj` above
+# by the following patch to the way `nabla_ens` computes the increments of `obj`.
 
 def dJ_robust(self, obj, u, U, pbar):
     if self.robustly == "Paired":

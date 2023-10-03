@@ -6,13 +6,13 @@ import warnings
 import ipywidgets as wg
 import matplotlib as mpl
 import mpl_tools
+import mpl_tools.place
 import numpy as np
 import struct_tools
 from IPython.display import display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator, LogLocator
-from mpl_tools.place import freshfig
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
 from TPFA_ResSim.plotting import styles
@@ -54,13 +54,22 @@ styles["domain"] = dict(
 )
 
 
-def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
+show = plt.show  # noqa  # type: ignore
+
+
+def freshfig(*args, **kwargs):
+    if not kwargs.get('figsize', None):
+        kwargs['figsize'] = (8, 4)
+    return mpl_tools.place.freshfig(*args, **kwargs)
+
+
+def fields(model, Zs, style, title="", figsize=(10, 4.5), cticks=None,
            label_color="k", wells=False, colorbar=True, **kwargs):
     """Do `model.plt_field(Z) for Z in Zs`."""
 
     # Create figure using freshfig
     title = dash_join("Fields", styles[style]["title"], title)
-    fig, axs = freshfig(title, figsize=figsize, rel=True)
+    fig, axs = freshfig(title, figsize=figsize)
     # Store suptitle (exists if mpl is inline) coz gets cleared below
     try:
         suptitle = fig._suptitle.get_text()
@@ -87,8 +96,12 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
     hh = []
     for ax, label in zip(axs, Zs):
         label_ax(ax, label, c=label_color)
-        hh.append(model.plt_field(ax, Zs[label], style, wells=wells,
-                                  colorbar=False, title=None, **kwargs))
+        hh.append(model.plt_field(ax, Zs[label], style, wells=wells, labels=False,
+                                  colorbar=False, title=None, finalize=False, **kwargs))
+
+    # Axis labels
+    fig.supxlabel('x')
+    fig.supylabel('y')
 
     # Suptitle
     if len(Zs) > len(axs):
@@ -103,8 +116,9 @@ def fields(model, Zs, style, title="", figsize=(1.7, 1), cticks=None,
         fig.colorbar(hh[0], cax=axs.cbar_axes[0], ticks=cticks)
 
     warnings.filterwarnings("ignore", category=UserWarning)
-    fig.tight_layout()  # Not necessary with ipympl
+    fig.tight_layout()
     # warnings.resetwarnings()  # Don't! Causes warnings from (mpl?) libraries
+    plt.show()
 
     return fig, axs, hh
 
@@ -254,13 +268,13 @@ def interact(side="top", wrap=True, **kwargs):
 
 
 # TODO: unify with layout1 (and make use of interactive() above)
-def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, **kwargs):
+def field_console(model, compute, style, title="", figsize=None, **kwargs):
     """`model.plt_field(compute())` in particular layout along w/ `compute.controls`."""
-    title  = dash_join(styles[style]["title"], title)
+    title  = dash_join("Console", title)
     ctrls  = compute.controls.copy()  # gets modified
 
     def plot(**kw):
-        fig, ax = freshfig(title, figsize=figsize, rel=rel)
+        fig, ax = freshfig(title, figsize=figsize)
 
         # Ignore warnings due to computing and plotting contour/nan
         with warnings.catch_warnings(), \
@@ -269,7 +283,7 @@ def field_console(model, compute, style, title="", figsize=(1.5, 1), rel=True, *
                 "ignore", category=UserWarning, module="matplotlib.contour")
             Z = compute(**kw)
 
-        model.plt_field(ax, Z, style, colorbar=True, **kwargs)
+        model.plt_field(ax, Z, style, colorbar=True, finalize=False, **kwargs)
 
         # Add crosshairs
         if "x" in kw and "y" in kw:
@@ -439,7 +453,7 @@ def toggle_items(wrapped):
             w.layout.align_items = "center"
             w.layout.padding = ".9em 0 .7em 0"
 
-        cpanel = wg.VBox(ww)
+        cpanel = wg.VBox(ww, layout=dict(align_items='center', justify_content='center'))
         layout = wg.HBox([output, cpanel])
         display(layout)
         linked.update()
@@ -447,7 +461,7 @@ def toggle_items(wrapped):
 
 
 @toggle_items
-def productions(dct, title="", figsize=(1.5, 1), nProd=None):
+def productions(dct, title="", figsize=(8, 3.5), nProd=None):
     """Production time series with data toggler. 1 axes/well. Ensemble compatible."""
     title = dash_join("Production profiles", title)
 
@@ -455,8 +469,7 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
         nProd = struct_tools.get0(dct).shape[1]
         nProd = min(23, nProd)
 
-    kw_subplots = dict(num=title, figsize=figsize, rel=True,
-                       **nRowCol(nProd), sharex=True, sharey=True)
+    kw_subplots = dict(num=title, figsize=figsize, **nRowCol(nProd), sharex=True, sharey=True)
 
     def plot(**labels):
         fig, axs = freshfig(**kw_subplots)
@@ -489,10 +502,10 @@ def productions(dct, title="", figsize=(1.5, 1), nProd=None):
     return plot
 
 
-def spectrum(ydata, title="", figsize=(1.6, .7), semilogy=False, **kwargs):
+def spectrum(ydata, title="", figsize=(6, 3), semilogy=False, **kwargs):
     """Plotter specialized for spectra."""
     title = dash_join("Spectrum", title)
-    fig, ax = freshfig(title, figsize=figsize, rel=True)
+    fig, ax = freshfig(title, figsize=figsize)
     if semilogy:
         h = ax.semilogy(ydata)
     else:

@@ -70,11 +70,12 @@ print("100 + a =", 100+a)
 print("Id @ a  =", Id@a)
 print("Id * a  =", Id*a, sep="\n")
 
-plt.title("Plotting example")
-plt.ylabel("$i \\, x^2$")
+fig, ax = plotting.freshfig("Plotting example", figsize=(6, 3))
+ax.set_ylabel("$i \\, x^2$")
 for i in range(4):
-    plt.plot(i * a**2, label="i = %d" % i)
-plt.legend();
+    ax.plot(i * a**2, label="i = %d" % i)
+ax.legend()
+plt.show()
 
 # Run the following cells to import yet more tools.
 
@@ -206,10 +207,9 @@ model.prod_rates = np.ones((nProd, 1)) / nProd
 # Let's take a moment to visualize the (true) model permeability field,
 # and the well locations. Note that they have all been collocated to cell centres.
 
-fig, ax = plotting.freshfig("True perm. field", figsize=(1.5, 1), rel=1)
+fig, ax = plotting.freshfig("True field")
 # model.plt_field(ax, perm.Truth, "pperm")
-model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True)
-fig.tight_layout()
+model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);
 
 # #### Observation operator
 # The data will consist in the water saturation of at the production well locations.
@@ -238,7 +238,7 @@ prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = model.anim(None, wsat.past.Truth, prod.past.Truth);
+animation = model.anim(wsat.past.Truth, prod.past.Truth);
 
 # Note: can take up to a minute to appear
 animation
@@ -255,7 +255,7 @@ for iT in range(nTime):
 
 # Plot of observations (and their noise):
 
-fig, ax = plotting.freshfig("Observations", figsize=(2, .7), rel=True)
+fig, ax = plotting.freshfig("Observations")
 model.plt_production(ax, prod.past.Truth, prod.past.Noisy);
 
 # Note that several observations are above 1,
@@ -285,7 +285,7 @@ print("Prior var.:", np.var(perm.Prior))
 # Note that the histogram of the truth is simply counting the values of a single field,
 # whereas the histogram of the ensemble counts the values of `N` fields.
 
-fig, ax = plotting.freshfig("Perm.", figsize=(1.5, .7), rel=1)
+fig, ax = plotting.freshfig("Perm. distribution", figsize=(7, 3))
 bins = np.linspace(*plotting.styles["pperm"]["levels"][[0, -1]], 32)
 for label, perm_field in perm.items():
     x = perm_field.ravel()
@@ -297,6 +297,7 @@ for label, perm_field in perm.items():
 ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
 ax.legend()
 fig.tight_layout()
+plt.show()
 
 # Since the x-scale is logarithmic, the prior's histogram should look Gaussian if
 # `perm_transf` is purely exponential. By contrast, the historgram of the truth is from
@@ -469,7 +470,7 @@ corr_comp.controls = dict(
 )
 # -
 
-plotting.field_console(model, corr_comp, "corr", argmax=True, wells=True)
+plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
@@ -544,15 +545,12 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # Here is a plot of the paths.
 
-fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields", figsize=(1.5, 1), rel=1)
-model.plt_field(ax, np.zeros(model.shape), "corr", colorbar=False)
+fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields")
 for i, xy_path in enumerate(xy_max_corr):
-    color = dict(color=f"C{i}")
-    ax.plot(*xy_path.T, **color)
-    # Also mark start and end points
-    ax.plot(*xy_path[+0], "x", **color)
-    ax.plot(*xy_path[-1], "o", **color)
-fig.tight_layout()
+    color = dict(color=f"C{1+i}")
+    ax.plot(*xy_path.T, '-o', **color)
+    ax.plot(*xy_path[-1], "s", ms=8, **color) # start
+model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);
 
 # ## Localization tuning
 
@@ -578,7 +576,7 @@ fig.tight_layout()
 # conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
 # function.  It is illustrated here.
 
-fig, ax = plotting.freshfig("Tapering ('bump') functions", figsize=(1.5, .8), rel=1)
+fig, ax = plotting.freshfig("Tapering ('bump') functions")
 dists = np.linspace(-1, 1, 1001)
 for sharpness in [.01, .1, 1, 10, 100, 1000]:
     coeffs = loc.bump_function(dists, sharpness)
@@ -586,6 +584,7 @@ for sharpness in [.01, .1, 1, 10, 100, 1000]:
 ax.legend(title="sharpness")
 ax.set_xlabel("Distance")
 fig.tight_layout()
+plt.show()
 
 # We will also need the distances, which we can pre-compute.
 # As seen from `distances_to_obs` below, we will need the
@@ -660,7 +659,7 @@ corr_wells.controls = dict(
 )
 
 
-plotting.field_console(model, corr_wells, "corr", "Pre-perm vs well observation", wells=True)
+plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observation", wells=True)
 
 
 # - Note that the `N` slider is only active when `localize` is *enabled*.
@@ -867,12 +866,19 @@ domains = loc.rectangular_partitioning(model.shape, (2, 3))
 # We can illustrate the partitioning by filling each domain by a random color.
 # This should produce a patchwork of rectangles.
 
+# +
 colors = rnd.choice(len(domains), len(domains), False)
 Z = np.zeros(model.shape)
 for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
-fig, ax = plotting.freshfig("Computing domains", figsize=(1, .5), rel=1)
-ax.imshow(Z, cmap="tab20", aspect=.5);
+
+fig, ax = plotting.freshfig("Computing domains", figsize=(6, 3))
+ax.imshow(Z, cmap="tab20", aspect=.5)
+fig.tight_layout()
+plt.show()
+
+
+# -
 
 # The tapering will be a function of the batch's mean distance to the observations.
 # The default `radius` and `sharpness` are the ones we found to be the most
@@ -1034,6 +1040,8 @@ ax2 = ax.twinx()  # axis for rmse
 ax2.set_ylabel('RMS error', color="r")
 ax2.plot(diagnostics.rmse, color="r")
 ax2.tick_params(axis='y', labelcolor="r")
+fig.tight_layout()
+plt.show()
 
 # ## Diagnostics
 

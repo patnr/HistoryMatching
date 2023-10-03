@@ -1,4 +1,4 @@
-git+https://github.com/patnr/TPFA-ResSim.git@6ca6a4c1
+git+https://github.com/patnr/TPFA-ResSim.git@57c028b6
 # "Editable" mode:
 # -e ${HOME}/path/TPFA-ResSim
 
@@ -6,4 +6,4 @@ jupyter
 pathos
 threadpoolctl
 adjustText==0.8
-mpl-tools==0.3.2
+mpl-tools==0.4.0

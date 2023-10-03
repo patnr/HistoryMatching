@@ -70,9 +70,8 @@ model.prod_rates = rate0 * np.ones((4, 1)) / 4
 
 # #### Plot
 
-fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
+fig, ax = plotting.freshfig(model.name)
 model.plt_field(ax, model.K[0], "perm", grid=True);
-fig.tight_layout()
 
 # #### Simulations
 
@@ -86,10 +85,8 @@ nTime = round(T/dt)
 def plot_final_sweep(model):
     """Simulate reservoir, plot final oil saturation."""
     wsats = model.sim(dt, nTime, wsat0, pbar=False)
-    title = "Final sweep" + (" -- " + model.name) if model.name else ""
-    fig, ax = plotting.freshfig(title, figsize=(1, .6), rel=True)
+    _, ax = plotting.freshfig("Final sweep -- " + model.name)
     model.plt_field(ax, wsats[-1], "oil")
-    fig.tight_layout()
 
 plot_final_sweep(model)
 
@@ -325,7 +322,7 @@ def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, n
     # Compute & plot objective on mesh
     qsurf = quadratic(mesh2list(*model.mesh))
     lvls = np.linspace(qsurf.min(), qsurf.max(), 11)
-    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
+    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls, finalize=False)
 
     # Run EnOpt
     for i in range(nTrial):
@@ -375,18 +372,13 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
 # and plot the optimisation paths along with the contours of the objective
 # *PS: code for both tasks must be in same cell in order to plot on same figure*.
 
-# +
-# Plot objective
-fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);
-
 # Optimize, plot paths
+fig, axs = plotting.figure12(obj.__name__)
 for color in ['C0', 'C2', 'C7', 'C9']:
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = GD(obj, u0, nabla_ens(.1))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
-fig.tight_layout()
-# -
+model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);
 
 # Note that
 #
@@ -575,7 +567,7 @@ npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
 
 # +
 # Optimize
-fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .4), rel=True)
+fig, ax = plotting.freshfig(obj.__name__)
 ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(rate_grid, npvs, "slategrey")
@@ -585,6 +577,7 @@ for i, u0 in enumerate(np.array([[.1, 5]]).T):
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
 fig.tight_layout()
+plotting.show()
 # -
 
 # ## Case: multiple rates (with interactive/manual optimisation)
@@ -608,9 +601,8 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # Show well layout
 
-fig, ax = plotting.freshfig(model.name, figsize=(1, .6), rel=True)
+fig, ax = plotting.freshfig(model.name)
 model.plt_field(ax, model.K[0], "perm");
-fig.tight_layout()
 
 
 # Define function that takes injection rates and computes final sweep, i.e. saturation field.
@@ -627,10 +619,8 @@ def interactive_rate_optim(**kwargs):
     rates = np.array([list(kwargs.values())]).T
     value, info = npv(model, inj_rates=rates, prod_rates=equalize(rates, model.nProd))
     print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
-    fig, ax = plotting.freshfig(obj.__name__ + " - Interactive",
-                                wells=True, figsize=(1, .6), rel=True)
+    _, ax = plotting.freshfig(obj.__name__ + " -- Interactive", wells=True)
     model.plt_field(ax, info['wsats'][-1], "oil")
-    plotting.plt.show()
 
 
 # #### Automatic (EnOpt) optimisation
@@ -749,7 +739,7 @@ if my_computer_is_fast:
 # +
 fig, axs = plotting.figure12(obj1.__name__)
 if my_computer_is_fast:
-    model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False);
+    model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False, finalize=False)
 
     # Use "naive" ensemble gradient
     for color in ['C0', 'C2']:
@@ -763,7 +753,7 @@ for color in ['C7', 'C9']:
     path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens, robustly="StoSAG"))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
-fig.tight_layout()
+fig.tight_layout();
 # -
 
 # Clearly, optimising the full objective with "naive" EnOpt is very costly,
@@ -797,9 +787,7 @@ if my_computer_is_fast:
 # for the injector well. The scatter locations are labelled with the corresponding uncertainty realisation.
 
 cmap = plotting.plt.get_cmap('tab20')
-fig, ax = plotting.freshfig("Optima", figsize=(7, 4))
-model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
-                wells=False, colorbar=False, grid=True);
+fig, ax = plotting.freshfig("Optima")
 lbl_props = dict(fontsize="large", fontweight="bold")
 lbls = []
 for n, (x, y) in enumerate(ctrl_ens_nominal):
@@ -811,7 +799,8 @@ for n, (x, y) in enumerate(ctrl_ens_nominal):
         ax.plot([x, x2], [y, y2], '-', color=color, lw=1)
 ax.scatter(*ctrl_robust, s=8**2, color="w")
 utils.adjust_text(lbls, precision=.1);
-fig.tight_layout()
+model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
+                wells=False, colorbar=False, grid=True)
 
 # Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
@@ -877,6 +866,7 @@ ax.tick_params(axis="y", left=False, labelleft=False)
 ax.set(facecolor="k", ylim=0, xlim=(a, b))
 utils.adjust_text(lbls)
 fig.tight_layout()
+plotting.show()
 # -
 
 # # Multi-objective optimisation
@@ -912,7 +902,7 @@ print(f"Case: '{obj.__name__}' for '{model.name}'")
 
 # #### Optimize
 
-fig, ax = plotting.freshfig(obj.__name__, figsize=(1, .8), rel=True)
+fig, ax = plotting.freshfig(obj.__name__)
 rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
@@ -928,8 +918,9 @@ price_of_inj = __default__  # restore
 ax.set_ylim(1e-2)
 ax.legend(title="×price_of_inj")
 ax.set(xlabel="rate", ylabel="NPV")
-fig.tight_layout()
 ax.grid()
+fig.tight_layout()
+plotting.show()
 
 # #### Pareto front
 # Breakdown npv (into emissions and sales) for optima
@@ -943,10 +934,10 @@ for i, prod_rates in enumerate(optimal_rates):
     emissions.append(other['inj_total'])
 
 
-fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)", figsize=(1, .8), rel=True)
-ax.grid()
+fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)")
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
+ax.grid()
 fig.tight_layout()
 
 # ## References

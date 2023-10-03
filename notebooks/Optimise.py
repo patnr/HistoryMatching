@@ -628,6 +628,7 @@ def interactive_rate_optim(**kwargs):
 
 u0 = .7*np.ones(model.nInj)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
+print("Controls suggested by EnOpt:", path[-1])
 
 
 # Now try setting

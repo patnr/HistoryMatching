@@ -296,7 +296,7 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 # Let's try a quadratic form, upended, centered on the model domain.
 
 def quadratic(u):
-    e = getattr(quadratic, 'ellipticity')
+    e = getattr(quadratic, 'aspect', 1)
     u = u - [model.Lx/2, model.Ly/2]
     u = u * [1, e]
     return - np.mean(u*u, axis=-1)
@@ -317,7 +317,7 @@ utils.nCPU = False
                    sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20))
 def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True):
     fig, axs = plotting.figure12(quadratic.__name__)
-    quadratic.ellipticity = 10**ellip
+    quadratic.aspect = 10**ellip
 
     # Compute & plot objective on mesh
     qsurf = quadratic(mesh2list(*model.mesh))

@@ -613,9 +613,8 @@ model.plt_field(ax, model.K[0], "perm");
 def interactive_rate_optim(**kwargs):
     rates = np.array([list(kwargs.values())]).T
     value, info = npv(model, inj_rates=rates, prod_rates=equalize(rates, model.nProd))
-    print("NPV for these injection_rates:", f"\x1b[30;47;1m{value:.4g}\x1b[0m")
-    _, ax = plotting.freshfig(obj.__name__ + " -- Interactive", wells=True)
-    model.plt_field(ax, info['wsats'][-1], "oil")
+    _, ax = plotting.freshfig(f"Interactive controls as for '{obj.__name__}'")
+    model.plt_field(ax, info['wsats'][-1], "oil", title=f"Final sweep. Resulting NPV: {value:.2f}")
 
 
 # #### Automatic (EnOpt) optimisation

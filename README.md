@@ -34,7 +34,7 @@ Ensure the printed version is 3.10 or higher.
 #### Install
 
 - `git clone` this repository (see the green button up top).  
-  *PS: You could also download & unzip, but then you will
+  *You could instead download & unzip, but then you will
   have to manually download any later updates.*
 - Move the resulting folder wherever you like
 - `cd` into the folder

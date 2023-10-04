@@ -171,7 +171,7 @@ def partial_volumes(model, wsats, inj_or_prod):
     if inj_or_prod == "inj":
         rates = model.inj_rates
         saturations = 1  # 100% water
-        
+
     elif inj_or_prod == "prod":
         rates = model.prod_rates
         well_inds = model.xy2ind(*model.prod_xy.T)
@@ -183,7 +183,7 @@ def partial_volumes(model, wsats, inj_or_prod):
     # Rates constant in time ⇒ replicate for all time steps
     if rates.shape[1] == 1:
         rates = np.tile(rates, (1, nTime))
-    
+
     # PS: Do not scale with model hx*hy
     return dt * rates * saturations
 

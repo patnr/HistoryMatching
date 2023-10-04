@@ -185,16 +185,24 @@ def init():
 
         except ImportError:
             # Local Jupyter
-            try:
-                # Similar to `%matplotlib widget/ipympl`
-                # or `mpl.use('module://ipympl.backend_nbagg')`
-                import ipympl  # type: ignore
 
-            except ImportError:
-                pass  # use "inline"
+            # ipympl is nice but when embedded in ipywidget controls
+            # - it is a bit slower than inline
+            # - it flickers (in classic notebook, not jupyter-lab)
+            # Also it's nice to only have to test for one backend,
+            # i.e. the one that works on Colab
+            pass  # use "inline"
 
-                # Similar to `%matplotlib notebook`:
-                # mpl.use("nbAgg")  # NB: must be installed!
+            # try:
+            #     # Similar to `%matplotlib widget/ipympl`
+            #     # or `mpl.use('module://ipympl.backend_nbagg')`
+            #     # import ipympl  # type: ignore
+
+            # except ImportError:
+            #     pass  # use "inline"
+
+            #     # Similar to `%matplotlib notebook`:
+            #     # mpl.use("nbAgg")  # NB: must be installed!
 
     else:
         # Script run

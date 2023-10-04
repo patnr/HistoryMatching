@@ -1,60 +1,28 @@
 exclude: '^$|settings|scripts|docs'
-
+# Use `pre-commit autoupdate --bleeding-edge` to set to most recent version
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.4.0
     hooks:
-    -   id: trailing-whitespace
-        exclude: |
-            (?x)^(
-                .*README.md|
-                .*\.f90
-            )$
-        # let flake8 deal with py => dont treat docstrings.
-        exclude_types: ['html','python']
-    -   id: check-added-large-files
-    -   id: check-ast
-    -   id: check-json
-    -   id: check-merge-conflict
-    -   id: check-xml
     -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: detect-private-key
+    -   id: check-merge-conflict
     -   id: debug-statements
-    -   id: detect-aws-credentials  # Notifies if you DONT have credentials
-        args:
-        - --allow-missing-credentials
-    -   id: detect-private-key  # Notifies if you have private
-    -   id: end-of-file-fixer
     # -   id: requirements-txt-fixer
-    #     exclude: |
-    #         (?x)^(
-    #             requirements-.*\.txt
-    #         )$
+    -   id: end-of-file-fixer
     -   id: mixed-line-ending
         args: ['--fix=no']
-
--   repo: https://github.com/flakeheaven/flakeheaven
-    rev: 3.0.0
-    hooks:
-    -   id: flakeheaven
+    -   id: trailing-whitespace
         exclude: |
-            (?x)^(
-                .*\.ipynb
-            )$
-        additional_dependencies: [
-          flake8-docstrings,
-          flake8-bugbear,
-          flake8-comprehensions,
-          flake8-commas,
-          flake8-isort,
-          flake8-builtins,
-          pep8-naming,
-        ]
+            (?x)( # make whitespace in this regex insignificant and allow comments
+                ^README.md| # I use double-space line-endings a lot in my MD.
+                ^.*.md| # MD also used in answers.
+            )
 
--   repo: https://github.com/timothycrosley/isort
-    rev: 5.12.0
-    hooks:
-    -   id: isort
-        exclude: |
-            (?x)^(
-                HistoryMatch\.py
-            )$
+- repo: https://github.com/patnr/nbhooks.git
+  rev: v1.4.1
+  hooks:
+  - id: nb-ensure-clean
+    # Optional WHITELIST of metadata keys (you can use regex)
+    args: [--meta, pin_output, --meta, lines_to_next_cell, --meta, lines_to_end_of_cell_marker]

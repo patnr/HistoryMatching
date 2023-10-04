@@ -33,8 +33,9 @@ Ensure the printed version is 3.10 or higher.
 
 #### Install
 
-- Download and unzip (or `git clone`)
-  this repository (see the green button up top)
+- `git clone` this repository (see the green button up top).  
+  *PS: You could also download & unzip, but then you will
+  have to manually download any later updates.*
 - Move the resulting folder wherever you like
 - `cd` into the folder
 - Install requirements:  
@@ -43,7 +44,7 @@ Ensure the printed version is 3.10 or higher.
 #### Launch
 
 - Launch the "notebook server" by executing:  
-  `jupyter-notebook`  
+  `jupyter notebook`  
   This will open up a page in your web browser that is a file navigator.  
 - Click on `HistoryMatch.ipynb`.
 
@@ -51,11 +52,8 @@ Ensure the printed version is 3.10 or higher.
 
 For development, you probably want to install `requirements-dev.txt`.
 
-Personally I prefer to develop mostly in the format of standard python script.
-Then, thanks to the *jupytext* extension, I can convert this (`.py`) to a
-notebook (`.ipynb`) simply by opening the file in Jupyter,
-and ensuring that the `file > Jupytext` menu has check marks on both
-"Pair with ipynb" and "Pair with light script".
+Personally I prefer to develop mostly in the format of standard python script,
+which is why each notebook corresponds to a `.py` file synced via [jupytext](https://jupytext.readthedocs.io/en/latest/).
 
 If you use vim I suggest folding (rather than wrapping) the comment blocks
 (corresponding to markdown cells) using

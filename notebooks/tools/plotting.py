@@ -180,21 +180,21 @@ def init():
 
         try:
             # Colab
-            import google.colab  # type: ignore # noqa
-
+            import google.colab  # type: ignore
             # [colab-specific adjustments]
 
         except ImportError:
             # Local Jupyter
             try:
                 # Similar to `%matplotlib widget/ipympl`
-                # Equivalently: mpl.use('module://ipympl.backend_nbagg')
-                import ipympl  # noqa
-                # pass  # revert to inline
+                # or `mpl.use('module://ipympl.backend_nbagg')`
+                import ipympl  # type: ignore
 
             except ImportError:
-                # Similar to `%matplotlib notebook`.
-                mpl.use("nbAgg")
+                pass  # use "inline"
+
+                # Similar to `%matplotlib notebook`:
+                # mpl.use("nbAgg")  # NB: must be installed!
 
     else:
         # Script run

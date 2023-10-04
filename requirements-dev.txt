@@ -8,9 +8,6 @@ ipympl~=0.9.3
 
 ipython
 pre-commit
-
 ipdb
 pdbpp
 pytest
-
-# vim: ft=requirements

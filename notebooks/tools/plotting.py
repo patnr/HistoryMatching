@@ -176,7 +176,7 @@ def init():
         # zoom functionality, which also zooms in figure and font sizes,
         # reducing the need to change defaults.
         mpl.rcParams.update({"legend.fontsize": "large"})
-        mpl.rcParams["font.size"] = 12
+        mpl.rcParams["font.size"] = 11
 
         try:
             # Colab

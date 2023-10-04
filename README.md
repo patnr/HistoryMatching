@@ -66,7 +66,7 @@ a project sponsored by industry partners
 and the *PETROMAKS2* programme of the *Research Council of Norway*.
 
 <a href="http://norceresearch.no">
-<img height="100" src="https://norceresearch.s3.amazonaws.com/_1200x630_crop_center-center_none/norcelogo-metatag.jpg">
+<img height="100" src="https://github.com/nansencenter/DAPPER/blob/master/docs/imgs/norce-logo.png">
 </a>
 
 <a href="http://digires.no">

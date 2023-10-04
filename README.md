@@ -39,7 +39,7 @@ Ensure the printed version is 3.10 or higher.
 - Move the resulting folder wherever you like
 - `cd` into the folder
 - Install requirements:  
-  `pip install -r path/to/requirements.txt`
+  `pip install -r [path/to/]requirements-dev.txt`
 
 #### Launch
 
@@ -50,13 +50,9 @@ Ensure the printed version is 3.10 or higher.
 
 ## Developer guide
 
-For development, you probably want to install `requirements-dev.txt`.
-
 Personally I prefer to develop mostly in the format of standard python script,
 which is why each notebook corresponds to a `.py` file synced via [jupytext](https://jupytext.readthedocs.io/en/latest/).
-
-If you use vim I suggest folding (rather than wrapping) the comment blocks
-(corresponding to markdown cells) using
+If you use vim I suggest folding the comment blocks (which become markdown cells) using
 
 ```vim
 :setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\#\ ' fdl=0

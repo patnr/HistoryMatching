@@ -63,7 +63,7 @@ def freshfig(*args, **kwargs):
     return mpl_tools.place.freshfig(*args, **kwargs)
 
 
-def fields(model, Zs, style, title="", figsize=(10, 4.5), cticks=None,
+def fields(model, Zs, style, title="", figsize=(9, 4.05), cticks=None,
            label_color="k", wells=False, colorbar=True, **kwargs):
     """Do `model.plt_field(Z) for Z in Zs`."""
 
@@ -530,7 +530,7 @@ def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
                    ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
 
 
-def figure12(title="", *args, figsize=(10, 3.5), **kwargs):
+def figure12(title="", *args, figsize=(9, 3.15), **kwargs):
     """Call `freshfig`. Add axes laid out with 1 panel on right, two on left."""
     title = dash_join("Optim. trajectories", title)
     fig, _ax = freshfig(title, *args, figsize=figsize, **kwargs)

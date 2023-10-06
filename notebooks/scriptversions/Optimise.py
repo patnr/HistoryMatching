@@ -5,7 +5,7 @@
 #
 # This is a tutorial on production optimisation using ensemble methods.
 # Please also have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
-# for an introduction to Python, Jupyter notebooks, and this reservoir simulator.
+# for an introduction to Python, Jupyter notebooks, and the reservoir simulator.
 
 # #### Install
 # If you're on **Google Colab**, run the cell below to install the requirements.
@@ -293,7 +293,7 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
 # ## Sanity check
 # It is always wise to do some dead simple testing.
-# Let's try a quadratic form, upended, centered on the model domain.
+# Let's test `GD` on a quadratic form, upended, centered on the model domain.
 
 def quadratic(u):
     e = getattr(quadratic, 'aspect', 1)
@@ -307,37 +307,33 @@ def quadratic(u):
 # Generally speaking, it may *sometimes* be better to leave parallelisation to the
 # model/simulator/objective function, since it is "closer to the metal"
 # and can therefore do more speed optimisations.
-# In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case.
-
-utils.nCPU = False
-
-# Anyway, let's try out `GD` on the quadratic.
+# In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case,
+# which is done by setting `nCPU = False`.
 
 @plotting.interact(seed=(1, 10), nTrial=(1, 20), ellip=(-1, 1, .1),
                    sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20))
 def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True):
-    fig, axs = plotting.figure12(quadratic.__name__)
-    quadratic.aspect = 10**ellip
+    utils.nCPU = False
 
-    # Compute & plot objective on mesh
+    # Compute objective surface on mesh
+    quadratic.aspect = 10**ellip
     qsurf = quadratic(mesh2list(*model.mesh))
     lvls = np.linspace(qsurf.min(), qsurf.max(), 11)
-    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls, finalize=False)
 
     # Run EnOpt
+    fig, axs = plotting.figure12(quadratic.__name__)
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]
         path, objs, info = GD(quadratic, u0, nabla_ens(sdev, nEns, precond),
                               nrmlz=nrmlz, nIter=nIter, quiet=True)
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
-    fig.tight_layout()
-    plotting.plt.show()
+    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
+
+    utils.nCPU = True  # set/restore for subsequent cases
 
 # Providing you have multiple CPU's available (i.e. not on Colab),
 # the following will all go faster by turning on multiprocessing.
-
-utils.nCPU = True
 
 # ## Case: Optimize injector location
 # Let's try optimising the location (x, y) of the injector well.

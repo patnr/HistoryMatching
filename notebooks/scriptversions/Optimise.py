@@ -513,13 +513,11 @@ u0 = np.ravel(inj_xys0)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 path = coordinate_transform(path)
 
-fig, axs = plotting.figure12(obj.__name__)
-model.plt_field(axs[0], model.K[0], "perm")
-
 # Plot optimisation trajectory
+fig, axs = plotting.figure12(obj.__name__)
 plotting.add_path12(*axs, path[:, :2], objs, color='C1')
 plotting.add_path12(*axs, path[:, 2:], color='C3')
-fig.tight_layout()
+model.plt_field(axs[0], model.K[0], "perm");
 # -
 
 # Seems reasonable.

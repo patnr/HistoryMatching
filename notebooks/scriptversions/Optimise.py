@@ -748,7 +748,7 @@ fig.tight_layout();
 # -
 
 # Clearly, optimising the full objective with "naive" EnOpt is very costly,
-# but is significantly faster using robust EnOpt (StoSAG), in particular if $n_{\text{Ens}} > 30$.
+# but gets significantly faster using robust EnOpt (StoSAG), in particular if $n_{\text{Ens}} > 30$.
 #
 # You may also want to experiment with the other alternatives for `robustly`, i.e. "Mean-model" and "Paired".
 #
@@ -769,33 +769,39 @@ for x in progbar(uq_ens, desc="Nominal optim."):
     ctrl_ens_nominal.append(path[-1])
 
 # Alternatively, since we have already computed the npv for each pixel/cell
-# for each uncertain ensemble member, we can get the globally nominally optima.
+# for each uncertain ensemble member, we can get the global nominal optima.
 
 if my_computer_is_fast:
     ctrl_ens_nominal2 = model.ind2xy(np.asarray(npv_mesh).argmax(axis=1)).T
 
-# The following matplotlib code produces a scatter plot of the nominal optima (`ctrl_ens_nominal`)
+# The following scatter-plots the nominal optima (`ctrl_ens_nominal`)
 # for the injector well. The scatter locations are labelled with the corresponding uncertainty realisation.
 
-cmap = plotting.plt.get_cmap('tab20')
 fig, ax = plotting.freshfig("Optima")
-lbl_props = dict(fontsize="large", fontweight="bold")
+cmap = plotting.plt.get_cmap('tab20')
+lbl_props = dict(fontsize="small", fontweight="bold")
+sct_props = dict(s=6**2, edgecolor="w", zorder=3)
 lbls = []
 for n, (x, y) in enumerate(ctrl_ens_nominal):
     color = cmap(n % 20)
-    ax.scatter(x, y, s=6**2, color=color, lw=.5, edgecolor="w")
+    ax.scatter(x, y, color=color, **sct_props)
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
     if my_computer_is_fast:
         x2, y2 = ctrl_ens_nominal2[n]
-        ax.plot([x, x2], [y, y2], '-', color=color, lw=1)
+        ax.plot([x, x2], [y, y2], '-', color=color, lw=2)
 ax.scatter(*ctrl_robust, s=8**2, color="w")
 utils.adjust_text(lbls, precision=.1);
 model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
-                wells=False, colorbar=False, grid=True)
+                wells=False, colorbar=False, grid=True);
 
 # Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.
+
+err = (ctrl_ens_nominal2 - ctrl_ens_nominal)
+err /= model.domain[1] # scale to [0, 1]
+RMS = np.sqrt(np.mean(err**2, -1))
+print(f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}")
 
 # ### Histogram (KDE) for each control strategy
 

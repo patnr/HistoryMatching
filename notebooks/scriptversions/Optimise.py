@@ -649,9 +649,9 @@ def dJ_robust(self, obj, u, U, pbar):
         dJ = apply(self.obj_ux, U, x=self.X, pbar=pbar)
 
     elif self.robustly == "StoSAG":
-        u1 = np.tile(u, (self.nEns, 1))  # replicate u
+        uu = np.tile(u, (self.nEns, 1))  # replicate u
         JU = apply(self.obj_ux, U, x=self.X, pbar=pbar)
-        Ju = apply(self.obj_ux, u1, x=self.X, pbar=pbar)
+        Ju = apply(self.obj_ux, uu, x=self.X, pbar=pbar)
         dJ = np.asarray(JU) - Ju
 
     elif self.robustly in ["Mean-model", "Fragile"]:

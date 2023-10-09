@@ -73,6 +73,10 @@ and the *PETROMAKS2* programme of the *Research Council of Norway*.
 <img src="http://digires.no/DIGIRES/digilogo%20(002).png" height="100">
 </a>
 
+<a href="https://www.data-assimilation.no/projects/remedy">
+<img src="./remedy.png?raw=true" height="60">
+</a>
+
 
 
 

@@ -294,13 +294,13 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
 # ## Sanity check
 # It is always wise to do some dead simple testing.
-# Let's test `GD` on a quadratic form, upended, centered on the model domain.
+# Let's test `GD` on a quadratic form centered on the model domain.
 
 def quadratic(u):
     e = getattr(quadratic, 'aspect', 1)
     u = u - [model.Lx/2, model.Ly/2]
     u = u * [1, e]
-    return - np.mean(u*u, axis=-1)
+    return np.mean(u*u, axis=-1)
 
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
 # Thus -- for this case -- it would have been better had we not used `apply` in `nabla_ens`,
@@ -312,8 +312,8 @@ def quadratic(u):
 # which is done by setting `nCPU = False`.
 
 @plotting.interact(seed=(1, 10), nTrial=(1, 20), ellip=(-1, 1, .1),
-                   sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20))
-def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True):
+                   sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20), xStep=(0, 30, .1))
+def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True, xStep=0):
     utils.nCPU = False
 
     # Compute objective surface on mesh
@@ -326,7 +326,10 @@ def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, n
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]
-        path, objs, info = GD(quadratic, u0, nabla_ens(sdev, nEns, precond),
+        xSteps = [xStep] if xStep else backtracker.xSteps
+        path, objs, info = GD(quadratic, u0,
+                              nabla_ens(sdev, nEns, precond),
+                              backtracker(-1, xSteps),
                               nrmlz=nrmlz, nIter=nIter, quiet=True)
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
     model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)

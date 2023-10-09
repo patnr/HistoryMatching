@@ -229,7 +229,7 @@ class nabla_ens:
 # *PS: The `rtol>0` parameter specifies the minimal improvement required
 # to accept the updated iterate.
 # Larger values ⇒ more reluctance to accept update ⇒ *faster* declaration of convergence.
-# Setting to 0 is not recommended because then it will not converge in flat neighborhoods.
+# Setting to 0 is not recommended because then it will not converge in flat neighborhoods.*
 # TODO: implement Armijo-Goldstein.
 
 @dataclass

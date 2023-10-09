@@ -228,12 +228,12 @@ class nabla_ens:
 # *PS: The `rtol>0` parameter specifies the minimal improvement required
 # to accept the updated iterate.
 # Larger values ⇒ more reluctance to accept update ⇒ *faster* declaration of convergence.
-# Setting to 0 is not recommended, because if the objective function is flat
-# in the neighborhood, then the path could just go in circles on that flat.*
+# Setting to 0 is not recommended because then it will not converge in flat neighborhoods.
+# TODO: implement Armijo-Goldstein.
 
 @dataclass
 class backtracker:
-    """Bisect until improvement."""
+    """Bisect until sufficient improvement."""
     sign:   int   = +1                                  # Search for max(+1) or min(-1)
     xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
     rtol:   float = 1e-8                                # Convergence criterion

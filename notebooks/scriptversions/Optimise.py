@@ -218,9 +218,10 @@ class nabla_ens:
     def obj_increments(self, obj, u, U, pbar):
         return apply(obj, U, pbar=pbar)  # don't need to `center`
 
-# Note the use of `apply` (which, similar to `map`, can replace a for loop)
+# Note the use of `apply` (which is a thin wrapper on top of `map` or a for loop)
 # to compute `obj(u)` for each `u` in the ensemble `U`,
-# which is done using multiprocessing (parallelisation).
+# which is done using parallelisation by multiprocessing.
+# *PS: Colab only gives you 1 CPU, so this has no impact.*
 
 # #### Backtracking
 # Another ingredient to successful gradient descent is line search.
@@ -331,9 +332,6 @@ def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, n
     model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
 
     utils.nCPU = True  # set/restore for subsequent cases
-
-# Providing you have multiple CPU's available (i.e. not on Colab),
-# the following will all go faster by turning on multiprocessing.
 
 # ## Case: Optimize injector location
 # Let's try optimising the location (x, y) of the injector well.

@@ -223,6 +223,9 @@ class nabla_ens:
 # which is done using parallelisation by multiprocessing.
 # *PS: Colab only gives you 1 CPU, so this has no impact.*
 
+utils.nCPU = "auto"
+
+
 # #### Backtracking
 # Another ingredient to successful gradient descent is line search.
 #
@@ -314,7 +317,6 @@ def quadratic(u):
 @plotting.interact(seed=(1, 10), nTrial=(1, 20), ellip=(-1, 1, .1),
                    sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20), xStep=(0, 30, .1))
 def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True, xStep=0):
-    utils.nCPU = False
 
     # Compute objective surface on mesh
     quadratic.aspect = 10**ellip
@@ -328,13 +330,14 @@ def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, n
         u0 = rnd.rand(2) * model.domain[1]
         xSteps = [xStep] if xStep else backtracker.xSteps
         path, objs, info = GD(quadratic, u0,
+        utils.nCPU = False  # no multiprocessing
                               nabla_ens(sdev, nEns, precond),
                               backtracker(-1, xSteps),
                               nrmlz=nrmlz, nIter=nIter, quiet=True)
+        utils.nCPU = True  # restore
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
     model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
 
-    utils.nCPU = True  # set/restore for subsequent cases
 
 # ## Case: Optimize injector location
 # Let's try optimising the location (x, y) of the injector well.

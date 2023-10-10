@@ -55,6 +55,7 @@ styles["domain"] = dict(
 
 
 show = plt.show  # noqa  # type: ignore
+from matplotlib.colors import LogNorm  # noqa  # type: ignore
 
 
 def freshfig(*args, **kwargs):
@@ -547,9 +548,19 @@ def figure12(title="", *args, figsize=(9, 3.15), **kwargs):
     ax0 = fig.add_subplot(gs[:, :7])
     ax1 = fig.add_subplot(gs[0, 7:])
     ax2 = fig.add_subplot(gs[1, 7:])
+
+    ax2.sharex(ax1)
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax1.set_ylabel('Obj')
+    ax2.set_ylabel('|Step|')
+    ax1.tick_params(labelbottom=False)
+    ax2.set(xlabel="itr")
+
     for ax in (ax1, ax2):
+        ax.grid(True, "both", axis="both")
         ax.yaxis.set_label_position("right")
         ax.yaxis.tick_right()
+        ax.yaxis.set_tick_params(labelsize='small')
     return fig, (ax0, ax1, ax2)
 
 
@@ -573,19 +584,10 @@ def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
 
     if objs is not None:
         # Objective values
-        ax2.xaxis.set_major_locator(MaxNLocator(integer=True))
-        ax2.set_ylabel('Obj')
         ax2.plot(objs, color=color or 'C0', marker='.', ms=3**2)
-        # ax2.set_ylim(-objs.max(), -objs.min())
-        ax2.grid()
 
         # Step magnitudes
-        ax3.sharex(ax2)
-        ax2.tick_params(labelbottom=False)
         xx = np.arange(len(path)-1) + .5
         dd = np.diff(path, axis=0)
         yy = np.sqrt(np.mean(dd*dd, -1))  # == norm / sqrt(len)
         ax3.plot(xx, yy, color=color or "C1", marker='.', ms=3**2)
-        ax3.set_ylabel('|Step|')
-        ax3.grid()
-        ax3.set(xlabel="itr")

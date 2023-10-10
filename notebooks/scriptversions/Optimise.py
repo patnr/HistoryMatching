@@ -297,13 +297,27 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
 # ## Sanity check
 # It is always wise to do some dead simple testing.
-# Let's test `GD` on a quadratic form centered on the model domain.
+# Let's test `GD` on some [well known](https://en.wikipedia.org/wiki/Test_functions_for_optimization) toy problems.
 
-def quadratic(u):
-    e = getattr(quadratic, 'aspect', 1)
+def obj(u):
+    # Center model domain, apply aspect ratio
     u = u - [model.Lx/2, model.Ly/2]
-    u = u * [1, e]
-    return np.mean(u*u, axis=-1)
+    u = u * [1, getattr(obj, 'aspect', 1)]
+
+    if obj.case == "Quadratic":
+        return np.mean(u*u, axis=-1)
+
+    elif obj.case == "Rosenbrock":
+        u = u * [4, 4]
+        u = u.T
+        t1 = u[1:] - u[:-1] * u[:-1]
+        t2 = u[:-1] - 1
+        return np.sum(100*(t1*t1) + t2*t2, 0)
+
+    elif obj.case == "Rastrigin":
+        u = u * [5.12, 5.12]
+        return 20 + (u*u - 5*np.cos(2*np.pi*u)).sum(-1)
+
 
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
 # Thus -- for this case -- it would have been better had we not used `apply` in `nabla_ens`,
@@ -314,29 +328,35 @@ def quadratic(u):
 # In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case,
 # which is done by setting `nCPU = False`.
 
-@plotting.interact(seed=(1, 10), nTrial=(1, 20), ellip=(-1, 1, .1),
-                   sdev=(0.01, 2), nEns=(2, 100), nIter=(0, 20), xStep=(0, 30, .1))
-def plot(seed=5, nTrial=2, ellip=0, sdev=.1, nEns=10, nIter=10, precond=False, nrmlz=True, xStep=0):
+@plotting.interact(case=['Quadratic', 'Rosenbrock', 'Rastrigin'],
+                   seed=(1, 10), nTrial=(1, 20), aspect=(-1, 1, .1),
+                   nIter=(0, 20), xStep=(0, 30, .1),
+                   sdev=(0.01, 5), nEns=(2, 100))
+def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
+         sdev=.1, precond=False, nrmlz=True, nEns=10):
 
-    # Compute objective surface on mesh
-    quadratic.aspect = 10**ellip
-    qsurf = quadratic(mesh2list(*model.mesh))
-    lvls = np.linspace(qsurf.min(), qsurf.max(), 11)
+    obj.aspect = 10**aspect
+    obj.case = case
+    fig, axs = plotting.figure12("Toy problems")
 
-    # Run EnOpt
-    fig, axs = plotting.figure12(quadratic.__name__)
     for i in range(nTrial):
         rnd.seed(100*seed + i)
         u0 = rnd.rand(2) * model.domain[1]
         xSteps = [xStep] if xStep else backtracker.xSteps
-        path, objs, info = GD(quadratic, u0,
+
         utils.nCPU = False  # no multiprocessing
+        path, objs, info = GD(obj, u0,
                               nabla_ens(sdev, nEns, precond),
                               backtracker(-1, xSteps),
-                              nrmlz=nrmlz, nIter=nIter, quiet=True)
+                              nrmlz=nrmlz, nIter=nIter,
+                              quiet=True)
         utils.nCPU = True  # restore
+
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
-    model.plt_field(axs[0], qsurf, cmap="cividis", wells=False, levels=lvls)
+        axs[1].set_yscale("log")
+
+    model.plt_field(axs[0], obj(mesh2list(*model.mesh)), wells=False, cmap="cividis",
+                    norm=plotting.LogNorm() if case in ["Rosenbrock"] else None)
 
 
 # ## Case: Optimize injector location

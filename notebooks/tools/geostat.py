@@ -55,6 +55,7 @@ def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
     Note: small `rk` and `driver="evx"` should be faster,
     but in my (simple but hopefully relevant) trials
     sticking with the default "evr" and `rk=None` is usually faster.
+    Alternatively, could try iterative algorithms from `sparse.linalg`.
 
     Example
     -------
@@ -81,7 +82,6 @@ def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
         funC = funC @ V.T
     return funC
 
-
 def gaussian_fields(pts, N=1, r=0.2):
     """Random field generation.
 
@@ -91,10 +91,10 @@ def gaussian_fields(pts, N=1, r=0.2):
     """
     dists  = dist_euclid(vectorize(*pts))
     Cov    = 1 - variogram_gauss(dists, r)
-    # C12    = sla.sqrtm(Cov).real  # unstable for len(Cov) >≈ 20
-    C12    = funm_psd(Cov, np.sqrt, sym_square=True)
-    # C12  = sla.cholesky(C)  # TODO: use this instead?
-    fields = randn(N, len(C12.T)) @ C12.T
+    # C12    = sla.sqrtm(Cov).real.T                      # unstable for n >≈ 20
+    # C12    = funm_psd(Cov, np.sqrt, sym_square=True).T  # too slow for n >= 50^2
+    C12    = sla.cholesky(Cov + 1e-10*np.eye(len(Cov)))
+    fields = randn(N, len(C12)) @ C12
     return fields
 
 

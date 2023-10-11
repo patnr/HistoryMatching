@@ -135,19 +135,11 @@ price_of_oil = 100
 discounts = .99 ** np.arange(nTime)
 
 # Note that, being defined in the global namespace,
+# and not having implemented any "setter" for them,
 # these values cannot be manipulated by our ensemble methods.
-# *I.e. we cannot atm. optimise "robustly" with respect to price fluctuations.*
+# *Therefore, for example, we cannot account for uncertainty/fluctuations in prices.*
 
 # #### Parameter setter
-# Unlike the history matching tutorial, we define a parameter setter also
-# outside of the forward model. This will be convenient since we will do
-# several distinct "cases", i.e. model configurations with differences not
-# generated via our methods.  On the other hand, we do not bother to
-# implement/support permability parameterisation, as in the previous tutorial.
-# Note that setting parameters is not generally as trivial a task as it is here.
-# It might involve reshaping arrays, translating units, read/write to file, etc.
-# Indeed, from a "task runner" perspective, there is no hard distinction between
-# writing parameters and running simulations.
 
 def remake(model, **params):
     """Instantiate new model config."""
@@ -156,7 +148,10 @@ def remake(model, **params):
         setattr(model, k, v)
     return model
 
-# Let's store the base model.
+# Note that, unlike the history matching tutorial,
+# we do not bother to implement/support permability setter, which would contain a few extra steps.
+# Also, the parameter setter is factored out of the forward model, which will be convenient
+# since we will do several distinct "cases" of model configurations. Let's store the base one.
 
 original_model = remake(model)
 

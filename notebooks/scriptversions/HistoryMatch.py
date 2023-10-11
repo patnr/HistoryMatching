@@ -329,6 +329,10 @@ plotting.spectrum(svals, "Prior cov.");
 # In our simple case, it only consists of two steps:
 #
 # - Setting the permeability *parameter* field.
+#   Note that setting parameters is not generally as trivial a task as it is here.
+#   It might involve reshaping arrays, translating units, read/write to file, etc.
+#   Indeed, from a "task runner" perspective, there is no hard distinction between
+#   writing parameters and running simulations.
 # - Running the reservoir simulator.
 #
 # Stitching together a composite model is not usually a pleasant task.

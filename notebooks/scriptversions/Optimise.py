@@ -103,16 +103,16 @@ def npv(model, **params):
     try:
         model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
-        # Sum over wells
-        prod_total = partial_volumes(model, wsats, "prod").sum(0)
-        inj_total  = partial_volumes(model, wsats, "inj").sum(0)
-        # Sum in time
-        prod_total = prod_total @ discounts
-        inj_total = inj_total @ discounts
+        # Volumes (should NOT scale with model hx*hy)
+        inj_volumes = model.inj_rates * dt * 1
+        oil_volumes = model.prod_rates * dt * (1 - prod_sats(model, wsats).T)
+        # Sum over wells (axis 0) and time (axis 1, possibly w/ broadcasting)
+        oil_total = (oil_volumes.sum(0) * discounts).sum()
+        inj_total = (inj_volumes.sum(0) * discounts).sum()
         # Add up
-        value = (price_of_oil * prod_total -
+        value = (price_of_oil * oil_total -
                  price_of_inj * inj_total)
-        other = dict(wsats=wsats, prod_total=prod_total, inj_total=inj_total)
+        other = dict(wsats=wsats, oil_total=oil_total, inj_total=inj_total)
     except Exception:
         # Invalid model params ⇒ penalize.
         # Use `raise` for debugging.
@@ -156,31 +156,11 @@ def remake(model, **params):
 original_model = remake(model)
 
 # #### Extracting well flux from saturation fields
-# Also contains some minor bookkeeping
-# (for example, unify treatment of constant/variable rates).
 
-def partial_volumes(model, wsats, inj_or_prod):
-    """Essentially `saturation * rate` for `inj_or_prod` wells."""
-    assert inj_or_prod in ['inj', 'prod']
-
-    if inj_or_prod == "inj":
-        rates = model.inj_rates
-        saturations = 1  # 100% water
-
-    elif inj_or_prod == "prod":
-        rates = model.prod_rates
-        well_inds = model.xy2ind(*model.prod_xy.T)
-        # Use trapezoidal rule to compute saturations on *intervals*
-        saturations = 0.5 * (wsats[:-1, well_inds] +
-                             wsats[+1:, well_inds])
-        saturations = (1 - saturations).T  # water --> oil
-
-    # Rates constant in time ⇒ replicate for all time steps
-    if rates.shape[1] == 1:
-        rates = np.tile(rates, (1, nTime))
-
-    # PS: Do not scale with model hx*hy
-    return dt * rates * saturations
+def prod_sats(model, wsats):
+    """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
+    s = wsats[:, model.xy2ind(*model.prod_xy.T)]
+    return (s[:-1] + s[+1:]) / 2
 
 
 # ## EnOpt
@@ -228,6 +208,7 @@ utils.nCPU = "auto"
 # to accept the updated iterate.
 # Larger values ⇒ more reluctance to accept update ⇒ *faster* declaration of convergence.
 # Setting to 0 is not recommended because then it will not converge in flat neighborhoods.*
+#
 # TODO: implement Armijo-Goldstein.
 
 @dataclass
@@ -944,7 +925,7 @@ emissions = []
 for i, prod_rates in enumerate(optimal_rates):
     inj_rates = equalize(prod_rates, model.nInj)
     value, other = npv(model, prod_rates=prod_rates, inj_rates=inj_rates)
-    sales.append(other['prod_total'])
+    sales.append(other['oil_total'])
     emissions.append(other['inj_total'])
 
 

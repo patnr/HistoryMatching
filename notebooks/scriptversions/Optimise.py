@@ -104,11 +104,11 @@ def npv(model, **params):
         model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
         # Volumes (should NOT scale with model hx*hy)
-        inj_volumes = model.inj_rates * dt * 1
-        oil_volumes = model.prod_rates * dt * (1 - prod_sats(model, wsats).T)
-        # Sum over wells (axis 0) and time (axis 1, possibly w/ broadcasting)
-        oil_total = (oil_volumes.sum(0) * discounts).sum()
-        inj_total = (inj_volumes.sum(0) * discounts).sum()
+        inj_volumes = model.actual_rates['inj']  * dt * 1
+        oil_volumes = model.actual_rates['prod'] * dt * (1 - prod_sats(model, wsats))
+        # Sum over wells (axis 1) and time (axis 0)
+        oil_total = oil_volumes.sum(1) @ discounts
+        inj_total = inj_volumes.sum(1) @ discounts
         # Add up
         value = (price_of_oil * oil_total -
                  price_of_inj * inj_total)
@@ -880,7 +880,7 @@ model = remake(original_model,
     name = "Angga2022-5spot",
     prod_xy = [[model.Lx/2, model.Ly/2]],
     inj_xy = xy_4corners,
-    prod_rates  = rate0 * np.ones((1, 1)) / 1,
+    prod_rates = rate0 * np.ones((1, 1)) / 1,
     inj_rates = rate0 * np.ones((4, 1)) / 4,
 )
 

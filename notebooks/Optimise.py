@@ -4,8 +4,12 @@
 # Copyright Patrick N. Raanes, NORCE, 2023.
 #
 # This is a tutorial on production optimisation using ensemble methods.
-# Please also have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
-# for an introduction to Python, Jupyter notebooks, and the reservoir simulator.
+# - Please also have a look at the [history matching (HM) tutorial](HistoryMatch.ipynb)
+#   for an introduction to Python, Jupyter notebooks, and the reservoir simulator.
+# - You don't need to run all cases (i.e. you can skip to what you like)
+#   but this will of course affect the random number generation (rng).
+#   Also, it is generally not safe to go back to an earlier section (different rng,
+#   different simulator setup, etc) without restarting the kernel/interpreter.
 
 # #### Install
 # If you're on **Google Colab**, run the cell below to install the requirements.
@@ -114,9 +118,9 @@ def npv(model, **params):
                  price['inj'] * inj_total)
         other = dict(wsats=wsats, oil_total=oil_total, inj_total=inj_total)
     except Exception:
-        # Invalid model params ⇒ penalize.
-        # Use `raise` for debugging.
-        value, other = 0, None
+        # Invalid model params
+        value, other = 0, None  # ⇒ penalize
+        # `raise`  # enable post-mort. debug
     return value, other
 
 # Note that water injection has a cost.
@@ -125,7 +129,7 @@ def npv(model, **params):
 # We don't bother with cost of water *production*,
 # since it is implicitly approximated by reduction in oil production.
 #
-# The following values are not motivated by any realism.
+# The following values are not grounded in reality.
 # However, the 1-to-1 relationship implied by mass balance of the simulator
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
@@ -337,10 +341,10 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
                     norm=plotting.LogNorm() if case in ["Rosenbrock"] else None)
 
 
-# ## Case: Optimize injector location
+# ## Case: Optimize injector location (x, y)
 # Let's try optimising the location (x, y) of the injector well.
 # The objective function is simply a thin wrapper around `npv`
-# which translates its single (vector) input argument into `kwargs`,
+# which translates its single (vector) input argument into the appropriate keyword argument,
 # and discards all output except the scalar NPV.
 
 def npv_inj_xy(xys):
@@ -548,7 +552,7 @@ obj = npv_in_inj_rates
 model = original_model
 # -
 
-# Again, we are able and can afford to compute and plot the entire objective.
+# Again we are able and can afford to compute and plot the entire objective.
 
 rate_grid = np.linspace(0.1, 5, 21)
 npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
@@ -595,9 +599,8 @@ model = remake(model, **wells, name="Triangle case")
 fig, ax = plotting.freshfig(model.name)
 model.plt_field(ax, model.K[0], "perm");
 
-
 # Define function that takes injection rates and computes final sweep, i.e. saturation field.
-# Also print (with terminal color codes) the resulting NPV.
+# The plot also displays the resulting NPV.
 
 @plotting.interact(
     inj0_rate = (0, 1.4),
@@ -620,10 +623,8 @@ u0 = .7*np.ones(model.nInj)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 print("Controls suggested by EnOpt:", path[-1])
 
-
-# Now try setting
-# the resulting suggested values in the interactive widget above.
-# Were you able to find equally good settings?
+# Now try setting the resulting suggested values in the interactive widget above.
+# Were you able to find better settings?
 
 # # Robust optimisation
 # Robust optimisation problems have a particular structure,
@@ -897,7 +898,7 @@ def npv_in_prod_rates(prod_rates):
 obj = npv_in_prod_rates
 # -
 
-# #### Optimize
+# ### Optimize
 
 fig, ax = plotting.freshfig(obj.__name__)
 rate_grid = np.logspace(-2, 1, 31)
@@ -919,7 +920,7 @@ ax.grid()
 fig.tight_layout()
 plotting.show()
 
-# #### Pareto front
+# ### Pareto front
 # Breakdown npv (into emissions and sales) for optima
 
 sales = []
@@ -937,7 +938,7 @@ ax.plot(sales, emissions, "o-")
 ax.grid()
 fig.tight_layout()
 
-# ## References
+# # References
 
 # <a id="Essen2009">[Essen2009]</a>: van Essen, G., M. Zandvliet, P. Van den Hof, O. Bosgra, and J.-D. Jansen. *Robust waterflooding optimization of multiple geological scenarios.* **SPE Journal**, 14(01):202–210, 2009.
 #

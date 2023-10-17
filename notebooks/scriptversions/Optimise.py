@@ -110,8 +110,8 @@ def npv(model, **params):
         oil_total = oil_volumes.sum(0) @ discounts
         inj_total = inj_volumes.sum(0) @ discounts
         # Add up
-        value = (price_of_oil * oil_total -
-                 price_of_inj * inj_total)
+        value = (price['oil'] * oil_total -
+                 price['inj'] * inj_total)
         other = dict(wsats=wsats, oil_total=oil_total, inj_total=inj_total)
     except Exception:
         # Invalid model params ⇒ penalize.
@@ -130,8 +130,10 @@ def npv(model, **params):
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
 
-price_of_inj = 50
-price_of_oil = 100
+price = dict(
+    inj=50,
+    oil=100,
+)
 discounts = .99 ** np.arange(nTime)
 
 # Note that, being defined in the global namespace,
@@ -901,15 +903,15 @@ fig, ax = plotting.freshfig(obj.__name__)
 rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
-__default__ = price_of_inj
+__default__ = price['inj']
 cost_multiplier = np.arange(0.1, 1, 0.1)
 for i, xCost in enumerate(cost_multiplier):
-    price_of_inj = __default__ * xCost
+    price['inj'] = __default__ * xCost
     npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
     ax.plot(rate_grid, npvs, label=f"{xCost:.1}")
     path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
     optimal_rates.append(path[-1])
-price_of_inj = __default__  # restore
+price['inj'] = __default__  # restore
 ax.set_ylim(1e-2)
 ax.legend(title="×price_of_inj")
 ax.set(xlabel="rate", ylabel="NPV")
@@ -929,7 +931,7 @@ for i, prod_rates in enumerate(optimal_rates):
     emissions.append(other['inj_total'])
 
 
-fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price_of_inj)")
+fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price['inj'])")
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
 ax.grid()

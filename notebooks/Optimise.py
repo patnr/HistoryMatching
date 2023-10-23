@@ -108,15 +108,15 @@ def npv(model, **params):
         model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
         # Volumes (should NOT scale with model hx*hy)
-        inj_volumes = model.actual_rates['inj']  * dt * 1
-        oil_volumes = model.actual_rates['prod'] * dt * (1 - prod_sats(model, wsats).T)
+        inj_volumes = dt * model.actual_rates['inj']  * 1
+        oil_volumes = dt * model.actual_rates['prod'] * (1 - prod_sats(model, wsats).T)
         # Sum over wells (axis 0) and time (axis 1)
         oil_total = oil_volumes.sum(0) @ discounts
         inj_total = inj_volumes.sum(0) @ discounts
         # Add up
-        value = (price['oil'] * oil_total -
-                 price['inj'] * inj_total)
         other = dict(wsats=wsats, oil_total=oil_total, inj_total=inj_total)
+        value = (+price['oil'] * oil_total
+                 -price['inj'] * inj_total)
     except Exception:
         # Invalid model params
         value, other = 0, None  # ⇒ penalize
@@ -134,11 +134,11 @@ def npv(model, **params):
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
 
-price = dict(
-    inj=50,
-    oil=100,
-)
 discounts = .99 ** np.arange(nTime)
+price = {
+    "inj": 50,
+    "oil": 100,
+}
 
 # Note that, being defined in the global namespace,
 # and not having implemented any "setter" for them,
@@ -160,6 +160,13 @@ def remake(model, **params):
 # since we will do several distinct "cases" of model configurations. Let's store the base one.
 
 original_model = remake(model)
+
+# #### Auxiliary function
+
+def sigmoid(x, height, width=1):
+    """Centered sigmoid: `S(0) == height/2`, with `S(width) = 0.73 * height`."""
+    return height/(1 + np.exp(-x/width))
+
 
 # #### Extracting well flux from saturation fields
 
@@ -489,9 +496,6 @@ def coordinate_transform(xys):
     xy2d[:, 0] = sigmoid(xy2d[:, 0], model.Lx)  # transform x
     xy2d[:, 1] = sigmoid(xy2d[:, 1], model.Ly)  # transform y
     return xy2d.reshape(np.shape(xys))
-
-def sigmoid(x, height, width=1):
-    return height/(1 + np.exp(-x/width))
 
 inj_xys0 = [[-1, 0], [+1, 0]]
 model = remake(model,

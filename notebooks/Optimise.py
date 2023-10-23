@@ -114,9 +114,15 @@ def npv(model, **params):
         oil_total = oil_volumes.sum(0) @ discounts
         inj_total = inj_volumes.sum(0) @ discounts
         # Add up
-        other = dict(wsats=wsats, oil_total=oil_total, inj_total=inj_total)
         value = (+price['oil'] * oil_total
                  -price['inj'] * inj_total)
+        # Add other costs
+        value -= price['/well'] * np.sum(model.actual_rates['prod'] != 0)
+        # value -= price['/well'] * np.sum(model.actual_rates['inj'] != 0)
+        value -= price['turbo'] * (model.actual_rates['prod'].sum(0) - 1.7).clip(0).sum() * dt
+        # value -= price['diffs'] * np.abs(np.diff(model.actual_rates['prod'], 1)).clip(max=.2).sum()
+        # value -= price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prod'])))
+        other = dict(model=model, wsats=wsats, oil_total=oil_total, inj_total=inj_total)
     except Exception:
         # Invalid model params
         value, other = 0, None  # ⇒ penalize
@@ -134,11 +140,22 @@ def npv(model, **params):
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
 
-discounts = .99 ** np.arange(nTime)
+OneYear = .1  # ⇒ 10 years to more-or-less drain using rate0
+
 price = {
     "inj": 50,
     "oil": 100,
+    'turbo': 2,
+    'diffs': 1,
+    "fixed": 0.8 * dt/OneYear,
+    '/well': 0.3 * dt/OneYear,
 }
+discounts = .96 ** (dt/OneYear * np.arange(nTime))
+
+def find_shut_ins(rates):
+    """Find (index of) last non-zero element for each row of `rates`."""
+    # https://stackoverflow.com/a/67964286
+    return [r.max() if (r:=row.nonzero()[0]).size else -1 for row in rates]
 
 # Note that, being defined in the global namespace,
 # and not having implemented any "setter" for them,
@@ -629,6 +646,75 @@ print("Controls suggested by EnOpt:", path[-1])
 
 # Now try setting the resulting suggested values in the interactive widget above.
 # Were you able to find better settings?
+
+# ## Case: time-dependent rates
+
+# +
+def npv_in_prod_rates(prod_rates, diagnostics=False):
+    prod_rates = rate_transform(prod_rates)
+    both = npv(model, inj_rates=equalize(prod_rates, model.nInj), prod_rates=prod_rates)
+    return both if diagnostics else both[0]
+
+obj = npv_in_prod_rates
+assert model.name == "Triangle case"
+# -
+
+rate_min = 0.1
+def dynamic_rate(self, S, k):
+    """'Snap' low rates to zero. Balance in/out totals."""
+    inj, prod = self._wanted_rates_at(k)
+    inj[inj < rate_min] = 0
+    prod[prod < rate_min] = 0
+    I, P = inj.sum(), prod.sum()
+    # Use strict comparison to avoid div-by-0 when I=P=0
+    if I > P:
+        inj *= P / I
+    elif P > I:
+        prod *= I / P
+    return dict(inj=inj, prod=prod)
+
+# NB: Also affects earlier instances
+simulator.ResSim.dynamic_rate = dynamic_rate
+
+nInterval = 10
+rate_max = 3
+def rate_transform(rates):
+    duration = int(np.ceil(nTime/nInterval))
+    rates = sigmoid(rates, rate_max)
+    rates = rates.reshape((model.nProd, nInterval))
+    rates = rates.repeat(duration, 1)[:, :nTime]
+    return rates
+
+# Optimize
+
+u0 = -1.4 + 1e-2*rnd.randn(model.nProd, nInterval).ravel()
+path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=100))
+
+# Extract diagnostics
+
+value, other = npv_in_prod_rates(path[-1], diagnostics=True)
+# prod_rates = other['model'].prod_rates
+prod_rates = other['model'].actual_rates['prod']
+oil_sats = 1 - prod_sats(model, other['wsats']).T
+
+# Plot
+
+fig, ax1 = plotting.freshfig("Optimal rates")
+ax2 = ax1.twinx()
+for iWell, (rates, satrs) in enumerate(zip(prod_rates, oil_sats)):
+    ax1.plot(np.arange(nTime), rates, c=f"C{iWell}", lw=3)
+    ax2.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
+ax1.axhline(rate_min, color="k", lw=1, ls="--")
+ax1.legend(range(model.nProd), title="Prod. well")
+ax1.set(ylabel="Rate", xlabel="Time (index)", ylim=(-0.05, None))
+ax1.grid(True)
+ax2.set_ylabel('Saturation')
+
+# Final sweep
+
+_, ax = plotting.freshfig(f"Final sweep -- {obj.__name__}")
+model.plt_field(ax, other['wsats'][-1], "oil")
+
 
 # # Robust optimisation
 # Robust optimisation problems have a particular structure,

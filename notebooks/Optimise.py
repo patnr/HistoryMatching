@@ -118,7 +118,7 @@ def npv(model, **params):
                  -price['inj'] * inj_total)
         # Add other costs
         value -= price['/well'] * np.sum(model.actual_rates['prod'] != 0)
-        # value -= price['/well'] * np.sum(model.actual_rates['inj'] != 0)
+        value -= price['/well'] * np.sum(model.actual_rates['inj'] != 0)
         value -= price['turbo'] * (model.actual_rates['prod'].sum(0) - 1.7).clip(0).sum() * dt
         # value -= price['diffs'] * np.abs(np.diff(model.actual_rates['prod'], 1)).clip(max=.2).sum()
         # value -= price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prod'])))
@@ -645,12 +645,22 @@ print("Controls suggested by EnOpt:", path[-1])
 # ## Case: time-dependent rates
 
 # +
-def npv_in_prod_rates(prod_rates, diagnostics=False):
-    prod_rates = rate_transform(prod_rates)
-    both = npv(model, inj_rates=equalize(prod_rates, model.nInj), prod_rates=prod_rates)
-    return both if diagnostics else both[0]
+def npv_in_rates(rates, diagnostics=False):
+    split_at = nInterval * model.nInj
+    inj, prod = rates[:split_at], rates[split_at:]
 
-obj = npv_in_prod_rates
+    inj = rate_transform(inj)
+    prod = rate_transform(prod)
+
+    # Balance (at each time) by reducing to lowest
+    I, P = inj.sum(0), prod.sum(0)
+    inj [:, P<I] *= P[P<I] / I[P<I]
+    prod[:, I<P] *= I[I<P] / P[I<P]
+
+    v, o = npv(model, inj_rates=inj, prod_rates=prod)
+    return (v, o) if diagnostics else v
+
+obj = npv_in_rates
 assert model.name == "Triangle case"
 # -
 
@@ -662,39 +672,50 @@ def rate_transform(rates):
     duration = int(np.ceil(nTime/nInterval))
     rates = sigmoid(rates, rate_max)
     rates[rates < rate_min] = 0
-    rates = rates.reshape((model.nProd, nInterval))
+    rates = rates.reshape((-1, nInterval))
     rates = rates.repeat(duration, 1)[:, :nTime]
     return rates
 
 # Optimize
 
-u0 = -1.4 + 1e-2*rnd.randn(model.nProd, nInterval).ravel()
+u0 = -1.4 + 1e-2*rnd.randn(model.nInj + model.nProd, nInterval).ravel()
 path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=100))
 
 # Extract diagnostics
 
-value, other = npv_in_prod_rates(path[-1], diagnostics=True)
-# prod_rates = other['model'].prod_rates
+value, other = npv_in_rates(path[-1], diagnostics=True)
+inj_rates = other['model'].actual_rates['inj']
 prod_rates = other['model'].actual_rates['prod']
+# prod_rates = other['model'].prod_rates
 oil_sats = 1 - prod_sats(model, other['wsats']).T
 
-# Plot
+# #### Plot
 
-fig, ax1 = plotting.freshfig("Optimal rates")
-ax2 = ax1.twinx()
+# +
+fig, (ax1, ax2) = plotting.freshfig("Optimal rates", figsize=(7, 6), nrows=2, sharex=True)
+ax_ = ax1.twinx()
 for iWell, (rates, satrs) in enumerate(zip(prod_rates, oil_sats)):
     ax1.plot(np.arange(nTime), rates, c=f"C{iWell}", lw=3)
-    ax2.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
+    ax_.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
 ax1.axhline(rate_min, color="k", lw=1, ls="--")
 ax1.legend(range(model.nProd), title="Prod. well")
-ax1.set(ylabel="Rate", xlabel="Time (index)", ylim=(-0.05, None))
+ax1.set_ylabel("Rate")
 ax1.grid(True)
-ax2.set_ylabel('Saturation')
+ax_.set_ylabel('Saturation')
+
+ax2.invert_yaxis()
+for iWell, rates in enumerate(inj_rates):
+    ax2.plot(np.arange(nTime), rates, c=f"C{model.nProd + iWell}", lw=3)
+ax2.axhline(rate_min, color="k", lw=1, ls="--")
+ax2.legend(range(model.nInj), title="Inj. well")
+ax2.set(ylabel="Rate", xlabel="Time (index)")
+ax2.grid(True)
+# -
 
 # Final sweep
 
 _, ax = plotting.freshfig(f"Final sweep -- {obj.__name__}")
-model.plt_field(ax, other['wsats'][-1], "oil")
+model.plt_field(ax, other['wsats'][-1], "oil");
 
 
 # # Robust optimisation

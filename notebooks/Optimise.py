@@ -152,11 +152,6 @@ price = {
 }
 discounts = .96 ** (dt/OneYear * np.arange(nTime))
 
-def find_shut_ins(rates):
-    """Find (index of) last non-zero element for each row of `rates`."""
-    # https://stackoverflow.com/a/67964286
-    return [r.max() if (r:=row.nonzero()[0]).size else -1 for row in rates]
-
 # Note that, being defined in the global namespace,
 # and not having implemented any "setter" for them,
 # these values cannot be manipulated by our ensemble methods.
@@ -659,28 +654,14 @@ obj = npv_in_prod_rates
 assert model.name == "Triangle case"
 # -
 
-rate_min = 0.1
-def dynamic_rate(self, S, k):
-    """'Snap' low rates to zero. Balance in/out totals."""
-    inj, prod = self._wanted_rates_at(k)
-    inj[inj < rate_min] = 0
-    prod[prod < rate_min] = 0
-    I, P = inj.sum(), prod.sum()
-    # Use strict comparison to avoid div-by-0 when I=P=0
-    if I > P:
-        inj *= P / I
-    elif P > I:
-        prod *= I / P
-    return dict(inj=inj, prod=prod)
-
-# NB: Also affects earlier instances
-simulator.ResSim.dynamic_rate = dynamic_rate
-
 nInterval = 10
+rate_min = 0.1
 rate_max = 3
 def rate_transform(rates):
+    """Map `ℝ --> (0, max_rates)`. 'Snap' low rates to 0. Expand in time."""
     duration = int(np.ceil(nTime/nInterval))
     rates = sigmoid(rates, rate_max)
+    rates[rates < rate_min] = 0
     rates = rates.reshape((model.nProd, nInterval))
     rates = rates.repeat(duration, 1)[:, :nTime]
     return rates

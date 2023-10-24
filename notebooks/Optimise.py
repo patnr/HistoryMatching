@@ -657,8 +657,8 @@ def npv_in_rates(rates, diagnostics=False):
     inj [:, P<I] *= P[P<I] / I[P<I]
     prod[:, I<P] *= I[I<P] / P[I<P]
 
-    v, o = npv(model, inj_rates=inj, prod_rates=prod)
-    return (v, o) if diagnostics else v
+    value, other = npv(model, inj_rates=inj, prod_rates=prod)
+    return (value, other) if diagnostics else value
 
 obj = npv_in_rates
 assert model.name == "Triangle case"

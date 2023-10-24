@@ -49,7 +49,7 @@ model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1, name="Base model")
 
 # #### Permeability
 
-seed = rnd.seed(3)
+seed = rnd.seed(23)
 model.K = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, 1, r=0.8))
 
 # #### Wells

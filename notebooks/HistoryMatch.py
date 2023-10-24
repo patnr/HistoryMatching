@@ -194,11 +194,11 @@ xy_4corners = [[x, y]
 # is incompressible, the total of the source terms must equal that of the sinks.
 # If this is not the case, the model will raise an error when run.
 
-nProd = len(xy_4corners)
+nPrd = len(xy_4corners)
+model.prd_xy = xy_4corners
 model.inj_xy = [[model.Lx/2, model.Ly/2]]
 model.inj_rates = [[1]]
-model.prod_xy = xy_4corners
-model.prod_rates = np.ones((nProd, 1)) / nProd
+model.prd_rates = np.ones((nPrd, 1)) / nPrd
 
 # As detailed in the model docs, when `inj_rates.shape[1] == 1` (as above),
 # the rates do not vary in time.
@@ -217,7 +217,7 @@ model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);
 # methods technically support (though your accuracy mileage may vary, again, depending
 # on the incurred nonlinearity and non-Gaussianity) observation models of any complexity.
 
-prod_inds = model.xy2ind(*model.prod_xy.T)
+prod_inds = model.xy2ind(*model.prd_xy.T)
 def obs_model(water_sat):
     return water_sat[prod_inds]
 
@@ -248,9 +248,9 @@ animation
 # observations by adding a bit of noise.
 
 prod.past.Noisy = prod.past.Truth.copy()
-R = 1e-3 * np.eye(nProd)
+R = 1e-3 * np.eye(nPrd)
 for iT in range(nTime):
-    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nProd)
+    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nPrd)
 
 
 # Plot of observations (and their noise):
@@ -532,7 +532,7 @@ plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=Tru
 # and the permeability field) moved in time. Let us trace these paths computationally.
 # They will be useful later.
 
-xy_max_corr = np.zeros((nProd, nTime, 2))
+xy_max_corr = np.zeros((nPrd, nTime, 2))
 for i, xy_path in enumerate(xy_max_corr):
     for time in range(6, nTime):
         C = utils.corr(perm.Prior, prod.past.Prior[:, time, i])
@@ -646,7 +646,7 @@ def corr_wells(N, t, well, localize, radi, sharp):
         N = -1
     C = utils.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
     if localize:
-        dists = distances_to_obs[:, well + nProd*t]
+        dists = distances_to_obs[:, well + nPrd*t]
         c = loc.bump_function(dists/radi, 10**sharp)
         C *= c
         C[c < 1e-3] = np.nan
@@ -659,7 +659,7 @@ corr_wells.controls = dict(
     sharp=(-1.0, 1),
     N=(2, N),
     t=(1, nTime),
-    well=np.arange(nProd),
+    well=np.arange(nPrd),
 )
 
 
@@ -769,7 +769,7 @@ with np.printoptions(precision=1):
 kwargs0 = dict(
     obs_ens      = vect(prod.past.Prior),
     observations = vect(prod.past.Noisy),
-    perturbs     = rnd.randn(N, nProd*nTime),
+    perturbs     = rnd.randn(N, nPrd*nTime),
     obs_err_cov  = augmented_obs_error_cov,
 )
 

@@ -68,9 +68,9 @@ rate0 = 1.5
 # (at each time step), as they must (or model will raise an error).
 
 model.inj_xy = [[model.Lx/2, model.Ly/2]]
-model.prod_xy = xy_4corners
-model.inj_rates  = rate0 * np.ones((1, 1)) / 1
-model.prod_rates = rate0 * np.ones((4, 1)) / 4
+model.prd_xy = xy_4corners
+model.inj_rates = rate0 * np.ones((1, 1)) / 1
+model.prd_rates = rate0 * np.ones((4, 1)) / 4
 
 # #### Plot
 
@@ -108,8 +108,8 @@ def npv(model, **params):
         model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
         # Volumes (should NOT scale with model hx*hy)
-        inj_volumes = dt * model.actual_rates['inj']  * 1
-        oil_volumes = dt * model.actual_rates['prod'] * (1 - prod_sats(model, wsats).T)
+        inj_volumes = dt * model.actual_rates['inj'] * 1
+        oil_volumes = dt * model.actual_rates['prd'] * (1 - prd_sats(model, wsats).T)
         # Sum over wells (axis 0) and time (axis 1)
         oil_total = oil_volumes.sum(0) @ discounts
         inj_total = inj_volumes.sum(0) @ discounts
@@ -117,11 +117,11 @@ def npv(model, **params):
         value = (+price['oil'] * oil_total
                  -price['inj'] * inj_total)
         # Add other costs
-        value -= price['/well'] * np.sum(model.actual_rates['prod'] != 0)
+        value -= price['/well'] * np.sum(model.actual_rates['prd'] != 0)
         value -= price['/well'] * np.sum(model.actual_rates['inj'] != 0)
-        value -= price['turbo'] * (model.actual_rates['prod'].sum(0) - rate0).clip(0).sum() * dt
-        # value -= price['diffs'] * np.abs(np.diff(model.actual_rates['prod'], 1)).clip(max=.2).sum()
-        # value -= price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prod'])))
+        value -= price['turbo'] * (model.actual_rates['prd'].sum(0) - rate0).clip(0).sum() * dt
+        # value -= price['diffs'] * np.abs(np.diff(model.actual_rates['prd'], 1)).clip(max=.2).sum()
+        # value -= price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prd'])))
         other = dict(model=model, wsats=wsats, oil_total=oil_total, inj_total=inj_total)
     except Exception:
         # Invalid model params
@@ -182,9 +182,9 @@ def sigmoid(x, height, width=1):
 
 # #### Extracting well flux from saturation fields
 
-def prod_sats(model, wsats):
+def prd_sats(model, wsats):
     """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
-    s = wsats[:, model.xy2ind(*model.prod_xy.T)]
+    s = wsats[:, model.xy2ind(*model.prd_xy.T)]
     return (s[:-1] + s[+1:]) / 2
 
 
@@ -473,8 +473,8 @@ fig.tight_layout()
 
 model = remake(original_model,
     name = "Lower 2 corners",
-    prod_xy = xy_4corners[:2],
-    prod_rates = rate0 * np.ones((2, 1)) / 2
+    prd_xy = xy_4corners[:2],
+    prd_rates = rate0 * np.ones((2, 1)) / 2
 )
 
 # Now, as you might imagine, the optimal injector positions will be somewhere near the upper edge.
@@ -561,8 +561,8 @@ def equalize(rates, nWell):
     return np.tile(rates.sum(0) / nWell, (nWell, 1))
 
 def npv_in_inj_rates(inj_rates):
-    prod_rates = equalize(inj_rates, model.nProd)
-    return npv(model, inj_rates=inj_rates, prod_rates=prod_rates)[0]
+    prd_rates = equalize(inj_rates, model.nPrd)
+    return npv(model, inj_rates=inj_rates, prd_rates=prd_rates)[0]
 
 obj = npv_in_inj_rates
 model = original_model
@@ -604,9 +604,9 @@ triangle = [0, 135, -135]
 wells = dict(
     inj_xy = ([[model.Lx/2, model.Ly/2]] +
               [utils.pCircle(th + 90, *model.domain[1]) for th in triangle]),
-    prod_xy = [utils.pCircle(th - 90, *model.domain[1]) for th in triangle],
-    inj_rates  = rate0 * np.ones((4, 1)) / 4,
-    prod_rates = rate0 * np.ones((3, 1)) / 3,
+    prd_xy = [utils.pCircle(th - 90, *model.domain[1]) for th in triangle],
+    inj_rates = rate0 * np.ones((4, 1)) / 4,
+    prd_rates = rate0 * np.ones((3, 1)) / 3,
 )
 model = remake(model, **wells, name="Triangle case")
 
@@ -627,7 +627,7 @@ model.plt_field(ax, model.K[0], "perm");
 )
 def interactive_rate_optim(**kwargs):
     rates = np.array([list(kwargs.values())]).T
-    value, info = npv(model, inj_rates=rates, prod_rates=equalize(rates, model.nProd))
+    value, info = npv(model, inj_rates=rates, prd_rates=equalize(rates, model.nPrd))
     _, ax = plotting.freshfig(f"Interactive controls as for '{obj.__name__}'")
     model.plt_field(ax, info['wsats'][-1], "oil", title=f"Final sweep. Resulting NPV: {value:.2f}")
 
@@ -647,17 +647,17 @@ print("Controls suggested by EnOpt:", path[-1])
 # +
 def npv_in_rates(rates, diagnostics=False):
     split_at = nInterval * model.nInj
-    inj, prod = rates[:split_at], rates[split_at:]
+    inj, prd = rates[:split_at], rates[split_at:]
 
     inj = rate_transform(inj)
-    prod = rate_transform(prod)
+    prd = rate_transform(prd)
 
     # Balance (at each time) by reducing to lowest
-    I, P = inj.sum(0), prod.sum(0)
-    inj [:, P<I] *= P[P<I] / I[P<I]
-    prod[:, I<P] *= I[I<P] / P[I<P]
+    I, P = inj.sum(0), prd.sum(0)
+    inj[:, P<I] *= P[P<I] / I[P<I]
+    prd[:, I<P] *= I[I<P] / P[I<P]
 
-    value, other = npv(model, inj_rates=inj, prod_rates=prod)
+    value, other = npv(model, inj_rates=inj, prd_rates=prd)
     return (value, other) if diagnostics else value
 
 obj = npv_in_rates
@@ -678,34 +678,34 @@ def rate_transform(rates):
 
 # Optimize
 
-u0 = -1.4 + 1e-2*rnd.randn(model.nInj + model.nProd, nInterval).ravel()
+u0 = -1.4 + 1e-2*rnd.randn(model.nInj + model.nPrd, nInterval).ravel()
 path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=100))
 
 # Extract diagnostics
 
 value, other = npv_in_rates(path[-1], diagnostics=True)
 inj_rates = other['model'].actual_rates['inj']
-prod_rates = other['model'].actual_rates['prod']
-# prod_rates = other['model'].prod_rates
-oil_sats = 1 - prod_sats(model, other['wsats']).T
+prd_rates = other['model'].actual_rates['prd']
+# prd_rates = other['model'].prd_rates
+oil_sats = 1 - prd_sats(model, other['wsats']).T
 
 # #### Plot
 
 # +
 fig, (ax1, ax2) = plotting.freshfig("Optimal rates", figsize=(7, 6), nrows=2, sharex=True)
 ax_ = ax1.twinx()
-for iWell, (rates, satrs) in enumerate(zip(prod_rates, oil_sats)):
+for iWell, (rates, satrs) in enumerate(zip(prd_rates, oil_sats)):
     ax1.plot(np.arange(nTime), rates, c=f"C{iWell}", lw=3)
     ax_.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
 ax1.axhline(rate_min, color="k", lw=1, ls="--")
-ax1.legend(range(model.nProd), title="Prod. well")
+ax1.legend(range(model.nPrd), title="Prd. well")
 ax1.set_ylabel("Rate")
 ax1.grid(True)
 ax_.set_ylabel('Saturation')
 
 ax2.invert_yaxis()
 for iWell, rates in enumerate(inj_rates):
-    ax2.plot(np.arange(nTime), rates, c=f"C{model.nProd + iWell}", lw=3)
+    ax2.plot(np.arange(nTime), rates, c=f"C{model.nPrd + iWell}", lw=3)
 ax2.axhline(rate_min, color="k", lw=1, ls="--")
 ax2.legend(range(model.nInj), title="Inj. well")
 ax2.set(ylabel="Rate", xlabel="Time (index)")
@@ -788,7 +788,7 @@ plotting.fields(model, uq_ens, "perm");
 
 # ### Conditional objective
 # The *conditional* objective consists of the `npv`
-# at some `inj_xy=u` for a  given permability `K=x`.
+# at some `inj_xy=u` for a given permability `K=x`.
 
 # +
 def obj1(u, x):
@@ -973,9 +973,9 @@ plotting.show()
 # +
 model = remake(original_model,
     name = "Angga2022-5spot",
-    prod_xy = [[model.Lx/2, model.Ly/2]],
+    prd_xy = [[model.Lx/2, model.Ly/2]],
     inj_xy = xy_4corners,
-    prod_rates = rate0 * np.ones((1, 1)) / 1,
+    prd_rates = rate0 * np.ones((1, 1)) / 1,
     inj_rates = rate0 * np.ones((4, 1)) / 4,
 )
 
@@ -983,11 +983,11 @@ plot_final_sweep(model)
 
 
 # +
-def npv_in_prod_rates(prod_rates):
-    inj_rates = equalize(prod_rates, model.nInj)
-    return npv(model, prod_rates=prod_rates, inj_rates=inj_rates)[0]
+def npv_in_prd_rates(prd_rates):
+    inj_rates = equalize(prd_rates, model.nInj)
+    return npv(model, prd_rates=prd_rates, inj_rates=inj_rates)[0]
 
-obj = npv_in_prod_rates
+obj = npv_in_prd_rates
 # -
 
 # ### Optimize
@@ -1017,9 +1017,9 @@ plotting.show()
 
 sales = []
 emissions = []
-for i, prod_rates in enumerate(optimal_rates):
-    inj_rates = equalize(prod_rates, model.nInj)
-    value, other = npv(model, prod_rates=prod_rates, inj_rates=inj_rates)
+for i, prd_rates in enumerate(optimal_rates):
+    inj_rates = equalize(prd_rates, model.nInj)
+    value, other = npv(model, prd_rates=prd_rates, inj_rates=inj_rates)
     sales.append(other['oil_total'])
     emissions.append(other['inj_total'])
 

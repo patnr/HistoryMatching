@@ -119,7 +119,7 @@ def npv(model, **params):
         # Add other costs
         value -= price['/well'] * np.sum(model.actual_rates['prod'] != 0)
         value -= price['/well'] * np.sum(model.actual_rates['inj'] != 0)
-        value -= price['turbo'] * (model.actual_rates['prod'].sum(0) - 1.7).clip(0).sum() * dt
+        value -= price['turbo'] * (model.actual_rates['prod'].sum(0) - rate0).clip(0).sum() * dt
         # value -= price['diffs'] * np.abs(np.diff(model.actual_rates['prod'], 1)).clip(max=.2).sum()
         # value -= price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prod'])))
         other = dict(model=model, wsats=wsats, oil_total=oil_total, inj_total=inj_total)

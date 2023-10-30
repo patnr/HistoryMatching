@@ -676,11 +676,10 @@ assert model.name == "Triangle case"
 
 nInterval = 10
 rate_min = 0.1
-rate_max = 3
-def rate_transform(rates):
-    """Map `ℝ --> (0, rate_max)`. 'Snap' low rates to 0. Expand in time."""
+def rate_transform(pre_rates):
+    """Map `ℝ --> (0, +∞)`. 'Snap' low rates to 0. Expand in time."""
     duration = int(np.ceil(nTime/nInterval))
-    rates = sigmoid(rates, rate_max)
+    rates = np.exp(pre_rates)
     rates[rates < rate_min] = 0
     rates = rates.reshape((-1, nInterval))
     rates = rates.repeat(duration, 1)[:, :nTime]

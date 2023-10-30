@@ -639,13 +639,12 @@ u0 = .7*np.ones(model.nInj)
 path, objs, info = GD(obj, u0, nabla_ens(.1))
 print("Controls suggested by EnOpt:", path[-1])
 
-# Now try setting the resulting suggested values in the interactive widget above.
-# Were you able to find better settings?
+# Were you able to beat EnOpt?
 
 # ## Case: time-dependent rates
 
 # +
-def npv_in_rates(rates, diagnostics=False):
+def npv_in_rates(rates, value_only=True):
     split_at = nInterval * model.nInj
     inj, prd = rates[:split_at], rates[split_at:]
 
@@ -658,7 +657,7 @@ def npv_in_rates(rates, diagnostics=False):
     prd[:, I<P] *= I[I<P] / P[I<P]
 
     value, other = npv(model, inj_rates=inj, prd_rates=prd)
-    return (value, other) if diagnostics else value
+    return value if value_only else (value, other)
 
 obj = npv_in_rates
 assert model.name == "Triangle case"
@@ -668,7 +667,7 @@ nInterval = 10
 rate_min = 0.1
 rate_max = 3
 def rate_transform(rates):
-    """Map `ℝ --> (0, max_rates)`. 'Snap' low rates to 0. Expand in time."""
+    """Map `ℝ --> (0, rate_max)`. 'Snap' low rates to 0. Expand in time."""
     duration = int(np.ceil(nTime/nInterval))
     rates = sigmoid(rates, rate_max)
     rates[rates < rate_min] = 0
@@ -683,7 +682,8 @@ path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=100))
 
 # Extract diagnostics
 
-value, other = npv_in_rates(path[-1], diagnostics=True)
+value, other = npv_in_rates(path[-1], value_only=False)
+
 inj_rates = other['model'].actual_rates['inj']
 prd_rates = other['model'].actual_rates['prd']
 # prd_rates = other['model'].prd_rates
@@ -699,16 +699,16 @@ for iWell, (rates, satrs) in enumerate(zip(prd_rates, oil_sats)):
     ax_.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
 ax1.axhline(rate_min, color="k", lw=1, ls="--")
 ax1.legend(range(model.nPrd), title="Prd. well")
-ax1.set_ylabel("Rate")
+ax1.set(ylabel="Rate", ylim=(-.05, None))
 ax1.grid(True)
-ax_.set_ylabel('Saturation')
+ax_.set(ylabel='Saturation', ylim=(-0.05, 1.05))
 
-ax2.invert_yaxis()
 for iWell, rates in enumerate(inj_rates):
     ax2.plot(np.arange(nTime), rates, c=f"C{model.nPrd + iWell}", lw=3)
 ax2.axhline(rate_min, color="k", lw=1, ls="--")
 ax2.legend(range(model.nInj), title="Inj. well")
-ax2.set(ylabel="Rate", xlabel="Time (index)")
+ax2.set(ylabel="Rate", xlabel="Time (index)", ylim=(-.05, None))
+ax2.invert_yaxis()
 ax2.grid(True)
 # -
 

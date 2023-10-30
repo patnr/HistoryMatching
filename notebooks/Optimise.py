@@ -696,15 +696,15 @@ path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=100))
 # Show final sweep
 
 value, other = npv_in_rates(path[-1], value_only=False)
-plot_final_sweep(other['model'], name=f"Optimal for {obj.__name__}")
+model, wsats = other['model'], other['wsats']
+plot_final_sweep(model, name=f"Optimal for {obj.__name__}")
 
 
 # #### Plot rates
 
-inj_rates = other['model'].actual_rates['inj']
-prd_rates = other['model'].actual_rates['prd']
-# prd_rates = other['model'].prd_rates
-oil_sats = 1 - prd_sats(model, other['wsats']).T
+inj_rates = model.actual_rates['inj']
+prd_rates = model.actual_rates['prd']
+oil_sats = 1 - prd_sats(model, wsats).T
 
 # +
 fig, (ax1, ax2) = plotting.freshfig("Optimal rates", figsize=(7, 6), nrows=2, sharex=True)

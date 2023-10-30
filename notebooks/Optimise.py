@@ -264,7 +264,6 @@ class backtracker:
             dJ = J1 - J0
             pbar.update()
             if self.sign*dJ > atol:
-                pbar.reset(pbar.total)
                 return u1, J1, dict(nDeclined=i)
 
 # Other acceleration techniques (AdaGrad, Nesterov, momentum,

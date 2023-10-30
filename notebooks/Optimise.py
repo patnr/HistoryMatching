@@ -93,38 +93,20 @@ nTime = round(T/dt)
 # Also, importantly, note that it's all wrapped in error penalisation.
 
 def npv(model, **params):
-    """Net present value (NPV) of model config specified by keyword `params`."""
+    """Net present value (NPV) for `model` with (keyword) `params`."""
     try:
         model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
-        # Volumes (should NOT scale with model hx*hy)
-        inj_volumes = dt * model.actual_rates['inj'] * 1
-        oil_volumes = dt * model.actual_rates['prd'] * (1 - prd_sats(model, wsats).T)
-        # Sum over wells (axis 0) and time (axis 1)
-        oil_total = oil_volumes.sum(0) @ discounts
-        inj_total = inj_volumes.sum(0) @ discounts
-        # Add up
-        value = (+price['oil'] * oil_total
-                 -price['inj'] * inj_total)
-        # Add other costs
-        value -= price['/well'] * np.sum(model.actual_rates['prd'] != 0)
-        value -= price['/well'] * np.sum(model.actual_rates['inj'] != 0)
-        value -= price['turbo'] * (model.actual_rates['prd'].sum(0) - rate0).clip(0).sum() * dt
-        # value -= price['diffs'] * np.abs(np.diff(model.actual_rates['prd'], 1)).clip(max=.2).sum()
-        # value -= price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prd'])))
-        other = dict(model=model, wsats=wsats, oil_total=oil_total, inj_total=inj_total)
+        ledgr = accounting(model, wsats)
+        value = sum(ledgr.values())
+        other = dict(model=model, wsats=wsats, ledgr=ledgr)
     except Exception:
-        # Invalid model params
-        value, other = 0, None  # ⇒ penalize
+        # Usually because of invalid model params
+        value = 0  # ⇒ penalize
+        other = None
         # `raise`  # enable post-mort. debug
     return value, other
 
-# Note that water injection has a cost.
-# Is seems a reasonable simplification to let this serve as a stand-in
-# also for the cost of GHG emissions.
-# We don't bother with cost of water *production*,
-# since it is implicitly approximated by reduction in oil production.
-#
 # The following values are not grounded in reality.
 # However, the 1-to-1 relationship implied by mass balance of the simulator
 # means that the (volumetric) price of injection must be cheapter than for oil
@@ -133,9 +115,10 @@ def npv(model, **params):
 OneYear = .1  # ⇒ 10 years to more-or-less drain using rate0
 
 price = {
-    "inj": 50,
+    "inj": 20,
     "oil": 100,
-    'turbo': 2,
+    'turbo': 1,
+    "wat": 6,
     'diffs': 1,
     "fixed": 0.8 * dt/OneYear,
     '/well': 0.3 * dt/OneYear,
@@ -148,6 +131,40 @@ discounts = .96 ** (dt/OneYear * np.arange(nTime))
 # *Therefore, for example, we cannot account for uncertainty/fluctuations in prices.*
 
 # #### Auxiliary functioas
+def accounting(model, wsats):
+    """Monetary value (NPV) from simulation results."""
+    prd_wsats = prd_sats(model, wsats).T
+
+    # Rates (computed by dynamic_rate)
+    inj_rates = model.actual_rates['inj']
+    prd_rates = model.actual_rates['prd']
+    # Volumes (should NOT scale with model hx*hy)
+    inj_volumes = dt * inj_rates * 1
+    oil_volumes = dt * prd_rates * (1 - prd_wsats)
+    wat_volumes = dt * prd_rates * prd_wsats
+    # Sum over wells (axis 0) and time (axis 1)
+    inj_total = inj_volumes.sum(0) @ discounts
+    oil_total = oil_volumes.sum(0) @ discounts
+    wat_total = wat_volumes.sum(0) @ discounts
+
+    values = {}
+    values['oil'] = +price['oil'] * oil_total
+    values['inj'] = -price['inj'] * inj_total
+    values['wat'] = -price['wat'] * wat_total
+
+    # Misc costs
+    excess = (prd_rates.sum(0) - rate0).clip(0)
+    diffs = np.diff(inj_rates, 1)
+    values['pwell'] = -price['/well'] * np.sum(prd_rates != 0)
+    values['iwell'] = -price['/well'] * np.sum(inj_rates != 0)
+    values['turbo'] = -price['turbo'] * excess.sum()**2 * dt
+    values['diffs'] = -price['diffs'] * (np.abs(diffs)**0.1).sum()
+    # values['fixed'] = -price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prd'])))
+
+    return values
+
+# Note that water injection has a cost, as does the treatment of produced water,
+# possibly related to GHG emissions.
 
 def prd_sats(model, wsats):
     """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
@@ -1010,8 +1027,8 @@ emissions = []
 for i, prd_rates in enumerate(optimal_rates):
     inj_rates = equalize(prd_rates, model.nInj)
     value, other = npv(model, prd_rates=prd_rates, inj_rates=inj_rates)
-    sales.append(other['oil_total'])
-    emissions.append(other['inj_total'])
+    sales.append(other['ledgr']['oil'])
+    emissions.append(-(other['ledgr']['inj'] + other['ledgr']['wat']))
 
 
 fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price['inj'])")

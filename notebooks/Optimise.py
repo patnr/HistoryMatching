@@ -84,16 +84,6 @@ T = 1
 dt = 0.025
 nTime = round(T/dt)
 
-# Let us plot the final sweep of the base model configuration.
-
-def plot_final_sweep(model):
-    """Simulate reservoir, plot final oil saturation."""
-    wsats = model.sim(dt, nTime, wsat0, pbar=False)
-    _, ax = plotting.freshfig("Final sweep -- " + model.name)
-    model.plt_field(ax, wsats[-1], "oil")
-
-plot_final_sweep(model)
-
 # ## NPV objective function
 # The NPV (objective) function,
 # similar to the `forward_model` of the history matching tutorial,
@@ -103,7 +93,7 @@ plot_final_sweep(model)
 # Also, importantly, note that it's all wrapped in error penalisation.
 
 def npv(model, **params):
-    """Discounted net present value (NPV) from model config."""
+    """Net present value (NPV) of model config specified by keyword `params`."""
     try:
         model = remake(model, **params)
         wsats = model.sim(dt, nTime, wsat0, pbar=False)
@@ -157,7 +147,12 @@ discounts = .96 ** (dt/OneYear * np.arange(nTime))
 # these values cannot be manipulated by our ensemble methods.
 # *Therefore, for example, we cannot account for uncertainty/fluctuations in prices.*
 
-# #### Parameter setter
+# #### Auxiliary functioas
+
+def prd_sats(model, wsats):
+    """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
+    s = wsats[:, model.xy2ind(*model.prd_xy.T)]
+    return (s[:-1] + s[+1:]) / 2
 
 def remake(model, **params):
     """Instantiate new model config."""
@@ -173,19 +168,16 @@ def remake(model, **params):
 
 original_model = remake(model)
 
-# #### Auxiliary function
+# Let us plot the final sweep of the base model configuration.
 
-def sigmoid(x, height, width=1):
-    """Centered sigmoid: `S(0) == height/2`, with `S(width) = 0.73 * height`."""
-    return height/(1 + np.exp(-x/width))
+def plot_final_sweep(model, **params):
+    """Plot final oil saturation resulting from `npv`."""
+    value, other = npv(model, **params)
+    model, wsats = other['model'], other['wsats']
+    _, ax = plotting.freshfig("Final sweep -- " + model.name)
+    model.plt_field(ax, wsats[-1], "oil", title=f"NPV: {value:.2f}")
 
-
-# #### Extracting well flux from saturation fields
-
-def prd_sats(model, wsats):
-    """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
-    s = wsats[:, model.xy2ind(*model.prd_xy.T)]
-    return (s[:-1] + s[+1:]) / 2
+plot_final_sweep(original_model)
 
 
 # ## EnOpt
@@ -414,7 +406,7 @@ model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);
 
 # Plot of final sweep of the result of the final optimisation trial.
 
-plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}"))
+plot_final_sweep(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}")
 
 # ## Case: Optimize x-coordinate of single injector
 #
@@ -501,6 +493,10 @@ model = remake(original_model,
 #
 # Below, we take the transformation approach.
 
+def sigmoid(x, height, width=1):
+    """Centered sigmoid: `S(0) == height/2`, with `S(width) = 0.73 * height`."""
+    return height/(1 + np.exp(-x/width))
+
 def coordinate_transform(xys):
     """Map `ℝ --> (0, L)` with `origin ↦ domain centre`, in both dims (axis 1)."""
     # An alternative to reshape/undo is slicing with 0::2 and 1::2
@@ -545,7 +541,7 @@ model.plt_field(axs[0], model.K[0], "perm");
 # Seems reasonable.
 # A useful sanity check is provided by inspecting the resulting flow pattern.
 
-plot_final_sweep(remake(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}"))
+plot_final_sweep(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}")
 
 # ## Case: Optimize single rate
 #
@@ -626,11 +622,9 @@ model.plt_field(ax, model.K[0], "perm");
     side="right", wrap=False,
 )
 def interactive_rate_optim(**kwargs):
-    rates = np.array([list(kwargs.values())]).T
-    value, info = npv(model, inj_rates=rates, prd_rates=equalize(rates, model.nPrd))
-    _, ax = plotting.freshfig(f"Interactive controls as for '{obj.__name__}'")
-    model.plt_field(ax, info['wsats'][-1], "oil", title=f"Final sweep. Resulting NPV: {value:.2f}")
-
+    inj_rates = np.array([list(kwargs.values())]).T
+    plot_final_sweep(model, name="Interact. inj_rates", inj_rates=inj_rates,
+                     prd_rates=equalize(inj_rates, model.nPrd))
 
 # #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).
@@ -680,16 +674,18 @@ def rate_transform(rates):
 u0 = -1.4 + 1e-2*rnd.randn(model.nInj + model.nPrd, nInterval).ravel()
 path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=100))
 
-# Extract diagnostics
+# Show final sweep
 
 value, other = npv_in_rates(path[-1], value_only=False)
+plot_final_sweep(other['model'], name=f"Optimal for {obj.__name__}")
+
+
+# #### Plot rates
 
 inj_rates = other['model'].actual_rates['inj']
 prd_rates = other['model'].actual_rates['prd']
 # prd_rates = other['model'].prd_rates
 oil_sats = 1 - prd_sats(model, other['wsats']).T
-
-# #### Plot
 
 # +
 fig, (ax1, ax2) = plotting.freshfig("Optimal rates", figsize=(7, 6), nrows=2, sharex=True)
@@ -711,12 +707,6 @@ ax2.set(ylabel="Rate", xlabel="Time (index)", ylim=(-.05, None))
 ax2.invert_yaxis()
 ax2.grid(True)
 # -
-
-# Final sweep
-
-_, ax = plotting.freshfig(f"Final sweep -- {obj.__name__}")
-model.plt_field(ax, other['wsats'][-1], "oil");
-
 
 # # Robust optimisation
 # Robust optimisation problems have a particular structure,

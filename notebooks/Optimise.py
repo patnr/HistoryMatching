@@ -586,7 +586,7 @@ model = original_model
 
 # Again we are able and can afford to compute and plot the entire objective.
 
-rate_grid = np.linspace(0.1, 5, 21)
+rate_grid = np.linspace(0.1, 3, 21)
 npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
 
 # It makes sense that there is an optimum sweet spot somewhere in the middle.
@@ -600,7 +600,7 @@ ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(rate_grid, npvs, "slategrey")
 
-for i, u0 in enumerate(np.array([[.1, 5]]).T):
+for i, u0 in enumerate(np.array([[.1, 3]]).T):
     path, objs, info = GD(obj, u0, nabla_ens(.1))
     shift = i+1  # for visual distinction
     ax.plot(path, objs - shift, '-o', color=f'C{i+1}')

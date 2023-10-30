@@ -282,29 +282,29 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
           progbar(total=10000, desc="→ line_search", leave=False, disable=quiet) as pbar_ls,
           np.printoptions(precision=2, threshold=2, edgeitems=1)):
 
-        states = [[u, objective(u), "{cause for stopping}"]]
+        states = [[u, objective(u), {}]]
 
         for itr in range(nIter):
             u, J, info = states[-1]
             pbar_gd.set_postfix(u=f"{u}", obj=f"{J:.3g}📈")
 
             grad = nabla.eval(objective, u, pbar_en)
+            info['grad'] = grad
             if nrmlz:
                 grad /= np.sqrt(np.mean(grad**2))
+
             updated = line_search.eval(objective, u, J, grad, pbar_ls)
             pbar_gd.update()
-
             if updated:
                 states.append(updated)
             else:
-                cause = "✅ GD converged"
+                info['cause'] = "✅ GD converged"
                 break
         else:
-            cause = "❌ GD ran out of iters"
-        pbar_gd.set_description(cause)
+            info['cause'] = "❌ GD ran out of iters"
+        pbar_gd.set_description(info['cause'])
 
-    states[0][-1] = cause
-    return [np.asarray(arr) for arr in zip(*states)]  # "transpose"
+    return (np.asarray(arr) for arr in zip(*states))  # "transpose"
 
 
 # ## Sanity check

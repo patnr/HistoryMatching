@@ -107,7 +107,23 @@ def npv(model, **params):
         # `raise`  # enable post-mort. debug
     return value, other
 
-# The following values are not grounded in reality.
+# #### Auxiliary functions
+
+def remake(model, **params):
+    """Instantiate new model config."""
+    model = copy.deepcopy(model)
+    for k, v in params.items():
+        setattr(model, k, v)
+    return model
+
+# Note that, unlike the history matching tutorial,
+# we do not bother to implement/support permability setter, which would contain a few extra steps.
+# Also, the parameter setter is factored out of the forward model, which will be convenient
+# since we will do several distinct "cases" of model configurations. Let's store the base one.
+
+original_model = remake(model)
+
+# The following prices are not grounded in reality.
 # However, the 1-to-1 relationship implied by mass balance of the simulator
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
@@ -130,7 +146,6 @@ discounts = .96 ** (dt/OneYear * np.arange(nTime))
 # these values cannot be manipulated by our ensemble methods.
 # *Therefore, for example, we cannot account for uncertainty/fluctuations in prices.*
 
-# #### Auxiliary functioas
 def accounting(model, wsats):
     """Monetary value (NPV) from simulation results."""
     prd_wsats = prd_sats(model, wsats).T
@@ -171,19 +186,7 @@ def prd_sats(model, wsats):
     s = wsats[:, model.xy2ind(*model.prd_xy.T)]
     return (s[:-1] + s[+1:]) / 2
 
-def remake(model, **params):
-    """Instantiate new model config."""
-    model = copy.deepcopy(model)
-    for k, v in params.items():
-        setattr(model, k, v)
-    return model
-
-# Note that, unlike the history matching tutorial,
-# we do not bother to implement/support permability setter, which would contain a few extra steps.
-# Also, the parameter setter is factored out of the forward model, which will be convenient
-# since we will do several distinct "cases" of model configurations. Let's store the base one.
-
-original_model = remake(model)
+# #### Run
 
 # Let us plot the final sweep of the base model configuration.
 

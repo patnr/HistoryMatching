@@ -216,7 +216,7 @@ class nabla_ens:
     obj_ux:  None  = None  # Conditional objective function
     X:       None  = None  # Uncertainty ensemble
 
-    def eval(self, obj, u, pbar):
+    def __call__(self, obj, u, pbar):
         """Estimate `∇ obj(u)`"""
         U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
@@ -250,11 +250,11 @@ utils.nCPU = "auto"
 
 @dataclass
 class backtracker:
-    """Bisect until sufficient improvement."""
+    """Reduce step size until admissible improvement."""
     sign:   int   = +1                                  # Search for max(+1) or min(-1)
     xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
     rtol:   float = 1e-8                                # Convergence criterion
-    def eval(self, obj, u0, J0, search_direction, pbar):
+    def __call__(self, obj, u0, J0, search_direction, pbar):
         atol = max(1e-8, abs(J0)) * self.rtol
         pbar.reset(len(self.xSteps))
         for i, step_length in enumerate(self.xSteps):
@@ -288,12 +288,12 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
             u, J, info = states[-1]
             pbar_gd.set_postfix(u=f"{u}", obj=f"{J:.3g}📈")
 
-            grad = nabla.eval(objective, u, pbar_en)
+            grad = nabla(objective, u, pbar_en)
             info['grad'] = grad
             if nrmlz:
                 grad /= np.sqrt(np.mean(grad**2))
 
-            updated = line_search.eval(objective, u, J, grad, pbar_ls)
+            updated = line_search(objective, u, J, grad, pbar_ls)
             pbar_gd.update()
             if updated:
                 states.append(updated)

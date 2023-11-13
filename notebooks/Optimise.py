@@ -901,10 +901,11 @@ model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.
 
-err = (ctrl_ens_nominal2 - ctrl_ens_nominal)
-err /= model.domain[1] # scale to [0, 1]
-RMS = np.sqrt(np.mean(err**2, -1))
-print(f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}")
+if my_computer_is_fast:
+    err = (ctrl_ens_nominal2 - ctrl_ens_nominal)
+    err /= model.domain[1] # scale to [0, 1]
+    RMS = np.sqrt(np.mean(err**2, -1))
+    print(f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}")
 
 # ### Histogram (KDE) for each control strategy
 

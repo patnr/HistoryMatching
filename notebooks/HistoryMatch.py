@@ -89,10 +89,7 @@ from struct_tools import DotDict as Dict
 
 # For exact reproducibility of our problem/case, we set the random generator seed.
 
-seed = rnd.seed(4)  # very easy
-# seed = rnd.seed(5)  # hard
-# seed = rnd.seed(6)  # very easy
-# seed = rnd.seed(7)  # easy
+seed = rnd.seed(1)
 
 # Our reservoir simulator takes up about 100 lines of python code. This may seem
 # outrageously simple, but serves the purpose of *illustrating* the main features of

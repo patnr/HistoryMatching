@@ -729,7 +729,7 @@ gg_kwargs = dict(
 )
 gg_postr = ens_update0(**gg_kwargs)
 
-with np.printoptions(precision=1):
+with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
 
@@ -838,7 +838,7 @@ def full_localization(batch_inds):
 
 gg_postr = ens_update0_loc(**gg_kwargs, domains=np.c_[:gg_ndim], taper=full_localization)
 
-with np.printoptions(precision=1):
+with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
 

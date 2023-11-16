@@ -450,6 +450,7 @@ augmented_obs_error_cov = sla.block_diag(*[R]*nTime)
 prior_fields = {
     "Saturation": lambda time: wsat.past.Prior[:, time],
     "Pre-perm"  : lambda time: perm.Prior,
+    "Perm"      : lambda time: perm_transf(perm.Prior),
 }
 
 # Compute correlation field

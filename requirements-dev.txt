@@ -7,7 +7,6 @@ jupytext~=1.15.2
 ipympl~=0.9.3
 
 ipython
-pre-commit
 ipdb
-pdbpp
-pytest
+pre-commit
+ruff~=0.5.0

@@ -730,7 +730,7 @@ ax2.grid(True)
 # Robust optimisation problems have a particular structure,
 # namely the objective is an *average*:
 
-def obj(u=None, x=None):
+def obj(u=None):
     return np.mean([obj1(u, x) for x in uq_ens])
 
 # Of course, we still have to define the

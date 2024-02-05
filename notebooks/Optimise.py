@@ -227,7 +227,7 @@ class nabla_ens:
             g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
         return g
 
-    def obj_increments(self, obj, u, U, pbar):
+    def obj_increments(self, obj, _u, U, pbar):
         return apply(obj, U, pbar=pbar)  # don't need to `center`
 
 # Note the use of `apply` (which is a thin wrapper on top of `map` or a for loop)
@@ -284,7 +284,7 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
         states = [[u, objective(u), {}]]
 
-        for itr in range(nIter):
+        for _itr in range(nIter):
             u, J, info = states[-1]
             pbar_gd.set_postfix(u=f"{u}", obj=f"{J:.3g}📈")
 
@@ -349,7 +349,7 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
 
     obj.aspect = 10**aspect
     obj.case = case
-    fig, axs = plotting.figure12("Toy problems")
+    _fig, axs = plotting.figure12("Toy problems")
 
     for i in range(nTrial):
         rnd.seed(100*seed + i)
@@ -357,7 +357,7 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
         xSteps = [xStep] if xStep else backtracker.xSteps
 
         utils.nCPU = False  # no multiprocessing
-        path, objs, info = GD(obj, u0,
+        path, objs, _info = GD(obj, u0,
                               nabla_ens(sdev, nEns, precond),
                               backtracker(-1, xSteps),
                               nrmlz=nrmlz, nIter=nIter,
@@ -665,7 +665,7 @@ def npv_in_rates(rates, value_only=True):
     prd = rate_transform(prd)
 
     # Balance (at each time) by reducing to lowest
-    I, P = inj.sum(0), prd.sum(0)
+    I, P = inj.sum(0), prd.sum(0)  # noqa: E741
     inj[:, P<I] *= P[P<I] / I[P<I]
     prd[:, I<P] *= I[I<P] / P[I<P]
 
@@ -954,7 +954,7 @@ for n, npvs_n in enumerate(npvs_condnl):
 ax.plot(npv_grid, gaussian_kde(npvs_robust).evaluate(npv_grid), "w", lw=3)
 
 # Legend showing mean values
-leg = (f"         Mean    Min",
+leg = (f"         Mean    Min",  # noqa: F541
        f"Robust:  {np.mean(npvs_robust):<6.3g}  {np.min(npvs_robust):.3g}",
        f"Nominal: {np.mean(npvs_condnl):<6.3g}  {np.min(npvs_condnl):.3g}")
 ax.text(.02, .97, "\n".join(leg), transform=ax.transAxes, va="top", ha="left",

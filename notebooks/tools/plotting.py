@@ -55,7 +55,7 @@ styles["domain"] = dict(
 
 
 show = plt.show  # noqa  # type: ignore
-from matplotlib.colors import LogNorm  # noqa  # type: ignore
+from matplotlib.colors import AsinhNorm  # noqa  # type: ignore
 
 
 def freshfig(*args, **kwargs):

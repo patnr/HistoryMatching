@@ -36,7 +36,7 @@ from tools.utils import center, apply, progbar, mesh2list
 # #### Config
 
 plotting.init()
-np.set_printoptions(precision=4, sign=' ', floatmode="fixed")
+np.set_printoptions(precision=4, sign=" ", floatmode="fixed")
 
 # ## Define model
 # We start with the same settings as in the previous tutorial (on history matching).
@@ -50,15 +50,15 @@ model = simulator.ResSim(Nx=20, Ny=20, Lx=2, Ly=1, name="Base model")
 # #### Permeability
 
 seed = rnd.seed(23)
-model.K = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, 1, r=0.8))
+model.K = 0.1 + np.exp(5 * geostat.gaussian_fields(model.mesh, 1, r=0.8))
 
 # #### Wells
 # List of coordinates (x, y) of the 4 cornerns of the rectangular domain
 
-near01 = np.array([.12, .87])
+near01 = np.array([0.12, 0.87])
 xy_4corners = [[x, y]
                for y in model.Ly*near01
-               for x in model.Lx*near01]
+               for x in model.Lx*near01]  # fmt: skip
 
 # Suggested total rate of production.
 
@@ -67,7 +67,7 @@ rate0 = 1.5
 # Note that the production and injection rates add up to the same
 # (at each time step), as they must (or model will raise an error).
 
-model.inj_xy = [[model.Lx/2, model.Ly/2]]
+model.inj_xy = [[model.Lx / 2, model.Ly / 2]]
 model.prd_xy = xy_4corners
 model.inj_rates = rate0 * np.ones((1, 1)) / 1
 model.prd_rates = rate0 * np.ones((4, 1)) / 4
@@ -75,14 +75,13 @@ model.prd_rates = rate0 * np.ones((4, 1)) / 4
 # #### Plot
 
 fig, ax = plotting.freshfig(model.name)
-model.plt_field(ax, model.K[0], "perm", grid=True);
-
+model.plt_field(ax, model.K[0], "perm", grid=True)
 # #### Simulations
 
 wsat0 = np.zeros(model.Nxy)
 T = 1
 dt = 0.025
-nTime = round(T/dt)
+nTime = round(T / dt)
 
 # ## NPV objective function
 # The NPV (objective) function,
@@ -91,6 +90,7 @@ nTime = round(T/dt)
 # But the main output is now the economical net value (profit),
 # while some other variables are included as diagnostics.
 # Also, importantly, note that it's all wrapped in error penalisation.
+
 
 def npv(model, **params):
     """Net present value (NPV) for `model` with (keyword) `params`."""
@@ -107,7 +107,9 @@ def npv(model, **params):
         # `raise`  # enable post-mort. debug
     return value, other
 
+
 # #### Auxiliary functions
+
 
 def remake(model, **params):
     """Instantiate new model config."""
@@ -115,6 +117,7 @@ def remake(model, **params):
     for k, v in params.items():
         setattr(model, k, v)
     return model
+
 
 # Note that, unlike the history matching tutorial,
 # we do not bother to implement/support permability setter, which would contain a few extra steps.
@@ -128,31 +131,32 @@ original_model = remake(model)
 # means that the (volumetric) price of injection must be cheapter than for oil
 # in order for production (even at 100% oil saturation) to be profitable.
 
-OneYear = .1  # ⇒ 10 years to more-or-less drain using rate0
+OneYear = 0.1  # ⇒ 10 years to more-or-less drain using rate0
 
 price = {
     "inj": 20,
     "oil": 100,
-    'turbo': 1,
+    "turbo": 1,
     "wat": 6,
-    'diffs': 1,
-    "fixed": 0.8 * dt/OneYear,
-    '/well': 0.3 * dt/OneYear,
+    "diffs": 1,
+    "fixed": 0.8 * dt / OneYear,
+    "/well": 0.3 * dt / OneYear,
 }
-discounts = .96 ** (dt/OneYear * np.arange(nTime))
+discounts = 0.96 ** (dt / OneYear * np.arange(nTime))
 
 # Note that, being defined in the global namespace,
 # and not having implemented any "setter" for them,
 # these values cannot be manipulated by our ensemble methods.
 # *Therefore, for example, we cannot account for uncertainty/fluctuations in prices.*
 
+
 def accounting(model, wsats):
     """Monetary value (NPV) from simulation results."""
     prd_wsats = prd_sats(model, wsats).T
 
     # Rates (computed by dynamic_rate)
-    inj_rates = model.actual_rates['inj']
-    prd_rates = model.actual_rates['prd']
+    inj_rates = model.actual_rates["inj"]
+    prd_rates = model.actual_rates["prd"]
     # Volumes (should NOT scale with model hx*hy)
     inj_volumes = dt * inj_rates * 1
     oil_volumes = dt * prd_rates * (1 - prd_wsats)
@@ -163,39 +167,44 @@ def accounting(model, wsats):
     wat_total = wat_volumes.sum(0) @ discounts
 
     values = {}
-    values['oil'] = +price['oil'] * oil_total
-    values['inj'] = -price['inj'] * inj_total
-    values['wat'] = -price['wat'] * wat_total
+    values["oil"] = +price["oil"] * oil_total
+    values["inj"] = -price["inj"] * inj_total
+    values["wat"] = -price["wat"] * wat_total
 
     # Misc costs
     excess = (prd_rates.sum(0) - rate0).clip(0)
     diffs = np.diff(inj_rates, 1)
-    values['pwell'] = -price['/well'] * np.sum(prd_rates != 0)
-    values['iwell'] = -price['/well'] * np.sum(inj_rates != 0)
-    values['turbo'] = -price['turbo'] * excess.sum()**2 * dt
-    values['diffs'] = -price['diffs'] * (np.abs(diffs)**0.1).sum()
+    values["pwell"] = -price["/well"] * np.sum(prd_rates != 0)
+    values["iwell"] = -price["/well"] * np.sum(inj_rates != 0)
+    values["turbo"] = -price["turbo"] * excess.sum() ** 2 * dt
+    values["diffs"] = -price["diffs"] * (np.abs(diffs) ** 0.1).sum()
     # values['fixed'] = -price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prd'])))
 
     return values
 
+
 # Note that water injection has a cost, as does the treatment of produced water,
 # possibly related to GHG emissions.
+
 
 def prd_sats(model, wsats):
     """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
     s = wsats[:, model.xy2ind(*model.prd_xy.T)]
     return (s[:-1] + s[+1:]) / 2
 
+
 # #### Run
 
 # Let us plot the final sweep of the base model configuration.
 
+
 def plot_final_sweep(model, **params):
     """Plot final oil saturation resulting from `npv`."""
     value, other = npv(model, **params)
-    model, wsats = other['model'], other['wsats']
+    model, wsats = other["model"], other["wsats"]
     _, ax = plotting.freshfig("Final sweep -- " + model.name)
     model.plt_field(ax, wsats[-1], "oil", title=f"NPV: {value:.2f}")
+
 
 plot_final_sweep(original_model)
 
@@ -205,16 +214,18 @@ plot_final_sweep(original_model)
 # #### Ensemble gradient estimator
 # EnOpt consists of gradient descent with ensemble gradient estimation.
 
+
 @dataclass
 class nabla_ens:
     """Ensemble gradient estimate (LLS regression)."""
-    chol:    float = 1.0   # Cholesky factor (or scalar std. dev.)
-    nEns:    int   = 10    # Size of control perturbation ensemble
-    precond: bool  = False # Use preconditioned form?
+
+    chol: float = 1.0  # Cholesky factor (or scalar std. dev.)
+    nEns: int = 10  # Size of control perturbation ensemble
+    precond: bool = False  # Use preconditioned form?
     # Will be used later:
-    robustly:None  = None  # Method of treating robust objectives
-    obj_ux:  None  = None  # Conditional objective function
-    X:       None  = None  # Uncertainty ensemble
+    robustly: None = None  # Method of treating robust objectives
+    obj_ux: None = None  # Conditional objective function
+    X: None = None  # Uncertainty ensemble
 
     def __call__(self, obj, u, pbar):
         """Estimate `∇ obj(u)`"""
@@ -222,13 +233,14 @@ class nabla_ens:
         dU = center(U)[0]
         dJ = self.obj_increments(obj, u, u + dU, pbar)
         if self.precond:
-            g = dU.T @ dJ / (self.nEns-1)
+            g = dU.T @ dJ / (self.nEns - 1)
         else:
-            g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
+            g = utils.rinv(dU, reg=0.1, tikh=True) @ dJ
         return g
 
     def obj_increments(self, obj, _u, U, pbar):
         return apply(obj, U, pbar=pbar)  # don't need to `center`
+
 
 # Note the use of `apply` (which is a thin wrapper on top of `map` or a for loop)
 # to compute `obj(u)` for each `u` in the ensemble `U`,
@@ -248,12 +260,15 @@ utils.nCPU = "auto"
 #
 # TODO: implement Armijo-Goldstein.
 
+
 @dataclass
 class backtracker:
     """Reduce step size until admissible improvement."""
-    sign:   int   = +1                                  # Search for max(+1) or min(-1)
-    xSteps: tuple = tuple(.5**(i+1) for i in range(8))  # Trial step lengths
-    rtol:   float = 1e-8                                # Convergence criterion
+
+    sign: int = +1  # Search for max(+1) or min(-1)
+    xSteps: tuple = tuple(0.5 ** (i + 1) for i in range(8))  # Trial step lengths
+    rtol: float = 1e-8  # Convergence criterion
+
     def __call__(self, obj, u0, J0, search_direction, pbar):
         atol = max(1e-8, abs(J0)) * self.rtol
         pbar.reset(len(self.xSteps))
@@ -263,8 +278,9 @@ class backtracker:
             J1 = obj(u1)
             dJ = J1 - J0
             pbar.update()
-            if self.sign*dJ > atol:
+            if self.sign * dJ > atol:
                 return u1, J1, dict(nDeclined=i)
+
 
 # Other acceleration techniques (AdaGrad, Nesterov, momentum,
 # of which git commit `9937d5b2` contains a working implementation)
@@ -273,6 +289,8 @@ class backtracker:
 # #### Gradient descent
 # The following implements gradient descent (GD).
 
+
+# fmt: off
 def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, nIter=100, quiet=False):
     """Gradient (i.e. steepest) descent/ascent."""
 
@@ -289,7 +307,7 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
             pbar_gd.set_postfix(u=f"{u}", obj=f"{J:.3g}📈")
 
             grad = nabla(objective, u, pbar_en)
-            info['grad'] = grad
+            info["grad"] = grad
             if nrmlz:
                 grad /= np.sqrt(np.mean(grad**2))
 
@@ -298,13 +316,14 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
             if updated:
                 states.append(updated)
             else:
-                info['cause'] = "✅ GD converged"
+                info["cause"] = "✅ GD converged"
                 break
         else:
-            info['cause'] = "❌ GD ran out of iters"
-        pbar_gd.set_description(info['cause'])
+            info["cause"] = "❌ GD ran out of iters"
+        pbar_gd.set_description(info["cause"])
 
     return (np.asarray(arr) for arr in zip(*states))  # "transpose"
+# fmt: on
 
 
 # ## Sanity check
@@ -312,19 +331,22 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 # Let's test `GD` on some [well known](https://en.wikipedia.org/wiki/Test_functions_for_optimization) toy problems,
 # each including a scaling so as to fit nicely within the box $[-1, +1]^2$.
 
+
 def quadratic(u):
-    return np.mean(u*u, axis=-1)
+    return np.mean(u * u, axis=-1)
+
 
 def rosenbrock(u):
     u = u * [3, 3]
     u = u.T
     t1 = u[1:] - u[:-1] * u[:-1]
     t2 = u[:-1] - 1
-    return np.sum(100*(t1*t1) + t2*t2, 0)
+    return np.sum(100 * (t1 * t1) + t2 * t2, 0)
+
 
 def rastrigin(u):
     u = u * [5.12, 5.12]
-    return 20 + (u*u - 5*np.cos(2*np.pi*u)).sum(-1)
+    return 20 + (u * u - 5 * np.cos(2 * np.pi * u)).sum(-1)
 
 
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
@@ -336,10 +358,11 @@ def rastrigin(u):
 # In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case,
 # which is done by setting `nCPU = False`.
 
+
+# fmt: off
 @plotting.interact(case=['quadratic', 'rosenbrock', 'rastrigin'],
                    seed=(1, 10), nTrial=(1, 20), aspect=(-1, 1, .1),
-                   nIter=(0, 20), xStep=(0, 30, .1),
-                   sdev=(0.01, 2), nEns=(2, 100))
+                   nIter=(0, 20), xStep=(0, 30, .1), sdev=(0.01, 2), nEns=(2, 100))
 def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
          sdev=.1, precond=False, nrmlz=True, nEns=10):
 
@@ -350,26 +373,34 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
     _fig, axs = plotting.figure12("Toy problems", figsize=(10, 5))
 
     for i in range(nTrial):
-        rnd.seed(100*seed + i)
-        u0 = 2*(rnd.rand(2)-.5)
+        rnd.seed(100 * seed + i)
+        u0 = 2 * (rnd.rand(2) - 0.5)
         xSteps = [xStep] if xStep else backtracker.xSteps
 
         utils.nCPU = False  # no multiprocessing
-        path, objs, _info = GD(obj, u0,
-                              nabla_ens(sdev, nEns, precond),
-                              backtracker(-1, xSteps),
-                              nrmlz=nrmlz, nIter=nIter,
-                              quiet=True)
+        path, objs, _info = GD(
+            obj,
+            u0,
+            nabla_ens(sdev, nEns, precond),
+            backtracker(-1, xSteps),
+            nrmlz=nrmlz,
+            nIter=nIter,
+            quiet=True,
+        )
         utils.nCPU = True  # restore
 
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
         axs[1].set_yscale("log")
 
-    style = (dict(norm=plotting.AsinhNorm(), levels=10**np.arange(-2, 5, .5))
-             if case == "rosenbrock" else {})
+    style = {}
+    if case == "rosenbrock":
+        style = dict(norm=plotting.AsinhNorm(), levels=10 ** np.arange(-2, 5, 0.5))
 
     g = np.linspace(-1, 1, 201)
-    axs[0].contourf(g, g, obj(mesh2list(*np.meshgrid(g, g))).reshape((len(g), -1)), **style)
+    axs[0].contourf(
+        g, g, obj(mesh2list(*np.meshgrid(g, g))).reshape((len(g), -1)), **style
+    )
+# fmt: on
 
 
 # ## Case: Optimize injector location (x, y)
@@ -378,8 +409,10 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
 # which translates its single (vector) input argument into the appropriate keyword argument,
 # and discards all output except the scalar NPV.
 
+
 def npv_inj_xy(xys):
     return npv(model, inj_xy=xys)[0]
+
 
 obj = npv_inj_xy
 model = original_model
@@ -394,8 +427,11 @@ npvs = np.asarray(npvs)
 # so that we already know the true, global, optimum:
 
 argmax = npvs.argmax()
-print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
-      "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+print(
+    "Global (exhaustive search) optimum:",
+    f"{npvs[argmax]:.4}",
+    "at (x={:.2}, y={:.2})".format(*model.ind2xy(argmax)),
+)
 
 # Note that the optimum is not quite in the centre of the domain,
 # which is caused by the asymmetry of the permeability field.
@@ -406,12 +442,11 @@ print("Global (exhaustive search) optimum:", f"{npvs[argmax]:.4}",
 
 # Optimize, plot paths
 fig, axs = plotting.figure12(obj.__name__)
-for color in ['C0', 'C2', 'C7', 'C9']:
+for color in ["C0", "C2", "C7", "C9"]:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1))
+    path, objs, info = GD(obj, u0, nabla_ens(0.1))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
-model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);
-
+model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False)
 # Note that
 #
 # - The increase in objective function for each step is guaranteed by the line search
@@ -435,13 +470,15 @@ plot_final_sweep(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}")
 # For example, suppose we only want to vary the x-coordinate of the injector(s),
 # while keeping the y-coordinate fixed.
 
+
 # +
 def npv_x_with_fixed_y(xs):
-    xys = np.stack([xs, xs], -1) # ⇒ (1d or 2d)
+    xys = np.stack([xs, xs], -1)  # ⇒ (1d or 2d)
     xys[..., 1] = y  # fix constant value
     return npv(model, inj_xy=xys)[0]
 
-y = model.Ly/2
+
+y = model.Ly / 2
 # -
 
 # *PS: The use of `...` is a trick that allows operating on the last axis of `xys`,
@@ -460,14 +497,13 @@ npvs = apply(obj, x_grid, pbar="obj(x_grid)")
 # Plot objective
 fig, ax = plotting.freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
-ax.plot(x_grid, npvs, "slategrey", lw=3);
-
+ax.plot(x_grid, npvs, "slategrey", lw=3)
 # Optimize, plot paths
-u0s = model.Lx * np.array([[.05, .1, .2, .8, .9, .95]]).T
+u0s = model.Lx * np.array([[0.05, 0.1, 0.2, 0.8, 0.9, 0.95]]).T
 for i, u0 in enumerate(u0s):
-    path, objs, info = GD(obj, u0, nabla_ens(.3))
-    shift = .3*i  # for visual distinction
-    ax.plot(path, objs - shift, '-o', c=f'C{i+1}')
+    path, objs, info = GD(obj, u0, nabla_ens(0.3))
+    shift = 0.3 * i  # for visual distinction
+    ax.plot(path, objs - shift, "-o", c=f"C{i+1}")
 fig.tight_layout()
 # -
 
@@ -483,10 +519,11 @@ fig.tight_layout()
 # With 2 injectors, it's more interesting (not necessary) to also only have 2 producers.
 # So let's configure our model for that, placing the 2 producers at the lower corners.
 
-model = remake(original_model,
-    name = "Lower 2 corners",
-    prd_xy = xy_4corners[:2],
-    prd_rates = rate0 * np.ones((2, 1)) / 2
+model = remake(
+    original_model,
+    name="Lower 2 corners",
+    prd_xy=xy_4corners[:2],
+    prd_rates=rate0 * np.ones((2, 1)) / 2,
 )
 
 # Now, as you might imagine, the optimal injector positions will be somewhere near the upper edge.
@@ -513,9 +550,11 @@ model = remake(original_model,
 #
 # Below, we take the transformation approach.
 
+
 def sigmoid(x, height, width=1):
     """Centered sigmoid: `S(0) == height/2`, with `S(width) = 0.73 * height`."""
-    return height/(1 + np.exp(-x/width))
+    return height / (1 + np.exp(-x / width))
+
 
 def coordinate_transform(xys):
     """Map `ℝ --> (0, L)` with `origin ↦ domain centre`, in both dims (axis 1)."""
@@ -525,17 +564,21 @@ def coordinate_transform(xys):
     xy2d[:, 1] = sigmoid(xy2d[:, 1], model.Ly)  # transform y
     return xy2d.reshape(np.shape(xys))
 
+
 inj_xys0 = [[-1, 0], [+1, 0]]
-model = remake(model,
-    inj_xy = coordinate_transform(inj_xys0),
-    inj_rates = rate0 * np.ones((2, 1)) / 2,
+model = remake(
+    model,
+    inj_xy=coordinate_transform(inj_xys0),
+    inj_rates=rate0 * np.ones((2, 1)) / 2,
 )
 
 # The objective function is otherwise unchanged.
 
+
 # +
 def npv_xy_transf(xys):
     return npv_inj_xy(coordinate_transform(xys))
+
 
 obj = npv_xy_transf
 # -
@@ -548,14 +591,14 @@ obj = npv_xy_transf
 # +
 # Optimize
 u0 = np.ravel(inj_xys0)
-path, objs, info = GD(obj, u0, nabla_ens(.1))
+path, objs, info = GD(obj, u0, nabla_ens(0.1))
 path = coordinate_transform(path)
 
 # Plot optimisation trajectory
 fig, axs = plotting.figure12(obj.__name__)
-plotting.add_path12(*axs, path[:, :2], objs, color='C1')
-plotting.add_path12(*axs, path[:, 2:], color='C3')
-model.plt_field(axs[0], model.K[0], "perm");
+plotting.add_path12(*axs, path[:, :2], objs, color="C1")
+plotting.add_path12(*axs, path[:, 2:], color="C3")
+model.plt_field(axs[0], model.K[0], "perm")
 # -
 
 # Seems reasonable.
@@ -571,14 +614,17 @@ plot_final_sweep(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}")
 #
 # Thus, as above, we need to pre-compute something before calling `npv()`.
 
+
 # +
 def equalize(rates, nWell):
     """Distribute the total rate equally among `nWell`."""
     return np.tile(rates.sum(0) / nWell, (nWell, 1))
 
+
 def npv_in_inj_rates(inj_rates):
     prd_rates = equalize(inj_rates, model.nPrd)
     return npv(model, inj_rates=inj_rates, prd_rates=prd_rates)[0]
+
 
 obj = npv_in_inj_rates
 model = original_model
@@ -600,10 +646,10 @@ ax.grid()
 ax.set(xlabel="rate", ylabel="NPV")
 ax.plot(rate_grid, npvs, "slategrey")
 
-for i, u0 in enumerate(np.array([[.1, 3]]).T):
-    path, objs, info = GD(obj, u0, nabla_ens(.1))
-    shift = i+1  # for visual distinction
-    ax.plot(path, objs - shift, '-o', color=f'C{i+1}')
+for i, u0 in enumerate(np.array([[0.1, 3]]).T):
+    path, objs, info = GD(obj, u0, nabla_ens(0.1))
+    shift = i + 1  # for visual distinction
+    ax.plot(path, objs - shift, "-o", color=f"C{i+1}")
 fig.tight_layout()
 plotting.show()
 # -
@@ -618,44 +664,54 @@ obj = npv_in_inj_rates
 
 triangle = [0, 135, -135]
 wells = dict(
-    inj_xy = ([[model.Lx/2, model.Ly/2]] +
-              [utils.pCircle(th + 90, *model.domain[1]) for th in triangle]),
-    prd_xy = [utils.pCircle(th - 90, *model.domain[1]) for th in triangle],
-    inj_rates = rate0 * np.ones((4, 1)) / 4,
-    prd_rates = rate0 * np.ones((3, 1)) / 3,
+    inj_xy=(
+        [[model.Lx / 2, model.Ly / 2]]
+        + [utils.pCircle(th + 90, *model.domain[1]) for th in triangle]
+    ),
+    prd_xy=[utils.pCircle(th - 90, *model.domain[1]) for th in triangle],
+    inj_rates=rate0 * np.ones((4, 1)) / 4,
+    prd_rates=rate0 * np.ones((3, 1)) / 3,
 )
 model = remake(model, **wells, name="Triangle case")
 
 # Show well layout
 
 fig, ax = plotting.freshfig(model.name)
-model.plt_field(ax, model.K[0], "perm");
+model.plt_field(ax, model.K[0], "perm")
 
 # Define function that takes injection rates and computes final sweep, i.e. saturation field.
 # The plot also displays the resulting NPV.
 
+
 @plotting.interact(
-    inj0_rate = (0, 1.4),
-    inj1_rate = (0, 1.4),
-    inj2_rate = (0, 1.4),
-    inj3_rate = (0, 1.4),
-    side="right", wrap=False,
+    inj0_rate=(0, 1.4),
+    inj1_rate=(0, 1.4),
+    inj2_rate=(0, 1.4),
+    inj3_rate=(0, 1.4),
+    side="right",
+    wrap=False,
 )
 def interactive_rate_optim(**kwargs):
     inj_rates = np.array([list(kwargs.values())]).T
-    plot_final_sweep(model, name="Interact. inj_rates", inj_rates=inj_rates,
-                     prd_rates=equalize(inj_rates, model.nPrd))
+    plot_final_sweep(
+        model,
+        name="Interact. inj_rates",
+        inj_rates=inj_rates,
+        prd_rates=equalize(inj_rates, model.nPrd),
+    )
+
 
 # #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).
 
-u0 = .7*np.ones(model.nInj)
-path, objs, info = GD(obj, u0, nabla_ens(.1))
+u0 = 0.7 * np.ones(model.nInj)
+path, objs, info = GD(obj, u0, nabla_ens(0.1))
 print("Controls suggested by EnOpt:", path[-1])
 
 # Were you able to beat EnOpt?
 
 # ## Case: time-dependent rates
+
 
 # +
 def npv_in_rates(rates, value_only=True):
@@ -667,11 +723,12 @@ def npv_in_rates(rates, value_only=True):
 
     # Balance (at each time) by reducing to lowest
     I, P = inj.sum(0), prd.sum(0)  # noqa: E741
-    inj[:, P<I] *= P[P<I] / I[P<I]
-    prd[:, I<P] *= I[I<P] / P[I<P]
+    inj[:, P < I] *= P[P < I] / I[P < I]
+    prd[:, I < P] *= I[I < P] / P[I < P]
 
     value, other = npv(model, inj_rates=inj, prd_rates=prd)
     return value if value_only else (value, other)
+
 
 obj = npv_in_rates
 assert model.name == "Triangle case"
@@ -679,50 +736,55 @@ assert model.name == "Triangle case"
 
 nInterval = 10
 rate_min = 0.1
+
+
 def rate_transform(pre_rates):
     """Map `ℝ --> (0, +∞)`. 'Snap' low rates to 0. Expand in time."""
-    duration = int(np.ceil(nTime/nInterval))
+    duration = int(np.ceil(nTime / nInterval))
     rates = np.exp(pre_rates)
     rates[rates < rate_min] = 0
     rates = rates.reshape((-1, nInterval))
     rates = rates.repeat(duration, 1)[:, :nTime]
     return rates
 
+
 # Optimize
 
-u0 = -1.4 + 1e-2*rnd.randn(model.nInj + model.nPrd, nInterval).ravel()
-path, objs, info = GD(obj, u0, nabla_ens(.6, nEns=20))
+u0 = -1.4 + 1e-2 * rnd.randn(model.nInj + model.nPrd, nInterval).ravel()
+path, objs, info = GD(obj, u0, nabla_ens(0.6, nEns=20))
 
 # Show final sweep
 
 value, other = npv_in_rates(path[-1], value_only=False)
-model, wsats = other['model'], other['wsats']
+model, wsats = other["model"], other["wsats"]
 plot_final_sweep(model, name=f"Optimal for {obj.__name__}")
 
 
 # #### Plot rates
 
-inj_rates = model.actual_rates['inj']
-prd_rates = model.actual_rates['prd']
+inj_rates = model.actual_rates["inj"]
+prd_rates = model.actual_rates["prd"]
 oil_sats = 1 - prd_sats(model, wsats).T
 
 # +
-fig, (ax1, ax2) = plotting.freshfig("Optimal rates", figsize=(7, 6), nrows=2, sharex=True)
+fig, (ax1, ax2) = plotting.freshfig(
+    "Optimal rates", figsize=(7, 6), nrows=2, sharex=True
+)
 ax_ = ax1.twinx()
 for iWell, (rates, satrs) in enumerate(zip(prd_rates, oil_sats)):
     ax1.plot(np.arange(nTime), rates, c=f"C{iWell}", lw=3)
     ax_.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
 ax1.axhline(rate_min, color="k", lw=1, ls="--")
 ax1.legend(range(model.nPrd), title="Prd. well")
-ax1.set(ylabel="Rate", ylim=(-.05, None))
+ax1.set(ylabel="Rate", ylim=(-0.05, None))
 ax1.grid(True)
-ax_.set(ylabel='Saturation', ylim=(-0.05, 1.05))
+ax_.set(ylabel="Saturation", ylim=(-0.05, 1.05))
 
 for iWell, rates in enumerate(inj_rates):
     ax2.plot(np.arange(nTime), rates, c=f"C{model.nPrd + iWell}", lw=3)
 ax2.axhline(rate_min, color="k", lw=1, ls="--")
 ax2.legend(range(model.nInj), title="Inj. well")
-ax2.set(ylabel="Rate", xlabel="Time (index)", ylim=(-.05, None))
+ax2.set(ylabel="Rate", xlabel="Time (index)", ylim=(-0.05, None))
 ax2.invert_yaxis()
 ax2.grid(True)
 # -
@@ -731,8 +793,10 @@ ax2.grid(True)
 # Robust optimisation problems have a particular structure,
 # namely the objective is an *average*:
 
+
 def obj(u=None):
     return np.mean([obj1(u, x) for x in uq_ens])
+
 
 # Of course, we still have to define the
 #
@@ -747,6 +811,7 @@ def obj(u=None):
 # perhaps less pompously "every problem carries the seed of its own solution".
 # Indeed we can exploit the structure of the robust-optimisation `obj` above
 # by the following patch to the way `nabla_ens` computes the increments of `obj`.
+
 
 def dJ_robust(self, obj, u, U, pbar):
     if self.robustly == "Paired":
@@ -766,6 +831,7 @@ def dJ_robust(self, obj, u, U, pbar):
         dJ = apply(obj, U, pbar=pbar)
 
     return dJ
+
 
 nabla_ens.obj_increments = dJ_robust
 
@@ -789,19 +855,21 @@ nabla_ens.obj_increments = dJ_robust
 
 nEns = 31
 rnd.seed(5)
-uq_ens = .1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
+uq_ens = 0.1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
 
 # Plot
 
-plotting.fields(model, uq_ens, "perm");
+plotting.fields(model, uq_ens, "perm")
 
 # ### Conditional objective
 # The *conditional* objective consists of the `npv`
 # at some `inj_xy=u` for a given permability `K=x`.
 
+
 # +
 def obj1(u, x):
     return npv(model, inj_xy=u, K=x)[0]
+
 
 model = original_model
 # -
@@ -814,20 +882,22 @@ model = original_model
 
 try:
     import google.colab  # type: ignore
-    my_computer_is_fast = False # Colab is slow
+
+    my_computer_is_fast = False  # Colab is slow
 except ImportError:
     my_computer_is_fast = True
 
 if my_computer_is_fast:
     npv_mesh = apply(lambda x: [obj1(u, x) for u in mesh2list(*model.mesh)], uq_ens)
-    plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm");
-
+    plotting.fields(model, npv_mesh, "NPV", "xy of inj, conditional on perm")
     # Thus we know the global optimum of the total/robust objective.
     npv_avrg = np.mean(npv_mesh, 0)
     argmax = npv_avrg.argmax()
-    print("Global (exhaustive search) optimum:",
-          f"obj={npv_avrg[argmax]:.4}",
-          "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)))
+    print(
+        "Global (exhaustive search) optimum:",
+        f"obj={npv_avrg[argmax]:.4}",
+        "(x={:.2}, y={:.2})".format(*model.ind2xy(argmax)),
+    )
 
 # ### Optimize, plot paths
 
@@ -837,18 +907,20 @@ if my_computer_is_fast:
     model.plt_field(axs[0], npv_avrg, "NPV", argmax=True, wells=False, finalize=False)
 
     # Use "naive" ensemble gradient
-    for color in ['C0', 'C2']:
+    for color in ["C0", "C2"]:
         u0 = rnd.rand(2) * model.domain[1]
-        path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns))
+        path, objs, info = GD(obj, u0, nabla_ens(0.1, nEns=nEns))
         plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
 # Use StoSAG ensemble gradient
-for color in ['C7', 'C9']:
+for color in ["C7", "C9"]:
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(obj, u0, nabla_ens(.1, nEns=nEns, obj_ux=obj1, X=uq_ens, robustly="StoSAG"))
+    path, objs, info = GD(
+        obj, u0, nabla_ens(0.1, nEns=nEns, obj_ux=obj1, X=uq_ens, robustly="StoSAG")
+    )
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
 
-fig.tight_layout();
+fig.tight_layout()
 # -
 
 # Clearly, optimising the full objective with "naive" EnOpt is very costly,
@@ -869,7 +941,9 @@ ctrl_robust = path[-1]
 ctrl_ens_nominal = []
 for x in progbar(uq_ens, desc="Nominal optim."):
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(.1, nEns=nEns), quiet=True)
+    path, objs, info = GD(
+        lambda u: obj1(u, x), u0, nabla_ens(0.1, nEns=nEns), quiet=True
+    )
     ctrl_ens_nominal.append(path[-1])
 
 # Alternatively, since we have already computed the npv for each pixel/cell
@@ -882,7 +956,7 @@ if my_computer_is_fast:
 # for the injector well. The scatter locations are labelled with the corresponding uncertainty realisation.
 
 fig, ax = plotting.freshfig("Optima")
-cmap = plotting.plt.get_cmap('tab20')
+cmap = plotting.plt.get_cmap("tab20")
 lbl_props = dict(fontsize="small", fontweight="bold")
 sct_props = dict(s=6**2, edgecolor="w", zorder=3)
 lbls = []
@@ -892,21 +966,23 @@ for n, (x, y) in enumerate(ctrl_ens_nominal):
     lbls.append(ax.text(x, y, n, c=color, **lbl_props))
     if my_computer_is_fast:
         x2, y2 = ctrl_ens_nominal2[n]
-        ax.plot([x, x2], [y, y2], '-', color=color, lw=2)
+        ax.plot([x, x2], [y, y2], "-", color=color, lw=2)
 ax.scatter(*ctrl_robust, s=8**2, color="w")
-utils.adjust_text(lbls, precision=.1);
-model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain",
-                wells=False, colorbar=False, grid=True);
-
+utils.adjust_text(lbls, precision=0.1)
+model.plt_field(
+    ax, np.zeros_like(model.mesh[0]), "domain", wells=False, colorbar=False, grid=True
+)
 # Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.
 
 if my_computer_is_fast:
-    err = (ctrl_ens_nominal2 - ctrl_ens_nominal)
-    err /= model.domain[1] # scale to [0, 1]
+    err = ctrl_ens_nominal2 - ctrl_ens_nominal
+    err /= model.domain[1]  # scale to [0, 1]
     RMS = np.sqrt(np.mean(err**2, -1))
-    print(f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}")
+    print(
+        f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}"
+    )
 
 # ### Histogram (KDE) for each control strategy
 
@@ -935,8 +1011,7 @@ from scipy.stats import gaussian_kde
 
 fig, ax = plotting.freshfig("NPV densities for optimal controls", figsize=(7, 4))
 ax.set_xlabel("NPV")
-ax.set_ylabel("Density (pdf)");
-
+ax.set_ylabel("Density (pdf)")
 a, b = np.min(npvs_condnl), np.max(npvs_condnl)
 npv_grid = np.linspace(a, b, 100)
 
@@ -944,10 +1019,10 @@ lbls = []
 for n, npvs_n in enumerate(npvs_condnl):
     color = cmap(n % 20)
     kde = gaussian_kde(npvs_n)
-    ax.plot(npv_grid, kde(npv_grid), c=color, lw=1.2, alpha=.7)
+    ax.plot(npv_grid, kde(npv_grid), c=color, lw=1.2, alpha=0.7)
 
     # Label curves
-    x = a + n*(b-a)/nEns
+    x = a + n * (b - a) / nEns
     lbls.append(ax.text(x, kde(x).item(), n, c=color, **lbl_props))
     ax.scatter(x, kde(x), s=2, c=color)
 
@@ -955,13 +1030,24 @@ for n, npvs_n in enumerate(npvs_condnl):
 ax.plot(npv_grid, gaussian_kde(npvs_robust).evaluate(npv_grid), "w", lw=3)
 
 # Legend showing mean values
-leg = (f"         Mean    Min",  # noqa: F541
-       f"Robust:  {np.mean(npvs_robust):<6.3g}  {np.min(npvs_robust):.3g}",
-       f"Nominal: {np.mean(npvs_condnl):<6.3g}  {np.min(npvs_condnl):.3g}")
-ax.text(.02, .97, "\n".join(leg), transform=ax.transAxes, va="top", ha="left",
-        fontsize="medium", fontfamily="monospace", bbox=dict(
-            facecolor='lightyellow', edgecolor='k', alpha=0.99,
-            boxstyle="round,pad=0.25"))
+leg = (
+    f"         Mean    Min",  # noqa: F541
+    f"Robust:  {np.mean(npvs_robust):<6.3g}  {np.min(npvs_robust):.3g}",
+    f"Nominal: {np.mean(npvs_condnl):<6.3g}  {np.min(npvs_condnl):.3g}",
+)
+ax.text(
+    0.02,
+    0.97,
+    "\n".join(leg),
+    transform=ax.transAxes,
+    va="top",
+    ha="left",
+    fontsize="medium",
+    fontfamily="monospace",
+    bbox=dict(
+        facecolor="lightyellow", edgecolor="k", alpha=0.99, boxstyle="round,pad=0.25"
+    ),
+)
 
 ax.tick_params(axis="y", left=False, labelleft=False)
 ax.set(facecolor="k", ylim=0, xlim=(a, b))
@@ -981,12 +1067,13 @@ plotting.show()
 # Only the 1st item would be hard to change.
 
 # +
-model = remake(original_model,
-    name = "Angga2022-5spot",
-    prd_xy = [[model.Lx/2, model.Ly/2]],
-    inj_xy = xy_4corners,
-    prd_rates = rate0 * np.ones((1, 1)) / 1,
-    inj_rates = rate0 * np.ones((4, 1)) / 4,
+model = remake(
+    original_model,
+    name="Angga2022-5spot",
+    prd_xy=[[model.Lx / 2, model.Ly / 2]],
+    inj_xy=xy_4corners,
+    prd_rates=rate0 * np.ones((1, 1)) / 1,
+    inj_rates=rate0 * np.ones((4, 1)) / 4,
 )
 
 plot_final_sweep(model)
@@ -997,6 +1084,7 @@ def npv_in_prd_rates(prd_rates):
     inj_rates = equalize(prd_rates, model.nInj)
     return npv(model, prd_rates=prd_rates, inj_rates=inj_rates)[0]
 
+
 obj = npv_in_prd_rates
 # -
 
@@ -1006,15 +1094,15 @@ fig, ax = plotting.freshfig(obj.__name__)
 rate_grid = np.logspace(-2, 1, 31)
 optimal_rates = []
 # cost_multiplier = [.01, .04, .1, .4, .9, .99]
-__default__ = price['inj']
+__default__ = price["inj"]
 cost_multiplier = np.arange(0.1, 1, 0.1)
 for i, xCost in enumerate(cost_multiplier):
-    price['inj'] = __default__ * xCost
+    price["inj"] = __default__ * xCost
     npvs = apply(obj, rate_grid, pbar="obj(rate_grid)")
     ax.plot(rate_grid, npvs, label=f"{xCost:.1}")
-    path, objs, info = GD(obj, np.array([2]), nabla_ens(.1))
+    path, objs, info = GD(obj, np.array([2]), nabla_ens(0.1))
     optimal_rates.append(path[-1])
-price['inj'] = __default__  # restore
+price["inj"] = __default__  # restore
 ax.set_ylim(1e-2)
 ax.legend(title="×price_of_inj")
 ax.set(xlabel="rate", ylabel="NPV")
@@ -1030,11 +1118,13 @@ emissions = []
 for i, prd_rates in enumerate(optimal_rates):
     inj_rates = equalize(prd_rates, model.nInj)
     value, other = npv(model, prd_rates=prd_rates, inj_rates=inj_rates)
-    sales.append(other['ledgr']['oil'])
-    emissions.append(-(other['ledgr']['inj'] + other['ledgr']['wat']))
+    sales.append(other["ledgr"]["oil"])
+    emissions.append(-(other["ledgr"]["inj"] + other["ledgr"]["wat"]))
 
 
-fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price['inj'])")
+fig, ax = plotting.freshfig(
+    "Pareto front (npv-optimal settings for range of price['inj'])"
+)
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
 ax.grid()

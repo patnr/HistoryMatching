@@ -309,26 +309,22 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
 
 # ## Sanity check
 # It is always wise to do some dead simple testing.
-# Let's test `GD` on some [well known](https://en.wikipedia.org/wiki/Test_functions_for_optimization) toy problems.
+# Let's test `GD` on some [well known](https://en.wikipedia.org/wiki/Test_functions_for_optimization) toy problems,
+# each including a scaling so as to fit nicely within the box $[-1, +1]^2$.
 
-def obj(u):
-    # Center model domain, apply aspect ratio
-    u = u - [model.Lx/2, model.Ly/2]
-    u = u * [1, getattr(obj, 'aspect', 1)]
+def quadratic(u):
+    return np.mean(u*u, axis=-1)
 
-    if obj.case == "Quadratic":
-        return np.mean(u*u, axis=-1)
+def rosenbrock(u):
+    u = u * [3, 3]
+    u = u.T
+    t1 = u[1:] - u[:-1] * u[:-1]
+    t2 = u[:-1] - 1
+    return np.sum(100*(t1*t1) + t2*t2, 0)
 
-    elif obj.case == "Rosenbrock":
-        u = u * [4, 4]
-        u = u.T
-        t1 = u[1:] - u[:-1] * u[:-1]
-        t2 = u[:-1] - 1
-        return np.sum(100*(t1*t1) + t2*t2, 0)
-
-    elif obj.case == "Rastrigin":
-        u = u * [5.12, 5.12]
-        return 20 + (u*u - 5*np.cos(2*np.pi*u)).sum(-1)
+def rastrigin(u):
+    u = u * [5.12, 5.12]
+    return 20 + (u*u - 5*np.cos(2*np.pi*u)).sum(-1)
 
 
 # Note that this objective function supports ensemble input (`u`) without the use of `apply`.
@@ -340,20 +336,22 @@ def obj(u):
 # In fact, due to the overhead of multiprocessing, it is better to make `apply` use a plain for loop for this trivial case,
 # which is done by setting `nCPU = False`.
 
-@plotting.interact(case=['Quadratic', 'Rosenbrock', 'Rastrigin'],
+@plotting.interact(case=['quadratic', 'rosenbrock', 'rastrigin'],
                    seed=(1, 10), nTrial=(1, 20), aspect=(-1, 1, .1),
                    nIter=(0, 20), xStep=(0, 30, .1),
-                   sdev=(0.01, 5), nEns=(2, 100))
+                   sdev=(0.01, 2), nEns=(2, 100))
 def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
          sdev=.1, precond=False, nrmlz=True, nEns=10):
 
-    obj.aspect = 10**aspect
-    obj.case = case
-    _fig, axs = plotting.figure12("Toy problems")
+    def obj(u):
+        u = u * [1, 10**aspect]
+        return globals()[case](u)
+
+    _fig, axs = plotting.figure12("Toy problems", figsize=(10, 5))
 
     for i in range(nTrial):
         rnd.seed(100*seed + i)
-        u0 = rnd.rand(2) * model.domain[1]
+        u0 = 2*(rnd.rand(2)-.5)
         xSteps = [xStep] if xStep else backtracker.xSteps
 
         utils.nCPU = False  # no multiprocessing
@@ -367,8 +365,11 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
         plotting.add_path12(*axs, path, objs, color=f"C{i}", labels=False)
         axs[1].set_yscale("log")
 
-    model.plt_field(axs[0], obj(mesh2list(*model.mesh)), wells=False, cmap="cividis",
-                    norm=plotting.LogNorm() if case in ["Rosenbrock"] else None)
+    style = (dict(norm=plotting.AsinhNorm(), levels=10**np.arange(-2, 5, .5))
+             if case == "rosenbrock" else {})
+
+    g = np.linspace(-1, 1, 201)
+    axs[0].contourf(g, g, obj(mesh2list(*np.meshgrid(g, g))).reshape((len(g), -1)), **style)
 
 
 # ## Case: Optimize injector location (x, y)

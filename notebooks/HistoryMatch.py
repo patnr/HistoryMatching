@@ -50,11 +50,12 @@ remote = "https://raw.githubusercontent.com/patnr/HistoryMatching"
 import numpy as np
 from matplotlib import pyplot as plt
 from tools import plotting
+
 plotting.init()
 
 # Use numpy arrays for vectors, matrices. Examples:
-a  = np.arange(10)  # OR: np.array([0,1,2,3,4,5,6,7,8,9])
-Id = 2*np.eye(10)   # OR: np.diag(2*np.ones(10))
+a = np.arange(10)  # OR: np.array([0,1,2,3,4,5,6,7,8,9])
+Id = 2 * np.eye(10)  # OR: np.diag(2*np.ones(10))
 
 print("Indexing examples:")
 print("a         =", a)
@@ -66,9 +67,9 @@ print("a[-1]     =", a[-1])
 print("Id[:3,:3] =", Id[:3, :3], sep="\n")
 
 print("Linear algebra examples:")
-print("100 + a =", 100+a)
-print("Id @ a  =", Id@a)
-print("Id * a  =", Id*a, sep="\n")
+print("100 + a =", 100 + a)
+print("Id @ a  =", Id @ a)
+print("Id * a  =", Id * a, sep="\n")
 
 fig, ax = plotting.freshfig("Plotting example", figsize=(6, 3))
 ax.set_ylabel("$i \\, x^2$")
@@ -120,14 +121,14 @@ perm = Dict()
 
 # Production
 prod = Dict(
-    past = Dict(),
-    futr = Dict(),
+    past=Dict(),
+    futr=Dict(),
 )
 
 # Water saturation
 wsat = Dict(
-    past = Dict(),
-    futr = Dict(),
+    past=Dict(),
+    futr=Dict(),
 )
 # -
 
@@ -147,9 +148,11 @@ wsat = Dict(
 # *If* we use the exponential, then we will be working with log-permeabilities.
 # Here we use an almost-exponential transform (presumably making the problem slightly trickier).
 
+
 def perm_transf(x):
-    return .1 + np.exp(5*x)
+    return 0.1 + np.exp(5 * x)
     # return 1000*np.exp(3*x)
+
 
 # In any case, the transform should be chosen so that the parameterized permeabilities
 # are suited for ensemble methods, i.e. are distributed as a Gaussian.  But this
@@ -159,18 +162,22 @@ def perm_transf(x):
 # Since this is a synthetic case, we can freely choose the distribution of the
 # parameterized permeabilities, which we take to be Gaussian.
 
+
 def sample_prior_perm(N):
     lperms = geostat.gaussian_fields(model.mesh, N, r=0.8)
     return lperms
 
+
 # For many kinds of parameters, one typically has to write "setter" functions that take
 # the vector of parameter parameter values, and apply it to the specific model implementation.
+
 
 def set_perm(model, log_perm_array):
     """Set perm. in model code (both x and y components)."""
     p = perm_transf(log_perm_array)
     p = p.reshape(model.shape)
     model.K = np.stack([p, p])
+
 
 perm.Truth = sample_prior_perm(1)
 set_perm(model, perm.Truth)
@@ -182,10 +189,10 @@ set_perm(model, perm.Truth)
 # So all we need to specify is their placement and flux (which we will not vary in time).
 # The code below generates the (x,y) coordinates of a point near each of the 4 corners.
 
-near01 = np.array([.12, .87])
+near01 = np.array([0.12, 0.87])
 xy_4corners = [[x, y]
                for y in model.Ly*near01
-               for x in model.Lx*near01]
+               for x in model.Lx*near01]  # fmt: skip
 
 # Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
 # is incompressible, the total of the source terms must equal that of the sinks.
@@ -193,7 +200,7 @@ xy_4corners = [[x, y]
 
 nPrd = len(xy_4corners)
 model.prd_xy = xy_4corners
-model.inj_xy = [[model.Lx/2, model.Ly/2]]
+model.inj_xy = [[model.Lx / 2, model.Ly / 2]]
 model.inj_rates = [[1]]
 model.prd_rates = np.ones((nPrd, 1)) / nPrd
 
@@ -206,7 +213,7 @@ model.prd_rates = np.ones((nPrd, 1)) / nPrd
 
 fig, ax = plotting.freshfig("True field")
 # model.plt_field(ax, perm.Truth, "pperm")
-model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);
+model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);  # fmt: skip
 
 # #### Observation operator
 # The data will consist in the water saturation of at the production well locations.
@@ -215,15 +222,18 @@ model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);
 # on the incurred nonlinearity and non-Gaussianity) observation models of any complexity.
 
 prod_inds = model.xy2ind(*model.prd_xy.T)
+
+
 def obs_model(water_sat):
     return water_sat[prod_inds]
+
 
 # #### Simulation
 # The following generates the synthetic truth evolution and data.
 
 T = 1
 dt = 0.025
-nTime = round(T/dt)
+nTime = round(T / dt)
 
 wsat0 = np.zeros(model.Nxy)
 wsat.past.Truth = model.sim(dt, nTime, wsat0)
@@ -235,7 +245,7 @@ prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = model.anim(wsat.past.Truth, prod.past.Truth);
+animation = model.anim(wsat.past.Truth, prod.past.Truth);  # fmt: skip
 
 # Note: can take up to a minute to appear
 animation
@@ -253,7 +263,7 @@ for iT in range(nTime):
 # Plot of observations (and their noise):
 
 fig, ax = plotting.freshfig("Observations")
-model.plt_production(ax, prod.past.Truth, prod.past.Noisy);
+model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
 
 # Note that several observations are above 1,
 # which is "unphysical" or not physically "realisable".
@@ -286,11 +296,14 @@ fig, ax = plotting.freshfig("Perm. distribution", figsize=(7, 3))
 bins = np.linspace(*plotting.styles["pperm"]["levels"][[0, -1]], 32)
 for label, perm_field in perm.items():
     x = perm_field.ravel()
-    ax.hist(perm_transf(x),
-            perm_transf(bins),
-            # Divide counts by N to emulate `density=1` for log-scale.
-            weights=(np.ones_like(x)/N if label != "Truth" else None),
-            label=label, alpha=0.3)
+    ax.hist(
+        perm_transf(x),
+        perm_transf(bins),
+        # Divide counts by N to emulate `density=1` for log-scale.
+        weights=(np.ones_like(x) / N if label != "Truth" else None),
+        label=label,
+        alpha=0.3,
+    )
 ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
 ax.legend()
 fig.tight_layout()
@@ -304,14 +317,14 @@ plt.show()
 # #### Field plots
 # Below we can see some (pre-perm) realizations (members) from the ensemble.
 
-plotting.fields(model, perm.Prior, "pperm", "Prior");
+plotting.fields(model, perm.Prior, "pperm", "Prior");  # fmt: skip
 
 # #### Variance/Spectrum
 # In practice we would not be using an explicit `Cov` matrix when generating
 # the prior ensemble, because it would be too large. However, we could inspect the spectrum.
 
 U, svals, VT = sla.svd(perm.Prior)
-plotting.spectrum(svals, "Prior cov.");
+plotting.spectrum(svals, "Prior cov.");  # fmt: skip
 
 # ## Forward model
 
@@ -335,13 +348,15 @@ plotting.spectrum(svals, "Prior cov.");
 # Stitching together a composite model is not usually a pleasant task.
 # Some tools like [ERT](https://github.com/equinor/ert) can make it a little easier.
 
+
 def comp1(perm, wsat0=wsat0):
     """Composite forward/forecast/prediction model (for 1 realisation)."""
-    new_model = copy.deepcopy(model)                    # don't overwrite truth model
-    set_perm(new_model, perm)                           # set parameters
-    wsats = new_model.sim(dt, nTime, wsat0, pbar=False) # run simulator
-    prods = np.array([obs_model(x) for x in wsats[1:]]) # extract prod time series
+    new_model = copy.deepcopy(model)  # don't overwrite truth model
+    set_perm(new_model, perm)  # set parameters
+    wsats = new_model.sim(dt, nTime, wsat0, pbar=False)  # run simulator
+    prods = np.array([obs_model(x) for x in wsats[1:]])  # extract prod time series
     return wsats, prods
+
 
 # Note that the input to `forward_model` can contain **not only** permeability fields,
 # but **also** the state (i.e. time-dependent, prognostic) variable, i.e. water saturations.
@@ -358,11 +373,13 @@ def comp1(perm, wsat0=wsat0):
 # "embarrasingly parallelizable", because each member simulation
 # is completely independent (requires no communication) from the others.
 
+
 def forward_model(*args, leave=True, desc="Ens-run", **kwargs):
     """Parallelize forward model (`comp1`)."""
     pbar = dict(leave=leave, desc=desc)
     output = apply(comp1, *args, pbar=pbar, **kwargs)
     return [np.asarray(y) for y in zip(*output)]
+
 
 # Configure the number of CPUs to use in `apply`. Can set to an `int` or False.
 
@@ -375,7 +392,7 @@ utils.nCPU = "auto"
 # later, is part of the assimilation process.
 
 (wsat.past.Prior,
- prod.past.Prior) = forward_model(perm.Prior)
+ prod.past.Prior) = forward_model(perm.Prior)  # fmt: skip
 
 # #### Flattening the time dimension
 
@@ -386,20 +403,22 @@ utils.nCPU = "auto"
 # Providing we stick to a given array axis ordering,
 # here is a convenient function for juggling the array shapes.
 
+
 def vect(x, undo=False):
     """Unravel/flatten the last two axes. Assumes axis `-2` has length `nTime`."""
     # Works both for ensemble (3D) and single-realisation (2D) arrays.
     if undo:
         *N, ab = x.shape
-        return x.reshape(N + [nTime, ab//nTime])
+        return x.reshape(N + [nTime, ab // nTime])
     else:
         *N, a, b = x.shape
-        return x.reshape(N + [a*b])
+        return x.reshape(N + [a * b])
+
 
 # Similarly, we need to specify the observation error covariance matrix for the
 # flattened observations.
 
-augmented_obs_error_cov = sla.block_diag(*[R]*nTime)
+augmented_obs_error_cov = sla.block_diag(*[R] * nTime)
 
 # ## Correlation study (*a-priori*)
 
@@ -449,9 +468,10 @@ augmented_obs_error_cov = sla.block_diag(*[R]*nTime)
 # Available variable types
 prior_fields = {
     "Saturation": lambda time: wsat.past.Prior[:, time],
-    "Pre-perm"  : lambda time: perm.Prior,
-    "Perm"      : lambda time: perm_transf(perm.Prior),
-}
+    "Pre-perm"  : lambda _time: perm.Prior,
+    "Perm"      : lambda _time: perm_transf(perm.Prior),
+}  # fmt: skip
+
 
 # Compute correlation field
 def corr_comp(N, Field, T, Point, t, x, y):
@@ -460,15 +480,16 @@ def corr_comp(N, Field, T, Point, t, x, y):
     Field = prior_fields[Field](T)
     return utils.corr(Field[:N], Point[:N])
 
+
 # Register controls
 corr_comp.controls = dict(
-    N = (2, N),
-    Field = list(prior_fields),
-    T = (0, nTime),
-    Point = list(prior_fields),
-    t = (0, nTime),
-    x = (0, model.Nx-1),
-    y = (0, model.Ny-1),
+    N=(2, N),
+    Field=list(prior_fields),
+    T=(0, nTime),
+    Point=list(prior_fields),
+    t=(0, nTime),
+    x=(0, model.Nx - 1),
+    y=(0, model.Ny - 1),
 )
 # -
 
@@ -550,9 +571,9 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields")
 for i, xy_path in enumerate(xy_max_corr):
     color = dict(color=f"C{1+i}")
-    ax.plot(*xy_path.T, '-o', **color)
-    ax.plot(*xy_path[-1], "s", ms=8, **color) # start
-model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);
+    ax.plot(*xy_path.T, "-o", **color)
+    ax.plot(*xy_path[-1], "s", ms=8, **color)  # start
+model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);  # fmt: skip
 
 # ## Localization tuning
 
@@ -580,7 +601,7 @@ model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);
 
 fig, ax = plotting.freshfig("Tapering ('bump') functions")
 dists = np.linspace(-1, 1, 1001)
-for sharpness in [.01, .1, 1, 10, 100, 1000]:
+for sharpness in [0.01, 0.1, 1, 10, 100, 1000]:
     coeffs = loc.bump_function(dists, sharpness)
     ax.plot(dists, coeffs, label=sharpness)
 ax.legend(title="sharpness")
@@ -638,14 +659,15 @@ distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 # dashboard, but now with some different controls; take a moment to study the
 # function below, which generates the folowing plotted data.
 
+
 def corr_wells(N, t, well, localize, radi, sharp):
     t = t - 1
     if not localize:
         N = -1
     C = utils.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
     if localize:
-        dists = distances_to_obs[:, well + nPrd*t]
-        c = loc.bump_function(dists/radi, 10**sharp)
+        dists = distances_to_obs[:, well + nPrd * t]
+        c = loc.bump_function(dists / radi, 10**sharp)
         C *= c
         C[c < 1e-3] = np.nan
     return C
@@ -688,16 +710,18 @@ plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observ
 # \big( \mathbf{Y} \mathbf{Y}^T + (N{-}1) \mathbf{R} \big)^{-1}
 # \big\{ \mathbf{y} \mathbf{1}^T - [\mathcal{M}(\mathbf{E}) + \mathbf{D}] \big\} $$
 
+
 def ens_update0(ens, obs_ens, observations, perturbs, obs_err_cov):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
-    X, _        = center(ens)
-    Y, _        = center(obs_ens)
+    X, _ = center(ens)
+    Y, _ = center(obs_ens)
     perturbs, _ = center(perturbs, rescale=True)
-    obs_cov     = obs_err_cov*(len(Y)-1) + Y.T@Y
-    obs_pert    = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
+    obs_cov = obs_err_cov * (len(Y) - 1) + Y.T @ Y
+    obs_pert = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
     innovations = observations - (obs_ens + obs_pert)
-    KG          = sla.pinv(obs_cov) @ Y.T @ X
+    KG = sla.pinv(obs_cov) @ Y.T @ X
     return ens + innovations @ KG
+
 
 # Notes:
 #  - The formulae used by the code are transposed and reversed compared to the above.
@@ -722,11 +746,11 @@ gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 # Let us verify that the ensemble update computes this (up to sampling error)
 
 gg_kwargs = dict(
-    ens          = gg_prior,
-    obs_ens      = gg_prior,
-    observations = 10*np.ones(gg_ndim),
-    obs_err_cov  = 2*np.eye(gg_ndim),
-    perturbs     = rnd.randn(*gg_prior.shape),
+    ens=gg_prior,
+    obs_ens=gg_prior,
+    observations=10 * np.ones(gg_ndim),
+    obs_err_cov=2 * np.eye(gg_ndim),
+    perturbs=rnd.randn(*gg_prior.shape),
 )
 gg_postr = ens_update0(**gg_kwargs)
 
@@ -765,10 +789,10 @@ with np.printoptions(precision=2, suppress=True):
 # not come as a surprise to readers familiar with state-vector augmentation.*
 
 kwargs0 = dict(
-    obs_ens      = vect(prod.past.Prior),
-    observations = vect(prod.past.Noisy),
-    perturbs     = rnd.randn(N, nPrd*nTime),
-    obs_err_cov  = augmented_obs_error_cov,
+    obs_ens=vect(prod.past.Prior),
+    observations=vect(prod.past.Noisy),
+    perturbs=rnd.randn(N, nPrd * nTime),
+    obs_err_cov=augmented_obs_error_cov,
 )
 
 # Thus the update is called as follows
@@ -779,14 +803,16 @@ perm.ES = ens_update0(perm.Prior, **kwargs0)
 
 # Let's plot the updated ensemble.
 
-plotting.fields(model, perm.ES, "pperm", "ES (posterior)");
+plotting.fields(model, perm.ES, "pperm", "ES (posterior)");  # fmt: skip
 
 # We will see some more diagnostics later.
 
 # ### With localization
 
+
 def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, taper):
     """Perform local analysis/domain updates using `ens_update0`."""
+
     def local_analysis(ii):
         """Update for domain/batch `ii`."""
         # Get localization mask, coeffs
@@ -799,11 +825,13 @@ def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, 
             return ens[:, ii]
         else:
             c = sqrt(tapering)
-            return ens_update0(ens[:, ii],
-                               obs_ens[:, oBatch]*c,
-                               observations[oBatch]*c,
-                               perturbs[:, oBatch]*c,
-                               obs_err_cov[np.ix_(oBatch, oBatch)])
+            return ens_update0(
+                ens[:, ii],
+                obs_ens[:, oBatch] * c,
+                observations[oBatch] * c,
+                perturbs[:, oBatch] * c,
+                obs_err_cov[np.ix_(oBatch, oBatch)],
+            )
 
     # Run -- could use multiprocessing here (replace `map` by `mp`),
     # but in our case the overhead means that it's not worth it.
@@ -815,6 +843,7 @@ def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, 
         Ea[:, ii] = Eii
 
     return Ea
+
 
 # The form of the localization used in the above code is "local/domain analysis".
 # Note that it sequentially processing batches (subsets/domains)
@@ -828,8 +857,10 @@ def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, 
 # which makes the update process each local domain entirely independently,
 # *assuming an identity forward model, i.e. that `obs := prm + noise`*.
 
+
 def full_localization(batch_inds):
     return batch_inds, 1
+
 
 # #### Bug check
 
@@ -847,8 +878,10 @@ with np.printoptions(precision=2, suppress=True):
 
 # Now consider the following setup.
 
-def no_localization(batch_inds):
+
+def no_localization(_batch_inds):
     return ..., 1  # ellipsis (...) means "all"
+
 
 # Hopefully, using this should output the same ensemble (up to *numerical* error)
 # as `ens_update0`. Let us verify this:
@@ -875,7 +908,7 @@ for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
 
 fig, ax = plotting.freshfig("Computing domains", figsize=(6, 3))
-ax.imshow(Z, cmap="tab20", aspect=.5)
+ax.imshow(Z, cmap="tab20", aspect=0.5)
 fig.tight_layout()
 plt.show()
 
@@ -886,20 +919,21 @@ plt.show()
 # The default `radius` and `sharpness` are the ones we found to be the most
 # promising from the above correlation study.
 
+
 def localization_setup(batch, radius=0.8, sharpness=1):
     dists = distances_to_obs[batch].mean(axis=0)
-    obs_coeffs = loc.bump_function(dists/radius, sharpness)
+    obs_coeffs = loc.bump_function(dists / radius, sharpness)
     obs_mask = obs_coeffs > 1e-3
     return obs_mask, obs_coeffs[obs_mask]
 
+
 # #### Apply as smoother
 
-perm.LES = ens_update0_loc(perm.Prior, **kwargs0,
-                           domains=domains, taper=localization_setup)
+perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localization_setup)
 
 # Again, we plot some updated/posterior fields
 
-plotting.fields(model, perm.LES, "pperm", "LES (posterior)");
+plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
 
 # ### Iterative ensemble smoother
 
@@ -931,17 +965,20 @@ plotting.fields(model, perm.LES, "pperm", "LES (posterior)");
 # yield improved estiamtion accuracy, albeit a the cost of (linearly) more
 # computational effort.
 
+
+# fmt: off
 def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
-    Y0       = sla.pinv(T) @ Y                       # "De-condition"
-    nExs     = Y0.shape[0] - Y0.shape[1]             # nEns - len(y), i.e. "Excess N"
-    V, s, UT = sla.svd(Y0, full_matrices=(nExs>0))   # Decompose
-    cow1s    = N-1 + np.pad(s**2, (0, max(0, nExs))) # Postr. cov_w^{-1} spectrum
-    cowp     = lambda p: (V * cow1s**p) @ V.T        # Postr. cov_w^{-p}
-    grad     = Y0@dy - w*(N-1)                       # Cost function gradient
-    dw       = grad@cowp(-1.0)                       # Gauss-Newton step
-    T        = cowp(-.5) * sqrt(N-1)                 # Transform matrix
+    Y0        = sla.pinv(T) @ Y                          # "De-condition"
+    nExs      = Y0.shape[0] - Y0.shape[1]                # nEns - len(y), i.e. "Excess N"
+    V, s, _UT = sla.svd(Y0, full_matrices = (nExs > 0))  # Decompose
+    cow1s     = N - 1 + np.pad(s**2, (0, max(0, nExs)))  # Postr. cov_w^{-1} spectrum
+    cowp      = lambda p: (V * cow1s**p) @ V.T           # Postr. cov_w^{-p}
+    grad      = Y0 @ dy - w * (N - 1)                    # Cost function gradient
+    dw        = grad @ cowp(-1.0)                        # Gauss-Newton step
+    T         = cowp(-0.5) * sqrt(N - 1)                 # Transform matrix
     return dw, T
+# fmt: on
 
 
 def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
@@ -950,71 +987,71 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     y = observations
     N = len(E)
     N1 = N - 1
-    Rm12T = np.diag(sqrt(1/np.diag(obs_err_cov)))  # TODO?
+    Rm12T = np.diag(sqrt(1 / np.diag(obs_err_cov)))  # TODO?
 
     # Init
-    stat = Dict(dw=[], rmse=[], stepsize=[],
-                obj=Dict(lklhd=[], prior=[], postr=[]))
+    stat = Dict(dw=[], rmse=[], stepsize=[], obj=Dict(lklhd=[], prior=[], postr=[]))
 
     # Init ensemble decomposition.
-    X0, x0 = center(E)    # Decompose ensemble.
-    w      = np.zeros(N)  # Control vector for the mean state.
-    T      = np.eye(N)    # Anomalies transform matrix.
+    X0, x0 = center(E)  # Decompose ensemble.
+    w = np.zeros(N)  # Control vector for the mean state.
+    T = np.eye(N)  # Anomalies transform matrix.
 
     for itr in utils.progbar(range(nIter), desc="Iter.ES"):
         # Compute rmse (vs. supposedly unknown Truth)
         err = E.mean(0) - perm.Truth
-        stat.rmse += [np.sqrt(np.mean(err*err))]  # == norm / sqrt(len)
+        stat.rmse += [np.sqrt(np.mean(err * err))]  # == norm / sqrt(len)
 
         # Forecast.
         _, Eo = forward_model(E, leave=False)
         Eo = vect(Eo)
 
         # Prepare analysis.
-        Y, xo  = center(Eo)         # Get anomalies, mean.
-        dy     = (y - xo) @ Rm12T   # Transform obs space.
-        Y      = Y        @ Rm12T   # Transform obs space.
+        Y, xo = center(Eo)  # Get anomalies, mean.
+        dy = (y - xo) @ Rm12T  # Transform obs space.
+        Y = Y @ Rm12T  # Transform obs space.
 
         # Diagnostics
-        stat.obj.prior += [w@w * N1]
-        stat.obj.lklhd += [dy@dy]
+        stat.obj.prior += [w @ w * N1]
+        stat.obj.lklhd += [dy @ dy]
         stat.obj.postr += [stat.obj.prior[-1] + stat.obj.lklhd[-1]]
 
         reject_step = itr > 0 and stat.obj.postr[itr] > np.min(stat.obj.postr)
         if reject_step:
             # Restore prev. ensemble, lower stepsize
-            stepsize   /= 10
-            w, T        = old  # noqa
+            stepsize /= 10
+            w, T = old  # noqa: F821
         else:
             # Store current ensemble, boost stepsize
-            old         = w, T
-            stepsize   *= 2
-            stepsize    = min(1, stepsize)
+            old = w, T
+            stepsize *= 2
+            stepsize = min(1, stepsize)
 
             dw, T = IES_analysis(w, T, Y, dy)
 
-        stat.dw += [dw@dw / N]
+        stat.dw += [dw @ dw / N]
         stat.stepsize += [stepsize]
 
         # Step
-        w = w + stepsize*dw
-        E = x0 + (w + T)@X0
+        w = w + stepsize * dw
+        E = x0 + (w + T) @ X0
 
-        if stepsize * np.sqrt(dw@dw/N) < wtol:
+        if stepsize * np.sqrt(dw @ dw / N) < wtol:
             break
 
     # The last step must be discarded,
     # because it cannot be validated without re-running the model.
     w, T = old
-    E = x0 + (w+T)@X0
+    E = x0 + (w + T) @ X0
 
     return E, stat
+
 
 # #### Compute
 
 kwargsI = dict(
-    observations = vect(prod.past.Noisy),
-    obs_err_cov  = augmented_obs_error_cov,
+    observations=vect(prod.past.Noisy),
+    obs_err_cov=augmented_obs_error_cov,
 )
 
 perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
@@ -1022,7 +1059,7 @@ perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
 # #### Field plots
 # Let's plot the updated, initial ensemble.
 
-plotting.fields(model, perm.IES, "pperm", "IES (posterior)");
+plotting.fields(model, perm.IES, "pperm", "IES (posterior)");  # fmt: skip
 
 # The following plots the cost function(s) together with the error compared to the true
 # (pre-)perm field as a function of the iteration number. Note that the relationship
@@ -1036,12 +1073,12 @@ for name, J in diagnostics.obj.items():
     ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
 ax.set_xlabel("iteration")
 ax.set_ylabel("RMS mismatch", color="b")
-ax.tick_params(axis='y', labelcolor="b")
+ax.tick_params(axis="y", labelcolor="b")
 ax.legend()
 ax2 = ax.twinx()  # axis for rmse
-ax2.set_ylabel('RMS error', color="r")
+ax2.set_ylabel("RMS error", color="r")
 ax2.plot(diagnostics.rmse, color="r")
-ax2.tick_params(axis='y', labelcolor="r")
+ax2.tick_params(axis="y", labelcolor="r")
 fig.tight_layout()
 plt.show()
 
@@ -1081,7 +1118,7 @@ utils.print_RMSMs(perm, ref="Truth")
 
 perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
-plotting.fields(model, perm_means, "pperm", "Means");
+plotting.fields(model, perm_means, "pperm", "Means");  # fmt: skip
 
 # ### Means vs. Data mismatch (past production)
 # In synthetic experiments such as this one, is is instructive to computing the "error":
@@ -1097,7 +1134,7 @@ plotting.fields(model, perm_means, "pperm", "Means");
 for methd in perm:
     if methd not in prod.past:
         (wsat.past[methd],
-         prod.past[methd]) = forward_model(perm[methd], desc=methd)
+         prod.past[methd]) = forward_model(perm[methd], desc=methd)  # fmt: skip
 
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
 # A particularly interesting case is applying it to the prior's production predictions.
@@ -1110,7 +1147,7 @@ prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), **kwargs0), undo=True)
 
 # #### Production plots
 
-plotting.productions(prod.past, "Past");
+plotting.productions(prod.past, "Past");  # fmt: skip
 
 # ##### Comment on prior
 # Note that the prior "surrounds" the data. This the likely situation in our synthetic
@@ -1164,7 +1201,7 @@ utils.print_RMSMs(prod.past, ref="Noisy")
 
 wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
-plotting.fields(model, wsat_means, "oil", "Means");
+plotting.fields(model, wsat_means, "oil", "Means");  # fmt: skip
 
 # #### Run
 # Now we predict.
@@ -1172,18 +1209,18 @@ plotting.fields(model, wsat_means, "oil", "Means");
 print("Future/prediction")
 
 (wsat.futr.Truth,
- prod.futr.Truth) = comp1(perm.Truth, wsat.curnt.Truth)
+ prod.futr.Truth) = comp1(perm.Truth, wsat.curnt.Truth)  # fmt: skip
 
 for methd in perm:
     if methd not in prod.futr:
         (wsat.futr[methd],
-         prod.futr[methd]) = forward_model(perm[methd], wsat.curnt[methd], desc=methd)
+         prod.futr[methd]) = forward_model(perm[methd], wsat.curnt[methd], desc=methd)  # fmt: skip
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
 
 # #### Production plots
 
-plotting.productions(prod.futr, "Future");
+plotting.productions(prod.futr, "Future");  # fmt: skip
 
 # #### RMS summary
 

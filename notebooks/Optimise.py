@@ -231,14 +231,14 @@ class nabla_ens:
         """Estimate `∇ obj(u)`"""
         U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
-        dJ = self.obj_increments(obj, u, u + dU, pbar)
+        dJ = self.ens_eval(obj, u, u + dU, pbar)
         if self.precond:
             g = dU.T @ dJ / (self.nEns - 1)
         else:
             g = utils.rinv(dU, reg=0.1, tikh=True) @ dJ
         return g
 
-    def obj_increments(self, obj, _u, U, pbar):
+    def ens_eval(self, obj, _u, U, pbar):
         return apply(obj, U, pbar=pbar)  # don't need to `center`
 
 
@@ -813,7 +813,7 @@ def obj(u=None):
 # by the following patch to the way `nabla_ens` computes the increments of `obj`.
 
 
-def dJ_robust(self, obj, u, U, pbar):
+def ens_eval_duplex(self, obj, u, U, pbar):
     if self.robustly == "Paired":
         dJ = apply(self.obj_ux, U, x=self.X, pbar=pbar)
 
@@ -833,7 +833,7 @@ def dJ_robust(self, obj, u, U, pbar):
     return dJ
 
 
-nabla_ens.obj_increments = dJ_robust
+nabla_ens.ens_eval = ens_eval_duplex
 
 # Note that the computational cost of is $2 n_{\text{Ens}}$ simulations
 # rather than $n_{\text{Ens}}^2$ (assuming ensembles of equal size, $n_{\text{Ens}}$).
@@ -841,7 +841,7 @@ nabla_ens.obj_increments = dJ_robust
 # especially since backtracking will also perform a few iterations of $n_{\text{Ens}}$ evaluations.
 # But if $n_{\text{Ens}} > 30$ the cost savings become salient.
 #
-# PS: The cost of `nabla_ens.obj_increments` could be further reduced to just $n_{\text{Ens}}$ simulations
+# PS: The cost of `nabla_ens.ens_eval` could be further reduced to just $n_{\text{Ens}}$ simulations
 # by not computing `Ju`, instead obtaining these objective values
 # from the latest `backtracker` evaluations.
 # However, for the sake of code simplicity,

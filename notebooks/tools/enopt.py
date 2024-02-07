@@ -23,14 +23,14 @@ class nabla_ens:
         """Estimate `∇ obj(u)`"""
         U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]
-        dJ = self.obj_increments(obj, u, u + dU, pbar)
+        dJ = self.ens_eval(obj, u, u + dU, pbar)
         if self.precond:
             g = dU.T @ dJ / (self.nEns-1)
         else:
             g = utils.rinv(dU, reg=.1, tikh=True) @ dJ
         return g
 
-    def obj_increments(self, obj, u, U, pbar):
+    def ens_eval(self, obj, u, U, pbar):
         return apply(obj, U, pbar=pbar)  # don't need to `center`
 
 

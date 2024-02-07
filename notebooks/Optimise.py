@@ -227,7 +227,7 @@ class nabla_ens:
     obj_ux: None = None  # Conditional objective function
     X: None = None  # Uncertainty ensemble
 
-    def __call__(self, obj, u, pbar):
+    def __call__(self, obj, u, pbar=None):
         """Estimate `∇ obj(u)`"""
         U = utils.gaussian_noise(self.nEns, len(u), self.chol)
         dU = center(U)[0]

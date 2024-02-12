@@ -217,6 +217,10 @@ def apply(fun, *args, pbar=True, **kwargs):
             pbar.update()
         pool.clear()
 
+        # Increment eval counter (since they don't communicate back from child processes)
+        if hasattr(fun, "nCalls"):
+            fun.nCalls += len(inputs)
+
     else:
         # Without multiprocessing (⇒ easier debugging)
         output = []

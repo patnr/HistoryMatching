@@ -101,6 +101,7 @@ def GD(objective, u, nabla=nabla_ens(), line_search=backtracker(), nrmlz=True, n
                 break
         else:
             info['cause'] = "❌ GD ran out of iters"
+        info['nIter'] = itr  # should agree with len() of output
         pbar_gd.set_description(info['cause'])
 
     return (np.asarray(arr) for arr in zip(*states))  # "transpose"

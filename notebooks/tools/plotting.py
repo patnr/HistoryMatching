@@ -27,45 +27,55 @@ cmap_corr.set_bad("black")
 
 # Add some styles
 styles["pperm"] = dict(
-    title  = "Pre-Perm",
-    levels = np.linspace(-4, 4, 21),
-    cticks = np.arange(-4, 4+1),
-    cmap   = "jet",
+    title="Pre-Perm",
+    levels=np.linspace(-4, 4, 21),
+    cticks=np.arange(-4, 4 + 1),
+    cmap="jet",
 )
 styles["perm"] = dict(
-    title  = "Perm",
+    title="Perm",
     locator=LogLocator(),
 )
 styles["corr"] = dict(
-    title  = "Correlations",
-    cmap   = cmap_corr,
-    levels = np.linspace(-1.00001, 1.00001, 20),
-    cticks = np.linspace(-1, 1, 6),
+    title="Correlations",
+    cmap=cmap_corr,
+    levels=np.linspace(-1.00001, 1.00001, 20),
+    cticks=np.linspace(-1, 1, 6),
 )
 styles["NPV"] = dict(
-    title  = "NPV",
-    cmap   = plt.get_cmap("inferno"),
+    title="NPV",
+    cmap=plt.get_cmap("inferno"),
 )
 styles["domain"] = dict(
-    title  = "Model domain",
-    cmap   = plt.get_cmap("inferno"),
-    vmin   = 99,
-    vmax   = 99,
+    title="Model domain",
+    cmap=plt.get_cmap("inferno"),
+    vmin=99,
+    vmax=99,
 )
 
 
 show = plt.show  # noqa  # type: ignore
-from matplotlib.colors import AsinhNorm  # noqa  # type: ignore
+from matplotlib.colors import LogNorm, AsinhNorm  # noqa  # type: ignore
 
 
 def freshfig(*args, **kwargs):
-    if not kwargs.get('figsize', None):
-        kwargs['figsize'] = (8, 4)
+    if not kwargs.get("figsize", None):
+        kwargs["figsize"] = (8, 4)
     return mpl_tools.place.freshfig(*args, **kwargs)
 
 
-def fields(model, Zs, style, title="", figsize=(9, 4.05), cticks=None,
-           label_color="k", wells=False, colorbar=True, **kwargs):
+def fields(
+    model,
+    Zs,
+    style,
+    title="",
+    figsize=(9, 4.05),
+    cticks=None,
+    label_color="k",
+    wells=False,
+    colorbar=True,
+    **kwargs,
+):
     """Do `model.plt_field(Z) for Z in Zs`."""
 
     # Create figure using freshfig
@@ -79,14 +89,19 @@ def fields(model, Zs, style, title="", figsize=(9, 4.05), cticks=None,
     # Create axes using AxesGrid
     fig.clear()
     from mpl_toolkits.axes_grid1 import AxesGrid
-    axs = AxesGrid(fig, 111,
-                   nrows_ncols=nRowCol(min(12, len(Zs))).values(),
-                   cbar_mode='single', cbar_location='right',
-                   share_all=True,
-                   axes_pad=0.2,
-                   cbar_pad=0.1)
+
+    axs = AxesGrid(
+        fig,
+        111,
+        nrows_ncols=nRowCol(min(12, len(Zs))).values(),
+        cbar_mode="single",
+        cbar_location="right",
+        share_all=True,
+        axes_pad=0.2,
+        cbar_pad=0.1,
+    )
     # Turn off redundant axes
-    for ax in axs[len(Zs):]:
+    for ax in axs[len(Zs) :]:
         ax.set_visible(False)
 
     # Convert (potential) list-like Zs into dict
@@ -97,12 +112,23 @@ def fields(model, Zs, style, title="", figsize=(9, 4.05), cticks=None,
     hh = []
     for ax, label in zip(axs, Zs):
         label_ax(ax, label, c=label_color)
-        hh.append(model.plt_field(ax, Zs[label], style, wells=wells, labels=False,
-                                  colorbar=False, title=None, finalize=False, **kwargs))
+        hh.append(
+            model.plt_field(
+                ax,
+                Zs[label],
+                style,
+                wells=wells,
+                labels=False,
+                colorbar=False,
+                title=None,
+                finalize=False,
+                **kwargs,
+            )
+        )
 
     # Axis labels
-    fig.supxlabel('x')
-    fig.supylabel('y')
+    fig.supxlabel("x")
+    fig.supylabel("y")
 
     # Suptitle
     if len(Zs) > len(axs):
@@ -167,7 +193,7 @@ def init():
     However, on Colab (i.e. `%matplotlib inline`), the animation still displayed double.
     """
     if mpl_tools.is_notebook_or_qt:
-        mpl.rc('animation', html="jshtml")
+        mpl.rc("animation", html="jshtml")
 
         # mpl.rcParams["figure.figsize"] = [5, 3.5]
         # NB: Non-default figsize/fontsize may cause axis labels/titles
@@ -181,7 +207,7 @@ def init():
 
         try:
             # Colab
-            import google.colab  # type: ignore
+            import google.colab  # type: ignore  # noqa: F401
             # [colab-specific adjustments]
 
         except ImportError:
@@ -207,7 +233,7 @@ def init():
 
     else:
         # Script run
-        mpl.rcParams.update({'font.size': 10})
+        mpl.rcParams.update({"font.size": 10})
         try:
             mpl.use("Qt5Agg")
         except ImportError:
@@ -224,6 +250,7 @@ def interact(side="top", wrap=True, **kwargs):
 
     Tested with ipympl and inline mpl backends.
     """
+
     def decorator(plotter):
         # NB: `plotter` must use `freshfig` and call `plt.show()` at the end.
         #
@@ -252,15 +279,16 @@ def interact(side="top", wrap=True, **kwargs):
         for w in ww:
             try:
                 # Disable continuous_update on Colab
-                import google.colab  # type: ignore
+                import google.colab  # type: ignore  # noqa: F401
+
                 w.continuous_update = False
             except ImportError:
                 pass
 
         if wrap:
-            cpanel = wg.HBox(ww, layout=dict(flex_flow='row wrap'))
+            cpanel = wg.HBox(ww, layout=dict(flex_flow="row wrap"))
         else:
-            cpanel = wg.VBox(ww, layout=dict(align_items='center', justify_content='center'))
+            cpanel = wg.VBox(ww, layout=dict(align_items="center", justify_content="center"))
         match side:
             case "left":
                 dashboard = wg.HBox([cpanel, out])
@@ -268,28 +296,27 @@ def interact(side="top", wrap=True, **kwargs):
                 dashboard = wg.HBox([out, cpanel])
             case "bottom":
                 dashboard = wg.VBox([out, cpanel])
-            case _: # top
+            case _:  # top
                 dashboard = wg.VBox([cpanel, out])
 
         display(dashboard)
         linked.update()
+
     return decorator
 
 
 # TODO: unify with layout1 (and make use of interactive() above)
 def field_console(model, compute, style, title="", figsize=None, **kwargs):
     """`model.plt_field(compute())` in particular layout along w/ `compute.controls`."""
-    title  = dash_join("Console", title)
-    ctrls  = compute.controls.copy()  # gets modified
+    title = dash_join("Console", title)
+    ctrls = compute.controls.copy()  # gets modified
 
     def plot(**kw):
         fig, ax = freshfig(title, figsize=figsize)
 
         # Ignore warnings due to computing and plotting contour/nan
-        with warnings.catch_warnings(), \
-                np.errstate(divide="ignore", invalid="ignore"):
-            warnings.filterwarnings(
-                "ignore", category=UserWarning, module="matplotlib.contour")
+        with warnings.catch_warnings(), np.errstate(divide="ignore", invalid="ignore"):
+            warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib.contour")
             Z = compute(**kw)
 
         model.plt_field(ax, Z, style, colorbar=True, finalize=False, **kwargs)
@@ -313,15 +340,14 @@ def field_console(model, compute, style, title="", figsize=None, **kwargs):
         if "Slider" in str(type(w)):
             w.continuous_update = False  # => faster
         elif "Dropdown" in str(type(w)):
-            w.layout.width = 'max-content'
+            w.layout.width = "max-content"
 
     # Layout
     try:
         layout = layout1(ww, output)
     except (ValueError, IndexError):
         # Fallback
-        cpanel = wg.VBox(ww, layout=dict(align_items='center',
-                                         justify_content='center'))
+        cpanel = wg.VBox(ww, layout=dict(align_items="center", justify_content="center"))
         layout = wg.HBox([output, cpanel])
 
     # Display
@@ -357,6 +383,7 @@ def layout1(ww, output):
 
     try:
         import google.colab  # type: ignore # noqa
+
         isColab = True
     except ImportError:
         isColab = False
@@ -396,39 +423,43 @@ def ens_style(label, N=100):
     """Line styling for ensemble production plots."""
     style = Dict(
         label=label,
-        c="k", alpha=1.0, lw=0.5,
-        ls="-", marker="", ms=4,
+        c="k",
+        alpha=1.0,
+        lw=0.5,
+        ls="-",
+        marker="",
+        ms=4,
     )
     if label == "Truth":
-        style.lw     = 2
+        style.lw = 2
         style.zorder = 2.1
     if label == "Noisy":
         style.label = "Obs"
-        style.ls     = ""
+        style.ls = ""
         style.marker = "*"
     if label == "Prior":
-        style.c      = "C0"
-        style.alpha  = .3
+        style.c = "C0"
+        style.alpha = 0.3
     if label == "ES":
         # style.label = "Ens. Smooth."
-        style.c      = "C1"
-        style.alpha  = .3
+        style.c = "C1"
+        style.alpha = 0.3
     if label == "ES0":
-        style.c      = "C2"
-        style.alpha  = .3
+        style.c = "C2"
+        style.alpha = 0.3
         style.zorder = 1.9
     if label == "IES":
-        style.c      = "C5"
-        style.alpha  = .3
+        style.c = "C5"
+        style.alpha = 0.3
     if label == "LES":
-        style.c      = "C4"
-        style.alpha  = .3
+        style.c = "C4"
+        style.alpha = 0.3
     if label == "ILES":
-        style.c      = "C8"
-        style.alpha  = .3
+        style.c = "C8"
+        style.alpha = 0.3
 
     # Incrase alpha if N is small
-    style.alpha **= (1 + np.log10(N/100))
+    style.alpha **= 1 + np.log10(N / 100)
 
     return style
 
@@ -437,6 +468,7 @@ def ens_style(label, N=100):
 # mpl backends (=> not available on Colab), can be found in mpl_tools.
 def toggle_items(wrapped):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
+
     def new(*args, **kwargs):
         checkmarks = {label: True for label in args[0]}
         linked = wg.interactive(wrapped(*args, **kwargs), **checkmarks)
@@ -454,7 +486,7 @@ def toggle_items(wrapped):
             # Color borders (background/face is impossible, see refs) of checkmarks
             # - https://stackoverflow.com/a/54896280/
             # - https://github.com/jupyter-widgets/ipywidgets/issues/710
-            c = ens_style(w.description, N=1)['c']
+            c = ens_style(w.description, N=1)["c"]
             c = mpl.colors.to_hex(c, keep_alpha=False)
             w.layout.border = "solid 7px" + c
 
@@ -462,10 +494,11 @@ def toggle_items(wrapped):
             w.layout.align_items = "center"
             w.layout.padding = ".9em 0 .7em 0"
 
-        cpanel = wg.VBox(ww, layout=dict(align_items='center', justify_content='center'))
+        cpanel = wg.VBox(ww, layout=dict(align_items="center", justify_content="center"))
         layout = wg.HBox([output, cpanel])
         display(layout)
         linked.update()
+
     return new
 
 
@@ -481,7 +514,7 @@ def productions(dct, title="", figsize=(8, 3.5), nProd=None):
     kw_subplots = dict(num=title, figsize=figsize, **nRowCol(nProd), sharex=True, sharey=True)
 
     def plot(**labels):
-        fig, axs = freshfig(**kw_subplots)
+        _fig, axs = freshfig(**kw_subplots)
         axs = axs.ravel()
 
         # Turn off redundant axes
@@ -491,7 +524,7 @@ def productions(dct, title="", figsize=(8, 3.5), nProd=None):
         # For each axis/well
         for i in range(nProd):
             ax = axs[i]
-            label_ax(ax, f"Well {i}", x=.99, ha="right")
+            label_ax(ax, f"Well {i}", x=0.99, ha="right")
 
             for label, series in dct.items():
                 if not labels[label]:
@@ -502,10 +535,10 @@ def productions(dct, title="", figsize=(8, 3.5), nProd=None):
                 props = ens_style(label, N=len(some_ensemble))
 
                 # Plot
-                ll = ax.plot(1 - series.T[i], **props)  # noqa
+                _ll = ax.plot(1 - series.T[i], **props)  # noqa
 
                 # Rm duplicate labels
-                # plt.setp(ll[1:], label="_nolegend_")
+                # plt.setp(_ll[1:], label="_nolegend_")
         plt.show()
 
     return plot
@@ -530,13 +563,12 @@ def dash_join(*txts):
     return " -- ".join([t for t in txts if t != ""])
 
 
-def label_ax(ax, txt, x=.01, y=.99, ha="left", va="top",
-             c="k", fontsize="large", bbox=None):
+def label_ax(ax, txt, x=0.01, y=0.99, ha="left", va="top", c="k", fontsize="large", bbox=None):
     if bbox is None:
-        bbox = dict(edgecolor="w", facecolor="w", alpha=.5,
-                    boxstyle="round,pad=0")
-    return ax.text(x, y, txt, c=c, fontsize=fontsize,
-                   ha=ha, va=va, transform=ax.transAxes, bbox=bbox)
+        bbox = dict(edgecolor="w", facecolor="w", alpha=0.5, boxstyle="round,pad=0")
+    return ax.text(
+        x, y, txt, c=c, fontsize=fontsize, ha=ha, va=va, transform=ax.transAxes, bbox=bbox
+    )
 
 
 def figure12(title="", *args, figsize=(9, 3.15), **kwargs):
@@ -551,8 +583,8 @@ def figure12(title="", *args, figsize=(9, 3.15), **kwargs):
 
     ax2.sharex(ax1)
     ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
-    ax1.set_ylabel('Obj')
-    ax2.set_ylabel('|Step|')
+    ax1.set_ylabel("Obj")
+    ax2.set_ylabel("|Step|")
     ax1.tick_params(labelbottom=False)
     ax2.set(xlabel="itr")
 
@@ -560,7 +592,7 @@ def figure12(title="", *args, figsize=(9, 3.15), **kwargs):
         ax.grid(True, "both", axis="both")
         ax.yaxis.set_label_position("right")
         ax.yaxis.tick_right()
-        ax.yaxis.set_tick_params(labelsize='small')
+        ax.yaxis.set_tick_params(labelsize="small")
     return fig, (ax0, ax1, ax2)
 
 
@@ -570,10 +602,10 @@ def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
     ax1.plot(*path.T[:2], c=color or "g")
     # Path scatter and text
     if len(path) > 1:
-        ii = set(np.logspace(-1e-9, np.log10(len(path))-1e-9, 15, dtype=int))
+        ii = set(np.logspace(-1e-9, np.log10(len(path)) - 1e-9, 15, dtype=int))
     else:
         ii = [0]
-    cm = plt.get_cmap('viridis_r')(np.linspace(0.0, 1, len(ii)))
+    cm = plt.get_cmap("viridis_r")(np.linspace(0.0, 1, len(ii)))
     for k, c in zip(ii, cm):
         if color:
             c = color
@@ -584,10 +616,10 @@ def add_path12(ax1, ax2, ax3, path, objs=None, color=None, labels=True):
 
     if objs is not None:
         # Objective values
-        ax2.plot(objs, color=color or 'C0', marker='.', ms=3**2)
+        ax2.plot(objs, color=color or "C0", marker=".", ms=3**2)
 
         # Step magnitudes
-        xx = np.arange(len(path)-1) + .5
+        xx = np.arange(len(path) - 1) + 0.5
         dd = np.diff(path, axis=0)
-        yy = np.sqrt(np.mean(dd*dd, -1))  # == norm / sqrt(len)
-        ax3.plot(xx, yy, color=color or "C1", marker='.', ms=3**2)
+        yy = np.sqrt(np.mean(dd * dd, -1))  # == norm / sqrt(len)
+        ax3.plot(xx, yy, color=color or "C1", marker=".", ms=3**2)

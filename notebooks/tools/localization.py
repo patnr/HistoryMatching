@@ -76,7 +76,7 @@ def pairwise_distances(A, B=None, domain=None):
     if domain:
         domain = np.reshape(domain, (1, 1, -1))  # for broadcasting
         d = abs(d)
-        d = np.minimum(d, domain-d)
+        d = np.minimum(d, domain - d)
 
     distances = np.sqrt((d * d).sum(axis=-1))
 
@@ -86,7 +86,7 @@ def pairwise_distances(A, B=None, domain=None):
 def bump_function(distances, sharpness=1):
     mask = np.abs(distances) < 1  # only compute for |distances|<1
     x = distances[mask]
-    v = np.exp(1 - 1/(1 - x*x)) ** sharpness
+    v = np.exp(1 - 1 / (1 - x * x)) ** sharpness
     coeffs = np.zeros_like(distances)
     coeffs[mask] = v
     return coeffs
@@ -117,27 +117,29 @@ def rectangular_partitioning(shape, steps, do_ind=True):
     ... plt.imshow(Z)  # doctest: +SKIP
     """
     import itertools
+
     assert len(shape) == len(steps)
     # ndim = len(steps)
 
     # An ndim list of (average) local grid lengths:
-    nLocs = [round(n/d) for n, d in zip(shape, steps)]
+    nLocs = [round(n / d) for n, d in zip(shape, steps)]
     # An ndim list of (marginal) grid partitions
     # [array_split() handles non-divisibility]:
-    edge_partitions = [np.array_split(np.arange(n), nLoc)
-                       for n, nLoc in zip(shape, nLocs)]
+    edge_partitions = [np.array_split(np.arange(n), nLoc) for n, nLoc in zip(shape, nLocs)]
 
     batches = []
     for batch_edges in itertools.product(*edge_partitions):
         # The 'indexing' argument below is actually inconsequential:
         # it merely changes batch's internal ordering.
-        batch_rect  = np.meshgrid(*batch_edges, indexing='ij')
-        coords      = [ii.flatten() for ii in batch_rect]
-        batches    += [coords]
+        batch_rect = np.meshgrid(*batch_edges, indexing="ij")
+        coords = [ii.flatten() for ii in batch_rect]
+        batches += [coords]
 
     if do_ind:
+
         def sub2ind(sub):
             return np.ravel_multi_index(sub, shape)
+
         batches = [sub2ind(b) for b in batches]
 
     return batches

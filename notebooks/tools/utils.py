@@ -4,7 +4,7 @@ import numpy as np
 import numpy.random as rnd
 import scipy.linalg as sla
 
-from adjustText import adjust_text  # noqa
+# from adjustText import adjust_text
 
 
 def center(E, axis=0, rescale=False):
@@ -21,7 +21,7 @@ def center(E, axis=0, rescale=False):
 
     if rescale:
         N = E.shape[axis]
-        X *= np.sqrt(N/(N-1))
+        X *= np.sqrt(N / (N - 1))
 
     x = x.squeeze()
 
@@ -44,7 +44,7 @@ def corr(a, b):
     C = cov(a, b)
 
     sa = np.std(a.T, axis=-1, ddof=1)
-    sb = np.std(b  , axis=+0, ddof=1, keepdims=True)
+    sb = np.std(b, axis=+0, ddof=1, keepdims=True)
     # with np.errstate(divide="ignore", invalid="ignore"):
     Corr = C / sa / sb
 
@@ -81,7 +81,7 @@ def rinv(A, reg, tikh=True, nMax=None):
     else:
         s0 = s >= reg
         s1 = np.zeros_like(s)
-        s1[s0] = 1/s[s0]
+        s1[s0] = 1 / s[s0]
 
     if nMax:
         s1[nMax:] = 0
@@ -104,10 +104,9 @@ def print_RMSMs(series, ref):
 
     # Print table heading
     header = "Series    rms err  rms dev"
-    print(header, "-"*len(header), sep="\n")
+    print(header, "-" * len(header), sep="\n")
 
     for k, y in series.items():
-
         # Ensure non-ensemble series also has singleton axis 0
         if y.ndim < x.ndim:
             y = y[None, :]
@@ -121,20 +120,20 @@ def print_RMSMs(series, ref):
 def _mnorm(x, axis=0):
     """L2 norm. Uses `mean` (unlike usual `sum`) for dimension agnosticity."""
     # return numpy.linalg.norm(xx/sqrt(len(xx)), ord=2)
-    return np.sqrt(np.mean(x*x, axis))
+    return np.sqrt(np.mean(x * x, axis))
 
 
-def pCircle(degree, Lx, Ly, p=4, norm_val=.87):
+def pCircle(degree, Lx, Ly, p=4, norm_val=0.87):
     """Compute `(x, y)` at angle `degree` with `p-norm = norm_val`."""
     # Also center in, and scale by, model domain, i.e. `Lx, Ly`
     radians = 2 * np.pi * degree / 360
     c = np.cos(radians)
     s = np.sin(radians)
-    norm = (np.abs(c)**p + np.abs(s)**p)**(1/p)
-    x = norm_val/norm * c
-    y = norm_val/norm * s
-    x = Lx/2 * (1 + x)
-    y = Ly/2 * (1 + y)
+    norm = (np.abs(c) ** p + np.abs(s) ** p) ** (1 / p)
+    x = norm_val / norm * c
+    y = norm_val / norm * s
+    x = Lx / 2 * (1 + x)
+    y = Ly / 2 * (1 + y)
     x = np.round(x, 2)
     y = np.round(y, 2)
     return x, y
@@ -159,7 +158,7 @@ def apply(fun, *args, pbar=True, **kwargs):
     - Robust interpretation of `nCPU`.
     """
     # Set nCore
-    is_int = type(nCPU) == int  # NB: `isinstance(True, int)` is True
+    is_int = type(nCPU) == int  # NB: `isinstance(True, int)` is True  # noqa: E721
     if not is_int and nCPU in [True, None, "auto"]:
         nCore = 999
     else:
@@ -197,14 +196,17 @@ def apply(fun, *args, pbar=True, **kwargs):
     # Main
     if nCore > 1:
         import multiprocessing
+
         nCore = min(multiprocessing.cpu_count(), nCore)
 
         # make np use only 1 core
         import threadpoolctl
+
         threadpoolctl.threadpool_limits(1)
 
         # Similar to built-in multiprocessing, but with improved pickle (dill)
         from pathos.multiprocessing import ProcessPool
+
         pool = ProcessPool(nCore)
 
         # Map must be non-blocking (allow tqdm to update) and ordered ⇒ imap
@@ -241,7 +243,7 @@ def progbar(*args, **kwargs):
     # Remove '<{remaining}' because it is somwhat unreliable,
     # and hard to distinguish at a glance from 'elapsed')
     frmt = "{l_bar}|{bar}| {n_fmt}/{total_fmt}, ⏱️ {elapsed}, {rate_fmt}{postfix}"
-    kwargs.setdefault('bar_format', frmt)
+    kwargs.setdefault("bar_format", frmt)
 
     # Choose between Jupyter, std
     from tqdm.auto import tqdm

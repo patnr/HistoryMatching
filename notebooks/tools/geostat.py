@@ -7,7 +7,7 @@ from mpl_tools.misc import nRowCol
 from numpy.random import randn
 
 
-def variogram_gauss(xx, r, n=0, a=1/3):
+def variogram_gauss(xx, r, n=0, a=1 / 3):
     """Compute the Gaussian variogram for the 1D points xx.
 
     Params:
@@ -22,9 +22,9 @@ def variogram_gauss(xx, r, n=0, a=1/3):
     array([0.        , 0.6689085 , 0.98351593])
     """
     # Gauss
-    gamma = 1 - np.exp(-xx**2/r**2/a)
+    gamma = 1 - np.exp(-(xx**2) / r**2 / a)
     # Sill (=1)
-    gamma *= (1-n)
+    gamma *= 1 - n
     # Nugget
     gamma[xx != 0] += n
     return gamma
@@ -63,11 +63,11 @@ def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
     ...     return funm_psd(C, sqrt)
     """
     # EVD -- possibly truncated (for speed)
-    idx = [max(0, len(C)-rk), len(C)-1] if rk else None
+    idx = [max(0, len(C) - rk), len(C) - 1] if rk else None
     ews, V = sla.eigh(C, subset_by_index=idx, **kwargs)
 
     # Truncate (for stability) -- NB: ordering low-->high!
-    nNull = sum(ews <= rtol*ews.max())
+    nNull = sum(ews <= rtol * ews.max())
     ews = ews[nNull:]
     V = V[:, nNull:]
 
@@ -82,6 +82,7 @@ def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
         funC = funC @ V.T
     return funC
 
+
 def gaussian_fields(pts, N=1, r=0.2):
     """Random field generation.
 
@@ -89,11 +90,11 @@ def gaussian_fields(pts, N=1, r=0.2):
     - Gaussian variogram.
     - Gaussian distributions.
     """
-    dists  = dist_euclid(vectorize(*pts))
-    Cov    = 1 - variogram_gauss(dists, r)
+    dists = dist_euclid(vectorize(*pts))
+    Cov = 1 - variogram_gauss(dists, r)
     # C12    = sla.sqrtm(Cov).real.T                      # unstable for n >≈ 20
     # C12    = funm_psd(Cov, np.sqrt, sym_square=True).T  # too slow for n >= 50^2
-    C12    = sla.cholesky(Cov + 1e-10*np.eye(len(Cov)))
+    C12 = sla.cholesky(Cov + 1e-10 * np.eye(len(Cov)))
     fields = randn(N, len(C12)) @ C12
     return fields
 
@@ -115,11 +116,10 @@ if __name__ == "__main__":
     ax.plot(xx, fields.T, lw=2)
 
     ## 2D
-    fig, axs = plt.subplots(
-        num="2D-fields", **nRowCol(min(12, N)), sharex=True, sharey=True)
+    fig, axs = plt.subplots(num="2D-fields", **nRowCol(min(12, N)), sharex=True, sharey=True)
     grid = Grid2D(Lx=1, Ly=1, Nx=20, Ny=20)
     fields = gaussian_fields(grid.mesh, N)
-    fields = 0.5 + .2*fields
+    fields = 0.5 + 0.2 * fields
     for field, ax in zip(fields, axs.ravel()):
         cc = ax.contourf(field.reshape(grid.shape).T, levels=17)
         ax.contour(field.reshape(grid.shape).T, levels=17)

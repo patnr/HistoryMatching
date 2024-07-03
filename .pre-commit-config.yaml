@@ -1,41 +1,41 @@
 # Use `pre-commit autoupdate --bleeding-edge` to set to most recent version
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.4.0
     hooks:
-    -   id: check-yaml
-    -   id: check-added-large-files
-    -   id: detect-private-key
-    -   id: check-merge-conflict
-    -   id: debug-statements
-    # -   id: requirements-txt-fixer
-    -   id: end-of-file-fixer
-    -   id: mixed-line-ending
-        args: ['--fix=no']
-    -   id: trailing-whitespace
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: debug-statements
+      # -   id: requirements-txt-fixer
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=no"]
+      - id: trailing-whitespace
         exclude: |
-            (?x)( # make whitespace in this regex insignificant and allow comments
-                ^README.md| # I use double-space line-endings a lot in my MD.
-                ^.*.md| # MD also used in answers.
-            )
+          (?x)( # make whitespace in this regex insignificant and allow comments
+              ^README.md| # I use double-space line-endings a lot in my MD.
+              ^.*.md| # MD also used in answers.
+          )
 
-- repo: https://github.com/patnr/nbhooks.git
-  rev: v1.4.1
-  hooks:
-  - id: nb-ensure-clean
-    # Optional WHITELIST of metadata keys (you can use regex)
-    args:
-        - --meta
-        - pin_output
-        - --meta
-        - lines_to_next_cell
-        - --meta
-        - lines_to_end_of_cell_marker
-        - --meta
-        - tags
+  - repo: https://github.com/patnr/nbhooks.git
+    rev: v1.4.1
+    hooks:
+      - id: nb-ensure-clean
+        # Optional WHITELIST of metadata keys (you can use regex)
+        args:
+          - --meta
+          - pin_output
+          - --meta
+          - lines_to_next_cell
+          - --meta
+          - lines_to_end_of_cell_marker
+          - --meta
+          - tags
 
-- repo: https://github.com/mwouts/jupytext
-  rev: v1.15.1  # ensure equal to main venv
-  hooks:
-  - id: jupytext
-    args: [--sync]
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.15.1 # ensure equal to main venv
+    hooks:
+      - id: jupytext
+        args: [--sync]

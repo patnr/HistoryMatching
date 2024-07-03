@@ -50,13 +50,14 @@ Ensure the printed version is 3.10 or higher.
 
 ## Developer guide
 
-Personally I prefer to develop mostly in the format of standard python script,
+I prefer to develop mostly in the format of standard python script,
 which is why each notebook corresponds to a `.py` file synced via [jupytext](https://jupytext.readthedocs.io/en/latest/).
-If you use vim I suggest folding the comment blocks (which become markdown cells) using
+The synchronization is done whenever the notebook is saved.
+Also, if you run `pre-commit install`,
+then the notebooks will get synced with the `.py` files before committing.
 
-```vim
-:setlocal foldmethod=expr foldexpr=getline(v:lnum)=~'^\#\ ' fdl=0
-```
+Linting (which is, as of now, just a suggestion) can be run with
+`ruff check --output-format=grouped`.
 
 ## Contributors
 

@@ -39,3 +39,10 @@ repos:
     hooks:
       - id: jupytext
         args: [--sync]
+
+  # Too stringent for now
+  # - repo: https://github.com/astral-sh/ruff-pre-commit
+  #   rev: v0.5.0
+  #   hooks:
+  #     - id: ruff
+  #     - id: ruff-format

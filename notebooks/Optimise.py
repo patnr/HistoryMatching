@@ -492,8 +492,8 @@ model = original_model
 
 x_grid = np.linspace(0, model.Lx, 201)
 npvs = apply(obj, x_grid, pbar="obj(x_grid)")
+# -
 
-# +
 # Plot objective
 fig, ax = plotting.freshfig(f"{obj.__name__}({y})", figsize=(7, 3))
 ax.set(xlabel="x", ylabel="NPV")
@@ -505,7 +505,6 @@ for i, u0 in enumerate(u0s):
     shift = 0.3 * i  # for visual distinction
     ax.plot(path, objs - shift, "-o", c=f"C{i+1}")
 fig.tight_layout()
-# -
 
 # Note that the objective functions appears to jump at regular intervals.
 # This would be even more apparent (no slanting of the "walls") with a higher resolution.

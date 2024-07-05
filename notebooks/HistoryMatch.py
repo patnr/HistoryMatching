@@ -969,6 +969,7 @@ plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
 # fmt: off
 def IES_analysis(w, T, Y, dy):
     """Compute the ensemble analysis."""
+    N         = len(w)
     Y0        = sla.pinv(T) @ Y                          # "De-condition"
     nExs      = Y0.shape[0] - Y0.shape[1]                # nEns - len(y), i.e. "Excess N"
     V, s, _UT = sla.svd(Y0, full_matrices = (nExs > 0))  # Decompose

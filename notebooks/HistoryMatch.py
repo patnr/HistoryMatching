@@ -758,7 +758,7 @@ with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
 
-# ### Apply as smoother
+# ### Apply
 
 # #### Why not filtering?
 # Before ensemble smoothers were used for history matching, it was though that
@@ -927,7 +927,7 @@ def localization_setup(batch, radius=0.8, sharpness=1):
     return obs_mask, obs_coeffs[obs_mask]
 
 
-# #### Apply as smoother
+# #### Apply
 
 perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localization_setup)
 
@@ -1142,6 +1142,7 @@ for methd in perm:
 # This provides another posterior approximation of the production history
 # -- one which doesn't require running the model again
 # (in contrast to what we did for `prod.past.(I)ES` immediately above).
+# The approach is sometimes called data-space inversion.
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
 prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), **kwargs0), undo=True)
@@ -1216,6 +1217,8 @@ for methd in perm:
     if methd not in prod.futr:
         (wsat.futr[methd],
          prod.futr[methd]) = forward_model(perm[methd], wsat.curnt[methd], desc=methd)  # fmt: skip
+
+# Again, data-space inversion requires no new simulations:
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
 

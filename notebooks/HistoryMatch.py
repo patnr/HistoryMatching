@@ -563,16 +563,16 @@ corr_comp.controls = dict(
 # \big\{ \mathbf{y} \mathbf{1}^T - [\mathcal{M}(\mathbf{E}) + \mathbf{D}] \big\} $$
 
 
-def ens_update0(ens, obs_ens, obs, perturbs, obs_err_cov):
+def ens_update0(prior_ens, obs_ens, obs, perturbs, obs_err_cov):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
-    X, _ = center(ens)
+    X, _ = center(prior_ens)
     Y, _ = center(obs_ens)
     perturbs, _ = center(perturbs, rescale=True)
     obs_cov = obs_err_cov * (len(Y) - 1) + Y.T @ Y
     obs_pert = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
     innovations = obs - (obs_ens + obs_pert)
     KG = sla.pinv(obs_cov) @ Y.T @ X
-    return ens + innovations @ KG
+    return prior_ens + innovations @ KG
 
 
 # Notes:
@@ -598,7 +598,7 @@ gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 # Let us verify that the ensemble update computes this (up to sampling error)
 
 gg_kwargs = dict(
-    ens=gg_prior,
+    prior_ens=gg_prior,
     obs_ens=gg_prior,
     obs=10 * np.ones(gg_ndim),
     obs_err_cov=2 * np.eye(gg_ndim),
@@ -660,7 +660,7 @@ perm.ES = ens_update0(perm.Prior, **kwargs0)
 # ### Localization
 
 
-def ens_update0_loc(ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
+def ens_update0_loc(prior_ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
     """Perform local analysis/domain updates using `ens_update0`."""
 
     def local_analysis(ii):
@@ -672,11 +672,11 @@ def ens_update0_loc(ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
         # Update
         if len(oBatch) == 0:
             # no obs ==> no update
-            return ens[:, ii]
+            return prior_ens[:, ii]
         else:
             c = sqrt(tapering)
             return ens_update0(
-                ens[:, ii],
+                prior_ens[:, ii],
                 obs_ens[:, oBatch] * c,
                 obs[oBatch] * c,
                 perturbs[:, oBatch] * c,
@@ -687,8 +687,8 @@ def ens_update0_loc(ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
     # but in our case the overhead means that it's not worth it.
     EE = map(local_analysis, domains)
 
-    # Write to ensemble matrix. NB: don't re-use `ens`!
-    Ea = np.empty_like(ens)
+    # Write to ensemble matrix. NB: don't re-use `prior_ens`!
+    Ea = np.empty_like(prior_ens)
     for ii, Eii in zip(domains, EE):
         Ea[:, ii] = Eii
 
@@ -978,9 +978,9 @@ def IES_analysis(w, T, Y, dy):
 # fmt: on
 
 
-def IES(ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
+def IES(prior_ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     """Iterative ensemble smoother."""
-    E = ens
+    E = prior_ens
     y = obs
     N = len(E)
     N1 = N - 1
@@ -1048,7 +1048,7 @@ def IES(ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 _tmp = forward_model
 forward_model = lambda x, **kwargs: (None, np.expand_dims(x, -2))
-gg_postr = IES(gg_kwargs["ens"], gg_kwargs["obs"], gg_kwargs["obs_err_cov"])[0]
+gg_postr = IES(gg_kwargs["prior_ens"], gg_kwargs["obs"], gg_kwargs["obs_err_cov"])[0]
 forward_model = _tmp
 
 with np.printoptions(precision=2, suppress=True):

@@ -545,154 +545,6 @@ plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=Tru
 # - Now try flipping between low and high values of `N`.
 #   What do you think the tapering radius should be?
 
-# #### Location of correlation extrema
-# In the preceding dashboard we could observe that the "locations" (defined as the
-# location of the maximum) of the correlations (between a given well observation
-# and the permeability field) moved in time. Let us trace these paths computationally.
-# They will be useful later.
-
-xy_max_corr = np.zeros((nPrd, nTime, 2))
-for i, xy_path in enumerate(xy_max_corr):
-    for time in range(6, nTime):
-        C = utils.corr(perm.Prior, prod.past.Prior[:, time, i])
-        xy_path[time] = model.ind2xy(np.argmax(C))
-
-# In general, minima might be just as relevant as maxima.
-# In our case, though, it's a safe bet to focus on the maxima, which also avoids
-# the danger of jumping from one case to another in case of weak correlations.
-#
-# For `time<6`, there is almost zero correlation anywhere,
-# so we should not trust `argmax`. Fallback to `time=6`.
-
-xy_max_corr[:, :6] = xy_max_corr[:, [6]]
-
-# Here is a plot of the paths.
-
-fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields")
-for i, xy_path in enumerate(xy_max_corr):
-    color = dict(color=f"C{1+i}")
-    ax.plot(*xy_path.T, "-o", **color)
-    ax.plot(*xy_path[-1], "s", ms=8, **color)  # start
-model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);  # fmt: skip
-
-# ## Localization tuning
-
-# It is technically challenging to translate/encode **all** of our prior knowledge into
-# the computational form of an ensemble.  It is also computationally demanding, because
-# a finite ensemble size, $N$, will contain sampling errors.  Thus, in principle, there
-# is room to improve the performance of the ensemble methods by "injecting" more prior
-# knowledge somehow, as an "auxiliary" technique.  A particularly effective way is
-# **localization**, wherein we eliminate correlations (i.e. relationships) that we are
-# "pretty sure" are *spurious*: merely due to sampling error, rather than indicative of
-# an actual inter-dependence.
-#
-# Much can be said about the ad-hoc nature of most localization schemes.
-# This is out of scope here.
-# Furthermore, in particular in petroleum reservoir applications,
-# configuring an effective localization setup can be very challenging.
-# If successful, however, localization is unreasonably effective,
-# allowing the use of much smaller ensemble sizes than one would think.
-#
-# In our simple case, it is sufficient to use distance-based localization.
-# Far-away (remote) correlations will be dampened ("tapered").
-# For the shape, we here use the "bump function" rather than the
-# conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
-# function.  It is illustrated here.
-
-fig, ax = plotting.freshfig("Tapering ('bump') functions")
-dists = np.linspace(-1, 1, 1001)
-for sharpness in [0.01, 0.1, 1, 10, 100, 1000]:
-    coeffs = loc.bump_function(dists, sharpness)
-    ax.plot(dists, coeffs, label=sharpness)
-ax.legend(title="sharpness")
-ax.set_xlabel("Distance")
-fig.tight_layout()
-plt.show()
-
-# We will also need the distances, which we can pre-compute.
-# As seen from `distances_to_obs` below, we will need the
-# locations of each observation and each unknown parameter.
-
-xy_obs = model.ind2xy(prod_inds)
-xy_prm = model.ind2xy(np.arange(model.Nxy))
-
-# However, as we saw from the correlation dashboard, the localization should be
-# time dependent. For example, it is tempting to say that remote-in-time (i.e. late)
-# observations should have a larger area of impact,
-# since they are integro-spatio-temperal functions (to use a fancy word) of the perm fields.
-# We could achieve that by adding a time coordinate to `xy_obs` (setting it to 0 for `xy_prm`).
-# However, the correlation dashboard does not really support this "dilation" theory,
-# and we should be careful about growing the tapering mask.
-# So instead, we simply replicate the same locations for each time instance.
-
-xy_obs = np.tile(xy_obs, nTime)
-
-# Actually, we can probably do a little better.  Recall from the correlation
-# dashboard that the the correlation fields were clearly moving in time.
-# Indeed, the maximum of the correlation to an observation was never even at
-# the location of the well. Therefore, we will co-locate the correlation mask
-# with these maxima, which we can achieve by computing distances to the maxima
-# rather than to the wells.
-
-xy_obs = vect(xy_max_corr.T)
-
-# Now we compute the distance between the parameters and the (argmax of the
-# correlations with the) observations.
-
-distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
-
-# The tapering function is similar to the covariance functions used in
-# geostatistics (see Kriging, variograms), and indeed localization can be
-# framed as a hybridisation of ensemble covariances with theoretical ones.
-# However, the ideal tapering function does not generally equal the theoretical
-# covariance function, but must instead be "tuned" for performance in the
-# history match. Here we shall content ourselves simply with tuning a "radius"
-# parameter.  Neverthless, tuning (wrt. history matching performance) is a
-# breathtakingly costly proposition, requiring a great many synthetic
-# experiments. This is made all the worse by the fact that it might have to be
-# revisited later after some other factors have been tuned, or otherwise
-# changed.
-#
-# Therefore, in lieu of such global tuning, we here undertake a study of the
-# direct impact of the localization on the correlation fields. Fortunately, we
-# can mostly just re-use the functionality from the above correlation
-# dashboard, but now with some different controls; take a moment to study the
-# function below, which generates the folowing plotted data.
-
-
-def corr_wells(N, t, well, localize, radi, sharp):
-    t = t - 1
-    if not localize:
-        N = -1
-    C = utils.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
-    if localize:
-        dists = distances_to_obs[:, well + nPrd * t]
-        c = loc.bump_function(dists / radi, 10**sharp)
-        C *= c
-        C[c < 1e-3] = np.nan
-    return C
-
-
-corr_wells.controls = dict(
-    localize=False,
-    radi=(0.1, 5),
-    sharp=(-1.0, 1),
-    N=(2, N),
-    t=(1, nTime),
-    well=np.arange(nPrd),
-)
-
-
-plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observation", wells=True)
-
-
-# - Note that the `N` slider is only active when `localize` is *enabled*.
-#   When localization is not enabled, then the full ensemble size is being used.
-# - Set `N=20` and toggle `localize` on/off, while you play with different values of `radi`.
-#   Try to find a value that makes the `localized` (small-ensemble) fields
-#   resemble (as much as possible) the full-size ensemble fields.
-# - The suggested value from the author is `0.8` (and sharpness $10^0$, i.e. 1).
-
 # ## Assimilation
 
 # ### Ensemble update
@@ -926,6 +778,152 @@ def localization_setup(batch, radius=0.8, sharpness=1):
     obs_mask = obs_coeffs > 1e-3
     return obs_mask, obs_coeffs[obs_mask]
 
+
+# #### Localization tuning
+
+# It is technically challenging to translate/encode **all** of our prior knowledge into
+# the computational form of an ensemble.  It is also computationally demanding, because
+# a finite ensemble size, $N$, will contain sampling errors.  Thus, in principle, there
+# is room to improve the performance of the ensemble methods by "injecting" more prior
+# knowledge somehow, as an "auxiliary" technique.  A particularly effective way is
+# **localization**, wherein we eliminate correlations (i.e. relationships) that we are
+# "pretty sure" are *spurious*: merely due to sampling error, rather than indicative of
+# an actual inter-dependence.
+#
+# Much can be said about the ad-hoc nature of most localization schemes.
+# This is out of scope here.
+# Furthermore, in particular in petroleum reservoir applications,
+# configuring an effective localization setup can be very challenging.
+# If successful, however, localization is unreasonably effective,
+# allowing the use of much smaller ensemble sizes than one would think.
+#
+# In our simple case, it is sufficient to use distance-based localization.
+# Far-away (remote) correlations will be dampened ("tapered").
+# For the shape, we here use the "bump function" rather than the
+# conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
+# function.  It is illustrated here.
+
+fig, ax = plotting.freshfig("Tapering ('bump') functions")
+dists = np.linspace(-1, 1, 1001)
+for sharpness in [0.01, 0.1, 1, 10, 100, 1000]:
+    coeffs = loc.bump_function(dists, sharpness)
+    ax.plot(dists, coeffs, label=sharpness)
+ax.legend(title="sharpness")
+ax.set_xlabel("Distance")
+fig.tight_layout()
+plt.show()
+
+# We will also need the distances, which we can pre-compute.
+# As seen from `distances_to_obs` below, we will need the
+# locations of each observation and each unknown parameter.
+
+xy_obs = model.ind2xy(prod_inds)
+xy_prm = model.ind2xy(np.arange(model.Nxy))
+
+# However, as we saw from the correlation dashboard, the localization should be
+# time dependent. For example, it is tempting to say that remote-in-time (i.e. late)
+# observations should have a larger area of impact,
+# since they are integro-spatio-temperal functions (to use a fancy word) of the perm fields.
+# We could achieve that by adding a time coordinate to `xy_obs` (setting it to 0 for `xy_prm`).
+# However, the correlation dashboard does not really support this "dilation" theory,
+# and we should be careful about growing the tapering mask.
+# So instead, we simply replicate the same locations for each time instance.
+
+xy_obs = np.tile(xy_obs, nTime)
+
+# Now we compute the distance between the parameters and the (argmax of the
+# correlations with the) observations.
+
+distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
+
+# The tapering function is similar to the covariance functions used in
+# geostatistics (see Kriging, variograms), and indeed localization can be
+# framed as a hybridisation of ensemble covariances with theoretical ones.
+# However, the ideal tapering function does not generally equal the theoretical
+# covariance function, but must instead be "tuned" for performance in the
+# history match. Here we shall content ourselves simply with tuning a "radius"
+# parameter.  Neverthless, tuning (wrt. history matching performance) is a
+# breathtakingly costly proposition, requiring a great many synthetic
+# experiments. This is made all the worse by the fact that it might have to be
+# revisited later after some other factors have been tuned, or otherwise
+# changed.
+#
+# Therefore, in lieu of such global tuning, we here undertake a study of the
+# direct impact of the localization on the correlation fields. Fortunately, we
+# can mostly just re-use the functionality from the above correlation
+# dashboard, but now with some different controls; take a moment to study the
+# function below, which generates the folowing plotted data.
+
+
+def corr_wells(N, t, well, localize, radi, sharp):
+    t = t - 1
+    if not localize:
+        N = -1
+    C = utils.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
+    if localize:
+        dists = distances_to_obs[:, well + nPrd * t]
+        c = loc.bump_function(dists / radi, 10**sharp)
+        C *= c
+        C[c < 1e-3] = np.nan
+    return C
+
+
+corr_wells.controls = dict(
+    localize=False,
+    radi=(0.1, 5),
+    sharp=(-1.0, 1),
+    N=(2, N),
+    t=(1, nTime),
+    well=np.arange(nPrd),
+)
+
+
+plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observation", wells=True)
+
+
+# - Note that the `N` slider is only active when `localize` is *enabled*.
+#   When localization is not enabled, then the full ensemble size is being used.
+# - Set `N=20` and toggle `localize` on/off, while you play with different values of `radi`.
+#   Try to find a value that makes the `localized` (small-ensemble) fields
+#   resemble (as much as possible) the full-size ensemble fields.
+# - The suggested value from the author is `0.8` (and sharpness $10^0$, i.e. 1).
+
+# #### Time-dependent localisation
+# In the preceding dashboards we could observe that the "locations" (defined as the
+# location of the maximum) of the correlations (between a given well observation
+# and the permeability field) moved in time. Let us trace these paths computationally.
+
+xy_max_corr = np.zeros((nPrd, nTime, 2))
+for i, xy_path in enumerate(xy_max_corr):
+    for time in range(6, nTime):
+        C = utils.corr(perm.Prior, prod.past.Prior[:, time, i])
+        xy_path[time] = model.ind2xy(np.argmax(C))
+
+# In general, minima might be just as relevant as maxima.
+# In our case, though, it's a safe bet to focus on the maxima, which also avoids
+# the danger of jumping from one case to another in case of weak correlations.
+#
+# For `time<6`, there is almost zero correlation anywhere,
+# so we should not trust `argmax`. Fallback to `time=6`.
+
+xy_max_corr[:, :6] = xy_max_corr[:, [6]]
+
+# Here is a plot of the paths.
+
+fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields")
+for i, xy_path in enumerate(xy_max_corr):
+    color = dict(color=f"C{1+i}")
+    ax.plot(*xy_path.T, "-o", **color)
+    ax.plot(*xy_path[-1], "s", ms=8, **color)  # start
+model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);  # fmt: skip
+
+# An intriguing possibility is to co-locate the correlation masks with the path of the correlation maxima,
+# rather than centering them on the wells directly. However, this is very experimental, and is disabled by default.
+
+# +
+# xy_obs = vect(xy_max_corr.T)
+# distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
+# -
 
 # #### Apply
 

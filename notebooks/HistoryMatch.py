@@ -103,7 +103,7 @@ seed = rnd.seed(1)
 import TPFA_ResSim as simulator
 import tools.localization as loc
 from tools import geostat, plotting, utils
-from tools.utils import center, apply
+from tools.utils import center, apply, emph
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
@@ -1103,7 +1103,7 @@ plt.show()
 # With ensemble methods, it is (typically, and in this case study) applied
 # to the deviation from the **ensemble mean**, whence the trailing `M` in `print_RMSMs` below.
 
-print("Stats vs. true field\n")
+print(f"Accuracy wrt. unknown {emph('parameter')} field\n")
 utils.print_RMSMs(perm, ref="Truth")
 
 # #### Field plots
@@ -1171,7 +1171,7 @@ plotting.productions(prod.past, "Past");  # fmt: skip
 
 # #### RMS summary
 
-print("Stats vs. past production (i.e. NOISY observations)\n")
+print(f"Accuracy wrt. {emph('past')} production (i.e. actual, noisy, obs. data)\n")
 utils.print_RMSMs(prod.past, ref="Noisy")
 
 # Note that, here, the "err" is comptuted vs. the observations,
@@ -1224,7 +1224,7 @@ plotting.productions(prod.futr, "Future");  # fmt: skip
 
 # #### RMS summary
 
-print("Stats vs. (supposedly unknown) future production\n")
+print(f"Accuracy vs. (supposedly unknown) {emph('future')} production\n")
 utils.print_RMSMs(prod.futr, ref="Truth")
 
 # ## Final comments

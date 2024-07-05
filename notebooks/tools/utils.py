@@ -90,6 +90,10 @@ def rinv(A, reg, tikh=True, nMax=None):
     return (VT.T * s1) @ U.T
 
 
+def emph(text):
+    return f"\033[1m{text}\033[0m"
+
+
 def print_RMSMs(series, ref):
     """Print RMS err. and dev., from the Mean (along axis 0), for each item in `series`.
 

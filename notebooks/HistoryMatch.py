@@ -996,8 +996,8 @@ def IES(ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
     for itr in utils.progbar(range(nIter), desc="Iter.ES"):
         # Compute rmse (vs. supposedly unknown Truth)
-        err = E.mean(0) - perm.Truth
-        stat.rmse += [np.sqrt(np.mean(err * err))]  # == norm / sqrt(len)
+        # err = E.mean(0) - perm.Truth
+        # stat.rmse += [np.sqrt(np.mean(err * err))]  # == norm / sqrt(len)
 
         # Forecast.
         _, Eo = forward_model(E, leave=False)
@@ -1045,6 +1045,16 @@ def IES(ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 
 
 # #### Bug check
+
+_tmp = forward_model
+forward_model = lambda x, **kwargs: (None, np.expand_dims(x, -2))
+gg_postr = IES(gg_kwargs["ens"], gg_kwargs["obs"], gg_kwargs["obs_err_cov"])[0]
+forward_model = _tmp
+
+with np.printoptions(precision=2, suppress=True):
+    print("Posterior mean:", np.mean(gg_postr, 0))
+    print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
+
 
 # #### Compute
 

@@ -982,9 +982,9 @@ def IES_analysis(w, T, Y, dy):
 # fmt: on
 
 
-def IES(ensemble, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
+def IES(ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     """Iterative ensemble smoother."""
-    E = ensemble
+    E = ens
     y = obs
     N = len(E)
     N1 = N - 1

@@ -17,8 +17,8 @@
 #
 # For example, try to **edit** the cell below to insert your name, and then **run** it.
 
-name = "Batman"
-print("Hello world! I'm", name)
+# name = "Batman"
+# print("Hello world! I'm", name)
 
 # Next, as an exercise, try to **insert** a new cell here, and compute `23/3`
 
@@ -57,26 +57,26 @@ plotting.init()
 a = np.arange(10)  # OR: np.array([0,1,2,3,4,5,6,7,8,9])
 Id = 2 * np.eye(10)  # OR: np.diag(2*np.ones(10))
 
-print("Indexing examples:")
-print("a         =", a)
-print("a[3]      =", a[3])
-print("a[0:3]    =", a[0:3])
-print("a[:3]     =", a[:3])
-print("a[3:]     =", a[3:])
-print("a[-1]     =", a[-1])
-print("Id[:3,:3] =", Id[:3, :3], sep="\n")
+# print("Indexing examples:")
+# print("a         =", a)
+# print("a[3]      =", a[3])
+# print("a[0:3]    =", a[0:3])
+# print("a[:3]     =", a[:3])
+# print("a[3:]     =", a[3:])
+# print("a[-1]     =", a[-1])
+# print("Id[:3,:3] =", Id[:3, :3], sep="\n")
 
-print("Linear algebra examples:")
-print("100 + a =", 100 + a)
-print("Id @ a  =", Id @ a)
-print("Id * a  =", Id * a, sep="\n")
+# print("Linear algebra examples:")
+# print("100 + a =", 100 + a)
+# print("Id @ a  =", Id @ a)
+# print("Id * a  =", Id * a, sep="\n")
 
-fig, ax = plotting.freshfig("Plotting example", figsize=(6, 3))
-ax.set_ylabel("$i \\, x^2$")
-for i in range(4):
-    ax.plot(i * a**2, label="i = %d" % i)
-ax.legend()
-plt.show()
+# fig, ax = plotting.freshfig("Plotting example", figsize=(6, 3))
+# ax.set_ylabel("$i \\, x^2$")
+# for i in range(4):
+#     ax.plot(i * a**2, label="i = %d" % i)
+# ax.legend()
+# plt.show()
 
 # Run the following cells to import yet more tools.
 
@@ -211,9 +211,9 @@ model.prd_rates = np.ones((nPrd, 1)) / nPrd
 # Let's take a moment to visualize the (true) model permeability field,
 # and the well locations. Note that they have all been collocated to cell centres.
 
-fig, ax = plotting.freshfig("True field")
-# model.plt_field(ax, perm.Truth, "pperm")
-model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);  # fmt: skip
+# fig, ax = plotting.freshfig("True field")
+# # model.plt_field(ax, perm.Truth, "pperm")
+# model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);  # fmt: skip
 
 # #### Observation operator
 # The data will consist in the water saturation of at the production well locations.
@@ -245,10 +245,10 @@ prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
 # %%capture
-animation = model.anim(wsat.past.Truth, prod.past.Truth);  # fmt: skip
+# animation = model.anim(wsat.past.Truth, prod.past.Truth);  # fmt: skip
 
 # Note: can take up to a minute to appear
-animation
+# animation
 
 # #### Noisy obs
 # In reality, observations are never perfect. To emulate this, we corrupt the
@@ -262,8 +262,8 @@ for iT in range(nTime):
 
 # Plot of observations (and their noise):
 
-fig, ax = plotting.freshfig("Observations")
-model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
+# fig, ax = plotting.freshfig("Observations")
+# model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
 
 # Note that several observations are above 1,
 # which is "unphysical" or not physically "realisable".
@@ -283,31 +283,31 @@ model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
 N = 200
 perm.Prior = sample_prior_perm(N)
 
-# Note that field (before transformation) is Gaussian with (expected) mean 0 and variance 1.
-print("Prior mean:", np.mean(perm.Prior))
-print("Prior var.:", np.var(perm.Prior))
+# # Note that field (before transformation) is Gaussian with (expected) mean 0 and variance 1.
+# print("Prior mean:", np.mean(perm.Prior))
+# print("Prior var.:", np.var(perm.Prior))
 
 # #### Histogram
 # Let us inspect the parameter values in the form of their histogram.
 # Note that the histogram of the truth is simply counting the values of a single field,
 # whereas the histogram of the ensemble counts the values of `N` fields.
 
-fig, ax = plotting.freshfig("Perm. distribution", figsize=(7, 3))
-bins = np.linspace(*plotting.styles["pperm"]["levels"][[0, -1]], 32)
-for label, perm_field in perm.items():
-    x = perm_field.ravel()
-    ax.hist(
-        perm_transf(x),
-        perm_transf(bins),
-        # Divide counts by N to emulate `density=1` for log-scale.
-        weights=(np.ones_like(x) / N if label != "Truth" else None),
-        label=label,
-        alpha=0.3,
-    )
-ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
-ax.legend()
-fig.tight_layout()
-plt.show()
+# fig, ax = plotting.freshfig("Perm. distribution", figsize=(7, 3))
+# bins = np.linspace(*plotting.styles["pperm"]["levels"][[0, -1]], 32)
+# for label, perm_field in perm.items():
+#     x = perm_field.ravel()
+#     ax.hist(
+#         perm_transf(x),
+#         perm_transf(bins),
+#         # Divide counts by N to emulate `density=1` for log-scale.
+#         weights=(np.ones_like(x) / N if label != "Truth" else None),
+#         label=label,
+#         alpha=0.3,
+#     )
+# ax.set(xscale="log", xlabel="Permeability", ylabel="Count")
+# ax.legend()
+# fig.tight_layout()
+# plt.show()
 
 # Since the x-scale is logarithmic, the prior's histogram should look Gaussian if
 # `perm_transf` is purely exponential. By contrast, the historgram of the truth is from
@@ -317,14 +317,14 @@ plt.show()
 # #### Field plots
 # Below we can see some (pre-perm) realizations (members) from the ensemble.
 
-plotting.fields(model, perm.Prior, "pperm", "Prior");  # fmt: skip
+# plotting.fields(model, perm.Prior, "pperm", "Prior");  # fmt: skip
 
 # #### Variance/Spectrum
 # In practice we would not be using an explicit `Cov` matrix when generating
 # the prior ensemble, because it would be too large. However, we could inspect the spectrum.
 
-U, svals, VT = sla.svd(perm.Prior)
-plotting.spectrum(svals, "Prior cov.");  # fmt: skip
+# U, svals, VT = sla.svd(perm.Prior)
+# plotting.spectrum(svals, "Prior cov.");  # fmt: skip
 
 # ## Forward model
 
@@ -493,7 +493,7 @@ corr_comp.controls = dict(
 )
 # -
 
-plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=True)
+# plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
 # Answer the following questions. *NB*: the order matters!
@@ -655,7 +655,7 @@ perm.ES = ens_update0(perm.Prior, **kwargs0)
 
 # Let's plot the updated ensemble.
 
-plotting.fields(model, perm.ES, "pperm", "ES (posterior)");  # fmt: skip
+# plotting.fields(model, perm.ES, "pperm", "ES (posterior)");  # fmt: skip
 
 # We will see some more diagnostics later.
 
@@ -759,10 +759,10 @@ Z = np.zeros(model.shape)
 for d, c in zip(domains, colors):
     Z[tuple(model.ind2sub(d))] = c
 
-fig, ax = plotting.freshfig("Computing domains", figsize=(6, 3))
-ax.imshow(Z, cmap="tab20", aspect=0.5)
-fig.tight_layout()
-plt.show()
+# fig, ax = plotting.freshfig("Computing domains", figsize=(6, 3))
+# ax.imshow(Z, cmap="tab20", aspect=0.5)
+# fig.tight_layout()
+# plt.show()
 
 
 # -
@@ -803,15 +803,15 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 # conventional (but unnecessarily complicated) "Gaspari-Cohn" piecewise polyomial
 # function.  It is illustrated here.
 
-fig, ax = plotting.freshfig("Tapering ('bump') functions")
-dists = np.linspace(-1, 1, 1001)
-for sharpness in [0.01, 0.1, 1, 10, 100, 1000]:
-    coeffs = loc.bump_function(dists, sharpness)
-    ax.plot(dists, coeffs, label=sharpness)
-ax.legend(title="sharpness")
-ax.set_xlabel("Distance")
-fig.tight_layout()
-plt.show()
+# fig, ax = plotting.freshfig("Tapering ('bump') functions")
+# dists = np.linspace(-1, 1, 1001)
+# for sharpness in [0.01, 0.1, 1, 10, 100, 1000]:
+#     coeffs = loc.bump_function(dists, sharpness)
+#     ax.plot(dists, coeffs, label=sharpness)
+# ax.legend(title="sharpness")
+# ax.set_xlabel("Distance")
+# fig.tight_layout()
+# plt.show()
 
 # We will also need the distances, which we can pre-compute.
 # As seen from `distances_to_obs` below, we will need the
@@ -878,7 +878,7 @@ corr_wells.controls = dict(
 )
 
 
-plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observation", wells=True)
+# plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observation", wells=True)
 
 
 # - Note that the `N` slider is only active when `localize` is *enabled*.
@@ -910,12 +910,12 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # Here is a plot of the paths.
 
-fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields")
-for i, xy_path in enumerate(xy_max_corr):
-    color = dict(color=f"C{1+i}")
-    ax.plot(*xy_path.T, "-o", **color)
-    ax.plot(*xy_path[-1], "s", ms=8, **color)  # start
-model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);  # fmt: skip
+# fig, ax = plotting.freshfig("Trajectories of maxima of corr. fields")
+# for i, xy_path in enumerate(xy_max_corr):
+#     color = dict(color=f"C{1+i}")
+#     ax.plot(*xy_path.T, "-o", **color)
+#     ax.plot(*xy_path[-1], "s", ms=8, **color)  # start
+# model.plt_field(ax, np.zeros(model.shape), "default", colorbar=False);  # fmt: skip
 
 # An intriguing possibility is to co-locate the correlation masks with the path of the correlation maxima,
 # rather than centering them on the wells directly. However, this is very experimental, and is disabled by default.
@@ -931,7 +931,7 @@ perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localiz
 
 # Again, we plot some updated/posterior fields
 
-plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
+# plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
 
 # ### Iterative ensemble smoother
 
@@ -1058,7 +1058,7 @@ perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
 # #### Field plots
 # Let's plot the updated, initial ensemble.
 
-plotting.fields(model, perm.IES, "pperm", "IES (posterior)");  # fmt: skip
+# plotting.fields(model, perm.IES, "pperm", "IES (posterior)");  # fmt: skip
 
 # The following plots the cost function(s) together with the error compared to the true
 # (pre-)perm field as a function of the iteration number. Note that the relationship
@@ -1066,20 +1066,20 @@ plotting.fields(model, perm.IES, "pperm", "IES (posterior)");  # fmt: skip
 # monotonic. Re-running the experiments with a different seed is instructive. It may be
 # observed that the iterations are not always very successful.
 
-fig, ax = plotting.freshfig("IES Objective function")
-ls = dict(postr="-", prior=":", lklhd="--")
-for name, J in diagnostics.obj.items():
-    ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
-ax.set_xlabel("iteration")
-ax.set_ylabel("RMS mismatch", color="b")
-ax.tick_params(axis="y", labelcolor="b")
-ax.legend()
-ax2 = ax.twinx()  # axis for rmse
-ax2.set_ylabel("RMS error", color="r")
-ax2.plot(diagnostics.rmse, color="r")
-ax2.tick_params(axis="y", labelcolor="r")
-fig.tight_layout()
-plt.show()
+# fig, ax = plotting.freshfig("IES Objective function")
+# ls = dict(postr="-", prior=":", lklhd="--")
+# for name, J in diagnostics.obj.items():
+#     ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
+# ax.set_xlabel("iteration")
+# ax.set_ylabel("RMS mismatch", color="b")
+# ax.tick_params(axis="y", labelcolor="b")
+# ax.legend()
+# ax2 = ax.twinx()  # axis for rmse
+# ax2.set_ylabel("RMS error", color="r")
+# ax2.plot(diagnostics.rmse, color="r")
+# ax2.tick_params(axis="y", labelcolor="r")
+# fig.tight_layout()
+# plt.show()
 
 # ## Diagnostics
 

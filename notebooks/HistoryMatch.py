@@ -547,7 +547,7 @@ corr_comp.controls = dict(
 
 # ## Assimilation
 
-# ### Ensemble update
+# ### Basic ensemble conditioning
 
 # Denote $\mathbf{E}$ the ensemble matrix (whose columns are a sample from the prior),
 # $\mathcal{M}(\mathbf{E})$ the observed ensemble,
@@ -581,7 +581,7 @@ def ens_update0(ens, obs_ens, obs, perturbs, obs_err_cov):
 #  - The perturbations are *input arguments* because we will want to re-use the same ones
 #    when doing localization. It also enables exact reproducibility (see sanity check below).
 
-# ### Bug check
+# #### Bug check
 
 # It is very easy to introduce bugs.
 # Fortunately, most can be eliminated with a few simple tests.
@@ -610,9 +610,7 @@ with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr, 0))
     print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
 
-# ### Apply
-
-# #### Why not filtering?
+# #### Why smoothing (and not filtering)?
 # Before ensemble smoothers were used for history matching, it was though that
 # *filtering*, rather than *smoothing*, should be used. As opposed to the (batch)
 # ensemble smoothers, filters *sequentially* assimilate the time-series data,
@@ -629,7 +627,7 @@ with np.printoptions(precision=2, suppress=True):
 # in the prior, rather than model error, reducing the potential for improvement by filtering.
 # Finally, it is easier to formulate an iterative smoother than an iterative filter.
 
-# #### Compute
+# #### Apply
 
 # Our vector of unknowns is the pre-permeability.
 # However, further below we will also apply the update to other unknowns
@@ -659,7 +657,7 @@ perm.ES = ens_update0(perm.Prior, **kwargs0)
 
 # We will see some more diagnostics later.
 
-# ### With localization
+# ### Localization
 
 
 def ens_update0_loc(ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
@@ -933,7 +931,7 @@ perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localiz
 
 # plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
 
-# ### Iterative ensemble smoother
+# ### Iterative smoother
 
 # #### Why iterate?
 # Due to non-linearity of the forward model, the likelihood is non-Gaussian, and
@@ -1046,6 +1044,8 @@ def IES(ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     return E, stat
 
 
+# #### Bug check
+
 # #### Compute
 
 kwargsI = dict(
@@ -1095,7 +1095,7 @@ perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
 # we will see later, the data match might yield a different conclusions concerning the
 # utility of the update.
 
-# ### Means vs. True field
+# ### Wrt. True field
 
 # #### RMS summary
 # RMS stands for "root-mean-square(d)" and is a summary measure for deviations.
@@ -1119,7 +1119,7 @@ perm_means = Dict({k: perm[k].mean(axis=0) for k in perm})
 
 plotting.fields(model, perm_means, "pperm", "Means");  # fmt: skip
 
-# ### Means vs. Data mismatch (past production)
+# ### Data mismatch (past production)
 # In synthetic experiments such as this one, is is instructive to computing the "error":
 # the difference/mismatch of the (supposedly) unknown parameters and the truth.  Of
 # course, in real life, the truth is not known.  Moreover, at the end of the day, we
@@ -1203,7 +1203,7 @@ wsat.curnt = Dict({k: v[..., -1, :] for k, v in wsat.past.items()})
 wsat_means = Dict({k: np.atleast_2d(v).mean(axis=0) for k, v in wsat.curnt.items()})
 plotting.fields(model, wsat_means, "oil", "Means");  # fmt: skip
 
-# #### Run
+# ### Run
 # Now we predict.
 
 print("Future/prediction")
@@ -1220,11 +1220,11 @@ for methd in perm:
 
 prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
 
-# #### Production plots
+# ### Production plots
 
 plotting.productions(prod.futr, "Future");  # fmt: skip
 
-# #### RMS summary
+# ### RMS summary
 
 print(f"Accuracy vs. (supposedly unknown) {emph('future')} production\n")
 utils.print_RMSMs(prod.futr, ref="Truth")

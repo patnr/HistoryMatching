@@ -711,14 +711,14 @@ plotting.field_console(model, corr_wells, "corr", "Prior pre-perm to well observ
 # \big\{ \mathbf{y} \mathbf{1}^T - [\mathcal{M}(\mathbf{E}) + \mathbf{D}] \big\} $$
 
 
-def ens_update0(ens, obs_ens, observations, perturbs, obs_err_cov):
+def ens_update0(ens, obs_ens, obs, perturbs, obs_err_cov):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
     X, _ = center(ens)
     Y, _ = center(obs_ens)
     perturbs, _ = center(perturbs, rescale=True)
     obs_cov = obs_err_cov * (len(Y) - 1) + Y.T @ Y
     obs_pert = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
-    innovations = observations - (obs_ens + obs_pert)
+    innovations = obs - (obs_ens + obs_pert)
     KG = sla.pinv(obs_cov) @ Y.T @ X
     return ens + innovations @ KG
 
@@ -748,7 +748,7 @@ gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
 gg_kwargs = dict(
     ens=gg_prior,
     obs_ens=gg_prior,
-    observations=10 * np.ones(gg_ndim),
+    obs=10 * np.ones(gg_ndim),
     obs_err_cov=2 * np.eye(gg_ndim),
     perturbs=rnd.randn(*gg_prior.shape),
 )
@@ -790,7 +790,7 @@ with np.printoptions(precision=2, suppress=True):
 
 kwargs0 = dict(
     obs_ens=vect(prod.past.Prior),
-    observations=vect(prod.past.Noisy),
+    obs=vect(prod.past.Noisy),
     perturbs=rnd.randn(N, nPrd * nTime),
     obs_err_cov=augmented_obs_error_cov,
 )
@@ -810,7 +810,7 @@ plotting.fields(model, perm.ES, "pperm", "ES (posterior)");  # fmt: skip
 # ### With localization
 
 
-def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, taper):
+def ens_update0_loc(ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
     """Perform local analysis/domain updates using `ens_update0`."""
 
     def local_analysis(ii):
@@ -818,7 +818,7 @@ def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, 
         # Get localization mask, coeffs
         oBatch, tapering = taper(ii)
         # Convert [range, slice, epsilon] to inds (for np.ix_)
-        oBatch = np.arange(len(observations))[oBatch]
+        oBatch = np.arange(len(obs))[oBatch]
         # Update
         if len(oBatch) == 0:
             # no obs ==> no update
@@ -828,7 +828,7 @@ def ens_update0_loc(ens, obs_ens, observations, perturbs, obs_err_cov, domains, 
             return ens_update0(
                 ens[:, ii],
                 obs_ens[:, oBatch] * c,
-                observations[oBatch] * c,
+                obs[oBatch] * c,
                 perturbs[:, oBatch] * c,
                 obs_err_cov[np.ix_(oBatch, oBatch)],
             )
@@ -981,10 +981,10 @@ def IES_analysis(w, T, Y, dy):
 # fmt: on
 
 
-def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
+def IES(ensemble, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
     """Iterative ensemble smoother."""
     E = ensemble
-    y = observations
+    y = obs
     N = len(E)
     N1 = N - 1
     Rm12T = np.diag(sqrt(1 / np.diag(obs_err_cov)))  # TODO?
@@ -1050,7 +1050,7 @@ def IES(ensemble, observations, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
 # #### Compute
 
 kwargsI = dict(
-    observations=vect(prod.past.Noisy),
+    obs=vect(prod.past.Noisy),
     obs_err_cov=augmented_obs_error_cov,
 )
 

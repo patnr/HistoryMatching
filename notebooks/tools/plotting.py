@@ -470,7 +470,7 @@ def toggle_items(wrapped):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
 
     def new(*args, **kwargs):
-        checkmarks = {label: True for label in args[0]}
+        checkmarks = {label: i < 4 for i, label in enumerate(args[0])}
         linked = wg.interactive(wrapped(*args, **kwargs), **checkmarks)
 
         # Adjust layout
@@ -569,6 +569,25 @@ def label_ax(ax, txt, x=0.01, y=0.99, ha="left", va="top", c="k", fontsize="larg
     return ax.text(
         x, y, txt, c=c, fontsize=fontsize, ha=ha, va=va, transform=ax.transAxes, bbox=bbox
     )
+
+
+def iterative(title, rms):
+    ax1 = freshfig(title)[1]
+    ax1.grid()
+    ax1.set_xlabel("iteration")
+    ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax2 = ax1.twinx()
+    ax2.tick_params(axis="y", labelcolor="C1")
+
+    lines = [
+        ax1.plot(rms.prior, label="wrt. Prior", lw=3, c="C0")[0],
+        ax2.plot(rms.obsrv, label="wrt. Obsrv", lw=3, c="C1")[0],
+        ax1.plot(rms.error, label="wrt. Truth", lw=3, c="C2")[0],
+    ]
+    ax1.legend(handles=lines, loc="upper right")
+    ax1.set_ylabel("RMS")
+    plt.tight_layout()
+    plt.show()
 
 
 def figure12(title="", *args, figsize=(9, 3.15), **kwargs):

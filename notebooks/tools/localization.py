@@ -83,7 +83,7 @@ def pairwise_distances(A, B=None, domain=None):
     return distances.reshape(mA, mB)
 
 
-def bump_function(distances, sharpness=1):
+def bump(distances, sharpness=1):
     mask = np.abs(distances) < 1  # only compute for |distances|<1
     x = distances[mask]
     v = np.exp(1 - 1 / (1 - x * x)) ** sharpness

@@ -961,95 +961,59 @@ perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localiz
 # yield improved estiamtion accuracy, albeit a the cost of (linearly) more
 # computational effort.
 
-
-# fmt: off
-def IES_analysis(w, T, Y, dy):
-    """Compute the ensemble analysis."""
-    N         = len(w)
-    Y0        = sla.pinv(T) @ Y                          # "De-condition"
-    nExs      = Y0.shape[0] - Y0.shape[1]                # nEns - len(y), i.e. "Excess N"
-    V, s, _UT = sla.svd(Y0, full_matrices = (nExs > 0))  # Decompose
-    cow1s     = N - 1 + np.pad(s**2, (0, max(0, nExs)))  # Postr. cov_w^{-1} spectrum
-    cowp      = lambda p: (V * cow1s**p) @ V.T           # Postr. cov_w^{-p}
-    grad      = Y0 @ dy - w * (N - 1)                    # Cost function gradient
-    dw        = grad @ cowp(-1.0)                        # Gauss-Newton step
-    T         = cowp(-0.5) * sqrt(N - 1)                 # Transform matrix
-    return dw, T
-# fmt: on
+# #### Algorithm
 
 
-def IES(prior_ens, obs, obs_err_cov, stepsize=1, nIter=10, wtol=1e-4):
+def IES(prior_ens, fmodel, obs, perturbs, obs_err_cov, xStep=1.0, iMax=4):
     """Iterative ensemble smoother."""
-    E = prior_ens
-    y = obs
-    N = len(E)
-    N1 = N - 1
     Rm12T = np.diag(sqrt(1 / np.diag(obs_err_cov)))  # TODO?
+    y = obs @ Rm12T
+    D, _ = center(perturbs, rescale=True)
+    N = len(prior_ens)
+    stats = Dict(E=[], Eo=[], rms_data=[], dy=[], obs=[], Eomean=[])
 
-    # Init
-    stat = Dict(dw=[], rmse=[], stepsize=[], obj=Dict(lklhd=[], prior=[], postr=[]))
+    # Subspace decomposition
+    W0 = np.eye(N)
+    X0, x0 = center(prior_ens)
+    W = W0
 
-    # Init ensemble decomposition.
-    X0, x0 = center(E)  # Decompose ensemble.
-    w = np.zeros(N)  # Control vector for the mean state.
-    T = np.eye(N)  # Anomalies transform matrix.
+    for itr in utils.progbar(range(iMax), desc="Iter.ES"):
+        E = x0 + W @ X0
+        Eo = fmodel(E)
 
-    for itr in utils.progbar(range(nIter), desc="Iter.ES"):
-        # Compute rmse (vs. supposedly unknown Truth)
-        # err = E.mean(0) - perm.Truth
-        # stat.rmse += [np.sqrt(np.mean(err * err))]  # == norm / sqrt(len)
+        # In practice, you'd rather store *summary* stats
+        stats.E.append(E)
+        stats.Eo.append(Eo)
 
-        # Forecast.
-        _, Eo = forward_model(E, leave=False)
-        Eo = vect(Eo)
+        Eo = Eo @ Rm12T
+        Y0 = center(sla.pinv(W))[0] @ Eo
 
-        # Prepare analysis.
-        Y, xo = center(Eo)  # Get anomalies, mean.
-        dy = (y - xo) @ Rm12T  # Transform obs space.
-        Y = Y @ Rm12T  # Transform obs space.
+        # Gradients
+        grad_y = (y - D - Eo) @ Y0.T
+        grad_b = (N - 1) * (W0 - W)
 
-        # Diagnostics
-        stat.obj.prior += [w @ w * N1]
-        stat.obj.lklhd += [dy @ dy]
-        stat.obj.postr += [stat.obj.prior[-1] + stat.obj.lklhd[-1]]
-
-        reject_step = itr > 0 and stat.obj.postr[itr] > np.min(stat.obj.postr)
-        if reject_step:
-            # Restore prev. ensemble, lower stepsize
-            stepsize /= 10
-            w, T = old  # noqa: F821
-        else:
-            # Store current ensemble, boost stepsize
-            old = w, T
-            stepsize *= 2
-            stepsize = min(1, stepsize)
-
-            dw, T = IES_analysis(w, T, Y, dy)
-
-        stat.dw += [dw @ dw / N]
-        stat.stepsize += [stepsize]
+        # Gauss-Newton covariance (posterior) of w
+        nExs = Y0.shape[0] - Y0.shape[1]  # "Excess N", i.e. (N - len(y))
+        V, s, _ = sla.svd(Y0, full_matrices=(nExs > 0))  # Decompose
+        covs = 1 / (N - 1 + np.pad(s**2, (0, max(0, nExs))))  # Spectrum
+        covw = (V * covs) @ V.T
 
         # Step
-        w = w + stepsize * dw
-        E = x0 + (w + T) @ X0
+        dW = (grad_y + grad_b) @ covw
+        W = W + xStep * dW  # <-- could also do line search
 
-        if stepsize * np.sqrt(dw @ dw / N) < wtol:
-            break
-
-    # The last step must be discarded,
-    # because it cannot be validated without re-running the model.
-    w, T = old
-    E = x0 + (w + T) @ X0
-
-    return E, stat
+    return x0 + W @ X0, stats
 
 
 # #### Bug check
 
-_tmp = forward_model
-forward_model = lambda x, **kwargs: (None, np.expand_dims(x, -2))
-gg_postr = IES(gg_kwargs["prior_ens"], gg_kwargs["obs"], gg_kwargs["obs_err_cov"])[0]
-forward_model = _tmp
+gg_postr, stats = IES(
+    gg_kwargs["prior_ens"],
+    lambda x: x,
+    gg_kwargs["obs"],
+    gg_kwargs["perturbs"],
+    gg_kwargs["obs_err_cov"],
+)
 
 with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr, 0))
@@ -1058,12 +1022,63 @@ with np.printoptions(precision=2, suppress=True):
 
 # #### Compute
 
-kwargsI = dict(
-    obs=vect(prod.past.Noisy),
-    obs_err_cov=augmented_obs_error_cov,
-)
+kwargsI = kwargs0.copy()
+kwargsI.pop("obs_ens")
+kwargsI["fmodel"] = lambda x: vect(forward_model(x, leave=False)[1])
 
-perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
+perm.IES, stats = IES(perm.Prior, **kwargsI, xStep=0.4, iMax=10)
+
+# #### Tuning
+
+# Tuning
+results = dict()
+for iMax in [3, 10, 20]:
+    results[iMax] = dict()
+    for xStep in [1, 2, 4]:
+        xStep *= 1 / iMax
+        results[xStep] = IES(perm.Prior, **kwargsI, xStep=xStep, iMax=iMax)
+
+# As long as we're using a single (i.e ensemble) derivative
+# then it does not make sense to use an average of quadratic objectives,
+# since its value can then be improved simply by decreasing the spread
+# (as opposed to getting the correct spread).
+# Therefore, the stats also be computed for the mean,
+# and we do not show box plots.
+
+
+def rms(x):
+    xm2 = np.mean(x, 1) ** 2
+    return np.sqrt(np.mean(xm2, -1))
+
+
+axs = plotting.freshfig("IES mismatches", nrows=4, sharex=True)[1]
+for ax in axs:
+    ax.grid()
+axs[0].set_ylabel("wrt. Prior")
+axs[1].set_ylabel("wrt. Obsrv")
+axs[2].set_ylabel("wrt. Sum")
+axs[3].set_ylabel("wrt. Truth")
+axs[-1].set_xlabel("iteration")
+axs[-1].xaxis.set_major_locator(plotting.MaxNLocator(integer=True))
+lns = ["-", "--", ":", "-."]
+
+for i, iMax in enumerate(results):
+    for j, xStep in enumerate(results[iMax]):
+        perm_IES, stats = results[iMax][xStep]
+        rms_prior = rms(perm.Prior - stats.E)
+        rms_obsrv = rms(vect(prod.past.Noisy) - stats.Eo)
+        rms_total = rms_prior + rms_obsrv
+        rms_error = rms(perm.Truth - stats.E)
+
+        axs[0].plot(rms_prior, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
+        axs[1].plot(rms_obsrv, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
+        axs[2].plot(rms_total, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
+        axs[3].plot(rms_error, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
+
+axs[0].legend(title=("iMax", "xStep"), loc="lower center", bbox_to_anchor=(0.5, 1), ncols=3)
+plt.tight_layout()
+plt.show()
+
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.
@@ -1075,21 +1090,6 @@ perm.IES, diagnostics = IES(perm.Prior, **kwargsI, stepsize=1)
 # between the (total, i.e. posterior) cost function  and the RMSE is not necessarily
 # monotonic. Re-running the experiments with a different seed is instructive. It may be
 # observed that the iterations are not always very successful.
-
-# fig, ax = plotting.freshfig("IES Objective function")
-# ls = dict(postr="-", prior=":", lklhd="--")
-# for name, J in diagnostics.obj.items():
-#     ax.plot(np.sqrt(J), color="b", ls=ls[name], label=name)
-# ax.set_xlabel("iteration")
-# ax.set_ylabel("RMS mismatch", color="b")
-# ax.tick_params(axis="y", labelcolor="b")
-# ax.legend()
-# ax2 = ax.twinx()  # axis for rmse
-# ax2.set_ylabel("RMS error", color="r")
-# ax2.plot(diagnostics.rmse, color="r")
-# ax2.tick_params(axis="y", labelcolor="r")
-# fig.tight_layout()
-# plt.show()
 
 # ## Diagnostics
 

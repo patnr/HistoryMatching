@@ -454,7 +454,7 @@ def ens_style(label, N=100):
     if label == "LES":
         style.c = "C4"
         style.alpha = 0.3
-    if label == "LIES":
+    if label == "ILES":
         style.c = "C8"
         style.alpha = 0.3
 

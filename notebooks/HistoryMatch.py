@@ -1016,7 +1016,7 @@ plotting.iterative(
 # ### Localised, iterative ensemble smoother
 
 
-def LIES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
+def ILES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
     """Iterative ensemble smoother."""
     stats = Dict(E=[], Eo=[])
 
@@ -1079,19 +1079,19 @@ def LIES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
 
 # #### Bug check
 
-tmp, stats = LIES(**gg_setup, fmodel=lambda x: x, taper=np.eye(d))
+tmp, stats = ILES(**gg_setup, fmodel=lambda x: x, taper=np.eye(d))
 
 print("Reproduces non-iterative, local analysis?", np.allclose(tmp, gg_postr_loc))
 
 # #### Apply for history matching
 
-perm.LIES, stats = LIES(
+perm.ILES, stats = ILES(
     perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump(distances_to_obs / 1.2)
 )
 
 
 plotting.iterative(
-    "LIES mismatches",
+    "ILES mismatches",
     Dict(
         error=rms(perm.Truth - stats.E),
         prior=rms(perm.Prior - stats.E),
@@ -1101,7 +1101,7 @@ plotting.iterative(
 
 # Again, we plot some updated/posterior fields
 
-# plotting.fields(model, perm.LIES, "pperm", "LIES (posterior)");  # fmt: skip
+# plotting.fields(model, perm.ILES, "pperm", "ILES (posterior)");  # fmt: skip
 
 # ## Diagnostics
 

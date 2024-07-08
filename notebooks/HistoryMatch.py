@@ -611,14 +611,13 @@ def ens_update0(prior_ens, obs_ens, obs, perturbs, decorr):
 # and the observation has law $\mathbf{y}|\mathbf{x} \sim \mathcal{N}(\mathbf{x}, 4 \mathbf{I})$.
 
 d = 3
-gg_kwargs = dict(
-    prior_ens=(E := sqrt(4 / 3) * rnd.randn(1000, d)),
-    obs_ens=E,
+gg_setup = dict(
+    prior_ens=(E := sqrt(4 / 3) * rnd.randn(400, d)),
     obs=4 * np.ones(d),
     decorr=1 / sqrt(4) * np.eye(d),
     perturbs=sqrt(4) * rnd.randn(*E.shape),
 )
-gg_postr = ens_update0(**gg_kwargs)
+gg_postr = ens_update0(**gg_setup, obs_ens=E)
 
 # Theoretically, the posterior is $\mathcal{N}(\mathbf{y}/4, 1\mathbf{I})$.
 # Let us verify that the ensemble update computes this (up to sampling error).
@@ -651,12 +650,13 @@ with np.printoptions(precision=2, suppress=True):
 # (future saturation or productions). For brevity, we therefore collect the
 # arguments that are common to all of the applications of this update.
 
-kwargs0 = dict(
-    obs_ens=vect(prod.past.Prior),
+hm_setup = dict(
     obs=vect(prod.past.Noisy),
     perturbs=rnd.randn(N, nPrd * nTime) @ R12.T,
     decorr=sla.inv(R12.T),
 )
+hm_setup0 = dict(**hm_setup, obs_ens=vect(prod.past.Prior))
+hm_setupI = dict(**hm_setup, fmodel=lambda x: vect(forward_model(x, leave=False)[1]))
 
 # The inversion of `R12` seems oderous but
 # (unless we exploit a structure of `R` such as diagonality, blocks, or bandedness, then)
@@ -667,7 +667,7 @@ kwargs0 = dict(
 #
 # Thus the update is called as follows
 
-perm.ES = ens_update0(perm.Prior, **kwargs0)
+perm.ES = ens_update0(perm.Prior, **hm_setup0)
 
 # #### Field plots
 
@@ -826,7 +826,7 @@ def ens_update0_loc(prior_ens, obs_ens, obs, perturbs, decorr, taper):
 # This localized method should yield lower sampling error (at least in the long run)
 # than in our bug check for `ens_update0`.
 
-gg_postr_loc = ens_update0_loc(**gg_kwargs, taper=np.eye(d))
+gg_postr_loc = ens_update0_loc(**gg_setup, obs_ens=E, taper=np.eye(d))
 
 with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr_loc, 0))
@@ -836,7 +836,7 @@ with np.printoptions(precision=2, suppress=True):
 # Hopefully, the following should output the same ensemble (merely up to *numerical* error)
 # as `ens_update0` (but be less numerically efficient). Let us verify this:
 
-tmp = ens_update0_loc(perm.Prior, **kwargs0, taper=np.ones_like(distances_to_obs))
+tmp = ens_update0_loc(perm.Prior, **hm_setup0, taper=np.ones_like(distances_to_obs))
 print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
 
 # #### Time-dependent localisation
@@ -878,7 +878,7 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # #### Apply for history matching
 
-perm.LES = ens_update0_loc(perm.Prior, **kwargs0, taper=loc.bump_function(distances_to_obs / 0.8))
+perm.LES = ens_update0_loc(perm.Prior, **hm_setup0, taper=loc.bump_function(distances_to_obs / 0.8))
 
 # Again, we plot some updated/posterior fields
 
@@ -964,23 +964,13 @@ def IES(prior_ens, fmodel, obs, perturbs, decorr, xStep=1.0, iMax=4):
 
 # #### Bug check
 
-tmp, stats = IES(
-    gg_kwargs["prior_ens"],
-    lambda x: x,
-    gg_kwargs["obs"],
-    gg_kwargs["perturbs"],
-    gg_kwargs["decorr"],
-)
+tmp, stats = IES(**gg_setup, fmodel=lambda x: x)
 
 print("Reproduces non-iterative analysis?", np.allclose(tmp, gg_postr))
 
 # #### Apply for history matching
 
-kwargsI = kwargs0.copy()
-kwargsI.pop("obs_ens")
-kwargsI["fmodel"] = lambda x: vect(forward_model(x, leave=False)[1])
-
-perm.IES, stats = IES(perm.Prior, **kwargsI, xStep=0.4, iMax=10)
+perm.IES, stats = IES(perm.Prior, **hm_setupI, xStep=0.4, iMax=10)
 
 # #### Plot iterative stats
 # As long as we're using a single (i.e ensemble) derivative
@@ -1097,7 +1087,7 @@ for methd in perm:
 # The approach is sometimes called data-space inversion.
 # Since it requires 0 iterations, let's call this "ES0". Let us try that as well.
 
-prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), **kwargs0), undo=True)
+prod.past.ES0 = vect(ens_update0(vect(prod.past.Prior), **hm_setup0), undo=True)
 
 # #### Production plots
 
@@ -1172,7 +1162,7 @@ for methd in perm:
 
 # Again, data-space inversion requires no new simulations:
 
-prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **kwargs0), undo=True)
+prod.futr.ES0 = vect(ens_update0(vect(prod.futr.Prior), **hm_setup0), undo=True)
 
 # ### Production plots
 

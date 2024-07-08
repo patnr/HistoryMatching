@@ -1025,6 +1025,115 @@ plt.show()
 # monotonic. Re-running the experiments with a different seed is instructive. It may be
 # observed that the iterations are not always very successful.
 
+# ### Localised, iterative ensemble smoother
+
+
+def LIES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
+    """Iterative ensemble smoother."""
+    stats = Dict(E=[], Eo=[])
+
+    N = len(prior_ens)
+    y = obs @ decorr
+    DE = perturbs @ decorr
+
+    # Subspace decompositions
+    W0 = np.eye(N)
+    X0, x0 = center(prior_ens)
+    Ws = [W0] * len(x0)
+
+    def recompose(Ws):
+        return x0 + np.array([Ws[i] @ X0.T[i] for i in range(len(x0))]).T
+
+    for itr in utils.progbar(range(iMax), desc="Iter.ES"):
+        E = recompose(Ws)
+        obs_ens = fmodel(E)
+
+        # In practice, you'd rather store *summary* stats
+        stats.E.append(E)
+        stats.Eo.append(obs_ens)
+
+        Eo = obs_ens @ decorr
+        S = center(Eo)[0]
+        D = (obs - obs_ens - perturbs) @ decorr
+
+        def local_analysis(i):
+            """Update for state element `i`."""
+            ci = np.sqrt(taper[i])
+            jj = ci > 1e-2
+            Wi = Ws[i]
+            dW = 0
+            if np.any(jj):
+                Si = S[:, jj] * ci[jj]
+                Di = D[:, jj] * ci[jj]
+
+                Y0 = center(sla.pinv(Wi))[0] @ Si
+
+                # # Gradients
+                grad_y = Di @ Y0.T
+                grad_b = (N - 1) * (W0 - Wi)
+
+                # Gauss-Newton covariance (posterior) of w
+                nExs = Y0.shape[0] - Y0.shape[1]  # "Excess N", i.e. (N - len(y))
+                V, s, _ = sla.svd(Y0, full_matrices=(nExs > 0))  # Decompose
+                covs = 1 / (N - 1 + np.pad(s**2, (0, max(0, nExs))))  # Spectrum
+                covw = (V * covs) @ V.T
+
+                # Step
+                dW = (grad_y + grad_b) @ covw
+
+            return Wi + xStep * dW
+
+        ii = np.arange(len(x0))
+        Ws = list(map(local_analysis, ii))
+
+    return recompose(Ws), stats
+
+
+# #### Bug check
+
+tmp, stats = LIES(**gg_setup, fmodel=lambda x: x, taper=np.eye(d))
+
+print("Reproduces non-iterative, local analysis?", np.allclose(tmp, gg_postr_loc))
+
+# #### Apply for history matching
+
+perm.LIES, stats = LIES(
+    perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump_function(distances_to_obs / 0.8)
+)
+
+# #### Plot iterative stats
+
+
+def rms(x):
+    xm2 = np.mean(x, 1) ** 2
+    return np.sqrt(np.mean(xm2, -1))
+
+
+rms_error = rms(perm.Truth - stats.E)
+rms_prior = rms(perm.Prior - stats.E)
+rms_obsrv = rms(vect(prod.past.Noisy) - stats.Eo)
+
+ax1 = plotting.freshfig("LIES mismatches")[1]
+ax1.grid()
+ax1.set_xlabel("iteration")
+ax1.xaxis.set_major_locator(plotting.MaxNLocator(integer=True))
+ax2 = ax1.twinx()
+ax2.tick_params(axis="y", labelcolor="C1")
+
+lines = [
+    ax1.plot(rms_prior, label="wrt. Prior", lw=3, c="C0")[0],
+    ax2.plot(rms_obsrv, label="wrt. Obsrv", lw=3, c="C1")[0],
+    ax1.plot(rms_error, label="wrt. Truth", lw=3, c="C2")[0],
+]
+ax1.legend(handles=lines, loc="upper right")
+ax1.set_ylabel("RMS")
+plt.tight_layout()
+plt.show()
+
+# Again, we plot some updated/posterior fields
+
+# plotting.fields(model, perm.LIES, "pperm", "LIES (posterior)");  # fmt: skip
+
 # ## Diagnostics
 
 # In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior.

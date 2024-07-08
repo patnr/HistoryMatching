@@ -986,30 +986,18 @@ def rms(x):
     return np.sqrt(np.mean(xm2, -1))
 
 
-rms_error = rms(perm.Truth - stats.E)
-rms_prior = rms(perm.Prior - stats.E)
-rms_obsrv = rms(vect(prod.past.Noisy) - stats.Eo)
-
-ax1 = plotting.freshfig("IES mismatches")[1]
-ax1.grid()
-ax1.set_xlabel("iteration")
-ax1.xaxis.set_major_locator(plotting.MaxNLocator(integer=True))
-ax2 = ax1.twinx()
-ax2.tick_params(axis="y", labelcolor="C1")
-
-lines = [
-    ax1.plot(rms_prior, label="wrt. Prior", lw=3, c="C0")[0],
-    ax2.plot(rms_obsrv, label="wrt. Obsrv", lw=3, c="C1")[0],
-    ax1.plot(rms_error, label="wrt. Truth", lw=3, c="C2")[0],
-]
-ax1.legend(handles=lines, loc="upper right")
-ax1.set_ylabel("RMS")
-plt.tight_layout()
-plt.show()
+plotting.iterative(
+    "IES mismatches",
+    Dict(
+        error=rms(perm.Truth - stats.E),
+        prior=rms(perm.Prior - stats.E),
+        obsrv=rms(vect(prod.past.Noisy) - stats.Eo),
+    ),
+)
 
 # Note that
 #
-# - The sum of `rms_prior` and `rms_obsrv` is not what the IES optimises,
+# - The sum of `mean_square(prior)` and `mean_square(obsrv)` is not what the IES optimises,
 #   which is rather the sum of their weighted (by prior and obs-err covariance) forms.
 # - While the data mismatch exhibits jitters for larger iteration numbers,
 #   the actual error wrt. the truth seems more well behaved (in this case).
@@ -1101,34 +1089,15 @@ perm.LIES, stats = LIES(
     perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump(distances_to_obs / 0.8)
 )
 
-# #### Plot iterative stats
 
-
-def rms(x):
-    xm2 = np.mean(x, 1) ** 2
-    return np.sqrt(np.mean(xm2, -1))
-
-
-rms_error = rms(perm.Truth - stats.E)
-rms_prior = rms(perm.Prior - stats.E)
-rms_obsrv = rms(vect(prod.past.Noisy) - stats.Eo)
-
-ax1 = plotting.freshfig("LIES mismatches")[1]
-ax1.grid()
-ax1.set_xlabel("iteration")
-ax1.xaxis.set_major_locator(plotting.MaxNLocator(integer=True))
-ax2 = ax1.twinx()
-ax2.tick_params(axis="y", labelcolor="C1")
-
-lines = [
-    ax1.plot(rms_prior, label="wrt. Prior", lw=3, c="C0")[0],
-    ax2.plot(rms_obsrv, label="wrt. Obsrv", lw=3, c="C1")[0],
-    ax1.plot(rms_error, label="wrt. Truth", lw=3, c="C2")[0],
-]
-ax1.legend(handles=lines, loc="upper right")
-ax1.set_ylabel("RMS")
-plt.tight_layout()
-plt.show()
+plotting.iterative(
+    "LIES mismatches",
+    Dict(
+        error=rms(perm.Truth - stats.E),
+        prior=rms(perm.Prior - stats.E),
+        obsrv=rms(vect(prod.past.Noisy) - stats.Eo),
+    ),
+)
 
 # Again, we plot some updated/posterior fields
 

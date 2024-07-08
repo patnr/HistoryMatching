@@ -1028,16 +1028,7 @@ kwargsI["fmodel"] = lambda x: vect(forward_model(x, leave=False)[1])
 
 perm.IES, stats = IES(perm.Prior, **kwargsI, xStep=0.4, iMax=10)
 
-# #### Tuning
-
-# Tuning
-results = dict()
-for iMax in [3, 10, 20]:
-    results[iMax] = dict()
-    for xStep in [1, 2, 4]:
-        xStep *= 1 / iMax
-        results[xStep] = IES(perm.Prior, **kwargsI, xStep=xStep, iMax=iMax)
-
+# #### Plot iterative stats
 # As long as we're using a single (i.e ensemble) derivative
 # then it does not make sense to use an average of quadratic objectives,
 # since its value can then be improved simply by decreasing the spread
@@ -1051,34 +1042,33 @@ def rms(x):
     return np.sqrt(np.mean(xm2, -1))
 
 
-axs = plotting.freshfig("IES mismatches", nrows=4, sharex=True)[1]
-for ax in axs:
-    ax.grid()
-axs[0].set_ylabel("wrt. Prior")
-axs[1].set_ylabel("wrt. Obsrv")
-axs[2].set_ylabel("wrt. Sum")
-axs[3].set_ylabel("wrt. Truth")
-axs[-1].set_xlabel("iteration")
-axs[-1].xaxis.set_major_locator(plotting.MaxNLocator(integer=True))
-lns = ["-", "--", ":", "-."]
+rms_error = rms(perm.Truth - stats.E)
+rms_prior = rms(perm.Prior - stats.E)
+rms_obsrv = rms(vect(prod.past.Noisy) - stats.Eo)
 
-for i, iMax in enumerate(results):
-    for j, xStep in enumerate(results[iMax]):
-        perm_IES, stats = results[iMax][xStep]
-        rms_prior = rms(perm.Prior - stats.E)
-        rms_obsrv = rms(vect(prod.past.Noisy) - stats.Eo)
-        rms_total = rms_prior + rms_obsrv
-        rms_error = rms(perm.Truth - stats.E)
+ax1 = plotting.freshfig("IES mismatches")[1]
+ax1.grid()
+ax1.set_xlabel("iteration")
+ax1.xaxis.set_major_locator(plotting.MaxNLocator(integer=True))
+ax2 = ax1.twinx()
+ax2.tick_params(axis="y", labelcolor="C1")
 
-        axs[0].plot(rms_prior, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
-        axs[1].plot(rms_obsrv, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
-        axs[2].plot(rms_total, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
-        axs[3].plot(rms_error, c=f"C{i}", ls=lns[j], label=(f"{iMax}, {xStep:.2}"))
-
-axs[0].legend(title=("iMax", "xStep"), loc="lower center", bbox_to_anchor=(0.5, 1), ncols=3)
+lines = [
+    ax1.plot(rms_prior, label="wrt. Prior", lw=3, c="C0")[0],
+    ax2.plot(rms_obsrv, label="wrt. Obsrv", lw=3, c="C1")[0],
+    ax1.plot(rms_error, label="wrt. Truth", lw=3, c="C2")[0],
+]
+ax1.legend(handles=lines, loc="upper right")
+ax1.set_ylabel("RMS")
 plt.tight_layout()
 plt.show()
 
+# Note that
+#
+# - The sum of `rms_prior` and `rms_obsrv` is not what the IES optimises,
+#   which is rather the sum of their weighted (by prior and obs-err covariance) forms.
+# - While the data mismatch exhibits jitters for larger iteration numbers,
+#   the actual error wrt. the truth seems more well behaved (in this case).
 
 # #### Field plots
 # Let's plot the updated, initial ensemble.

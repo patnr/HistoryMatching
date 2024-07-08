@@ -704,7 +704,7 @@ perm.ES = ens_update0(perm.Prior, **hm_setup0)
 # fig, ax = plotting.freshfig("Tapering ('bump') functions")
 # dists = np.linspace(-1, 1, 1001)
 # for sharpness in [0.01, 0.1, 1, 10, 100, 1000]:
-#     coeffs = loc.bump_function(dists, sharpness)
+#     coeffs = loc.bump(dists, sharpness)
 #     ax.plot(dists, coeffs, label=sharpness)
 # ax.legend(title="sharpness")
 # ax.set_xlabel("Distance")
@@ -760,7 +760,7 @@ def corr_wells(N, t, well, localize, radi, sharp):
     C = utils.corr(perm.Prior[:N], prod.past.Prior[:N, t, well])
     if localize:
         dists = distances_to_obs[:, well + nPrd * t]
-        c = loc.bump_function(dists / radi, 10**sharp)
+        c = loc.bump(dists / radi, 10**sharp)
         C *= c
         C[c < 1e-3] = np.nan
     return C
@@ -878,7 +878,7 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # #### Apply for history matching
 
-perm.LES = ens_update0_loc(perm.Prior, **hm_setup0, taper=loc.bump_function(distances_to_obs / 0.8))
+perm.LES = ens_update0_loc(perm.Prior, **hm_setup0, taper=loc.bump(distances_to_obs / 0.8))
 
 # Again, we plot some updated/posterior fields
 
@@ -1098,7 +1098,7 @@ print("Reproduces non-iterative, local analysis?", np.allclose(tmp, gg_postr_loc
 # #### Apply for history matching
 
 perm.LIES, stats = LIES(
-    perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump_function(distances_to_obs / 0.8)
+    perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump(distances_to_obs / 0.8)
 )
 
 # #### Plot iterative stats

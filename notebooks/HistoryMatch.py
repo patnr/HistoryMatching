@@ -878,7 +878,7 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 
 # #### Apply for history matching
 
-perm.LES = ens_update0_loc(perm.Prior, **hm_setup0, taper=loc.bump(distances_to_obs / 0.8))
+perm.LES = ens_update0_loc(perm.Prior, **hm_setup0, taper=loc.bump(distances_to_obs / 1.2))
 
 # Again, we plot some updated/posterior fields
 
@@ -1086,7 +1086,7 @@ print("Reproduces non-iterative, local analysis?", np.allclose(tmp, gg_postr_loc
 # #### Apply for history matching
 
 perm.LIES, stats = LIES(
-    perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump(distances_to_obs / 0.8)
+    perm.Prior, **hm_setupI, xStep=0.4, iMax=10, taper=loc.bump(distances_to_obs / 1.2)
 )
 
 

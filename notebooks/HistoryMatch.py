@@ -251,22 +251,42 @@ prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 # animation
 
 # #### Noisy obs
-# In reality, observations are never perfect. To emulate this, we corrupt the
-# observations by adding a bit of noise.
+# In reality, observations are never perfect. To simulate this, we corrupt the
+# observations by adding a bit of noise, with the following covariance matrix,
+# which includes some temporal correlation in the error, as is often the case.
 
-prod.past.Noisy = prod.past.Truth.copy()
-R = 1e-3 * np.eye(nPrd)
-for iT in range(nTime):
-    prod.past.Noisy[iT] += sqrt(R) @ rnd.randn(nPrd)
+length_tmp = 2
+corrs1well = np.exp(-np.arange(nTime) / length_tmp)
+corrs1well[corrs1well < 1e-2] = 0  # cut off
+R1well = 1e-3 * sla.toeplitz(corrs1well)
+R = np.kron(R1well, np.eye(nPrd))
 
+fig, (ax1, ax2) = plotting.freshfig("Obs. error cov", ncols=2, figsize=(7, 3))
+kws = dict(cmap="RdBu_r", vmin=-R[0, 0], vmax=R[0, 0])
+ax1.imshow(R1well, **kws)
+ax2.imshow(R[:50, :50], **kws)
+
+# We need a Cholesky factor to sample with this covariance matrix.
+# A pragmatic alternative is to start by specifying the matrix square root,
+# and construct the covariance matrix by `R = R12 @ R12.T`.
+
+# R12 = sla.sqrtm(R)
+R12 = sla.cholesky(R, lower=True)  # TODO: use `cholesky_banded`?
+
+prod_noise = R12 @ rnd.randn(nTime * nPrd)
+prod.past.Noisy = prod.past.Truth + prod_noise.reshape((nTime, nPrd))
+
+# The above may well produce observations outside $[0,1]$
+# which is "unphysical" or not physically "realisable".
+
+# +
+# prod.past.Noisy = prod.past.Noisy.clip(0, 1)
+# -
 
 # Plot of observations (and their noise):
 
-# fig, ax = plotting.freshfig("Observations")
-# model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
-
-# Note that several observations are above 1,
-# which is "unphysical" or not physically "realisable".
+fig, ax = plotting.freshfig("Observations")
+model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
 
 # ## Prior
 
@@ -280,7 +300,7 @@ for iT in range(nTime):
 # different types of modelling.  Nevertheless it is crucial, and must be performed with
 # care.
 
-N = 200
+N = 40
 perm.Prior = sample_prior_perm(N)
 
 # # Note that field (before transformation) is Gaussian with (expected) mean 0 and variance 1.
@@ -415,11 +435,6 @@ def vect(x, undo=False):
         return x.reshape(N + [a * b])
 
 
-# Similarly, we need to specify the observation error covariance matrix for the
-# flattened observations.
-
-augmented_obs_error_cov = sla.block_diag(*[R] * nTime)
-
 # ## Correlation study (*a-priori*)
 
 # #### The mechanics of the Kalman gain
@@ -550,61 +565,63 @@ corr_comp.controls = dict(
 # ### Basic ensemble conditioning
 
 # Denote $\mathbf{E}$ the ensemble matrix (whose columns are a sample from the prior),
-# $\mathcal{M}(\mathbf{E})$ the observed ensemble,
-# and $\mathbf{D}$ be the observation perturbations.
+# $\mathcal{M}(\mathbf{E})$ the observed ensemble.
 # Let $\mathbf{X}$ and $\mathbf{Y}$ be the ensemble and the observed ensemble, respectively,
 # but now with their (ensemble-) mean subtracted.
+# Define the innovations as $\mathbf{D} =
+# \mathbf{y} \mathbf{1}^T - (\mathcal{M}(\mathbf{E}) + \text{perturb's})$.
 # Then the ensemble update can be written
 #
-# $$ \mathbf{E}^a
-# = \mathbf{E}
-# + \mathbf{X} \mathbf{Y}^T
+# $$
+# \begin{align*}
+# \mathbf{E}^a
+# &= \mathbf{E} + \mathbf{X}
+# \mathbf{Y}^T
 # \big( \mathbf{Y} \mathbf{Y}^T + (N{-}1) \mathbf{R} \big)^{-1}
-# \big\{ \mathbf{y} \mathbf{1}^T - [\mathcal{M}(\mathbf{E}) + \mathbf{D}] \big\} $$
+# \;\mathbf{D}
+# \\
+# &= \mathbf{E} + \mathbf{X}
+# \mathbf{S}^T
+# \big( \mathbf{S} \mathbf{S}^T + (N{-}1) \mathbf{I} \big)^{-1}
+# \;\mathbf{R}^{-1/2}\;\mathbf{D}
+# \end{align*}
+# $$
+# The implementation below also reverses the products since it works with
+# the transposed matrices. [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
 
 
-def ens_update0(prior_ens, obs_ens, obs, perturbs, obs_err_cov):
+def ens_update0(prior_ens, obs_ens, obs, perturbs, decorr):
     """Compute the ensemble analysis (conditioning/Bayes) update."""
-    X, _ = center(prior_ens)
-    Y, _ = center(obs_ens)
-    perturbs, _ = center(perturbs, rescale=True)
-    obs_cov = obs_err_cov * (len(Y) - 1) + Y.T @ Y
-    obs_pert = perturbs @ sqrt(obs_err_cov)  # TODO: sqrtm if R non-diag
-    innovations = obs - (obs_ens + obs_pert)
-    KG = sla.pinv(obs_cov) @ Y.T @ X
-    return prior_ens + innovations @ KG
+    N = len(prior_ens)
+    X = center(prior_ens)[0]
+    Y = center(obs_ens)[0]
+    S = Y @ decorr
+    D = (obs - obs_ens - perturbs) @ decorr
+    C = S.T @ S + (N - 1) * np.eye(len(obs))
+    return prior_ens + D @ sla.pinv(C) @ S.T @ X
 
-
-# Notes:
-#  - The formulae used by the code are transposed and reversed compared to the above.
-#    [Rationale](https://nansencenter.github.io/DAPPER/dev_guide.html#conventions)
-#  - The perturbations are *input arguments* because we will want to re-use the same ones
-#    when doing localization. It also enables exact reproducibility (see sanity check below).
 
 # #### Bug check
 
 # It is very easy to introduce bugs.
 # Fortunately, most can be eliminated with a few simple tests.
 #
-# For example, let us generate a case where both the unknown, $\mathbf{x}$,
-# and the observation error are (independently) $\mathcal{N}(\mathbf{0}, 2 \mathbf{I})$,
-# while the forward model is just the identity.
+# For example, let us generate a Gaussian-Gaussian (`gg_`) case
+# where the unknown has law $\mathbf{x} \sim \mathcal{N}(\mathbf{0}, 4/3 \mathbf{I})$,
+# and the observation has law $\mathbf{y}|\mathbf{x} \sim \mathcal{N}(\mathbf{x}, 4 \mathbf{I})$.
 
-# Note: the prefix "gg_" stands for Gaussian-Gaussian
-gg_ndim = 3
-gg_prior = sqrt(2) * rnd.randn(1000, gg_ndim)
-
-# From theory, we know the posterior, $\mathbf{x}|\mathbf{y} \sim \mathcal{N}(\mathbf{y}/2, 1\mathbf{I})$.
-# Let us verify that the ensemble update computes this (up to sampling error)
-
+d = 3
 gg_kwargs = dict(
-    prior_ens=gg_prior,
-    obs_ens=gg_prior,
-    obs=10 * np.ones(gg_ndim),
-    obs_err_cov=2 * np.eye(gg_ndim),
-    perturbs=rnd.randn(*gg_prior.shape),
+    prior_ens=(E := sqrt(4 / 3) * rnd.randn(1000, d)),
+    obs_ens=E,
+    obs=4 * np.ones(d),
+    decorr=1 / sqrt(4) * np.eye(d),
+    perturbs=sqrt(4) * rnd.randn(*E.shape),
 )
 gg_postr = ens_update0(**gg_kwargs)
+
+# Theoretically, the posterior is $\mathcal{N}(\mathbf{y}/4, 1\mathbf{I})$.
+# Let us verify that the ensemble update computes this (up to sampling error).
 
 with np.printoptions(precision=2, suppress=True):
     print("Posterior mean:", np.mean(gg_postr, 0))
@@ -627,24 +644,27 @@ with np.printoptions(precision=2, suppress=True):
 # in the prior, rather than model error, reducing the potential for improvement by filtering.
 # Finally, it is easier to formulate an iterative smoother than an iterative filter.
 
-# #### Apply
+# #### Apply for history matching
 
 # Our vector of unknowns is the pre-permeability.
 # However, further below we will also apply the update to other unknowns
 # (future saturation or productions). For brevity, we therefore collect the
 # arguments that are common to all of the applications of this update.
-#
-# *PS: we could also pre-compute the matrices of the update that are common to
-# all updates, thus saving time later. The fact that this is a possibility will
-# not come as a surprise to readers familiar with state-vector augmentation.*
 
 kwargs0 = dict(
     obs_ens=vect(prod.past.Prior),
     obs=vect(prod.past.Noisy),
-    perturbs=rnd.randn(N, nPrd * nTime),
-    obs_err_cov=augmented_obs_error_cov,
+    perturbs=rnd.randn(N, nPrd * nTime) @ R12.T,
+    decorr=sla.inv(R12.T),
 )
 
+# The inversion of `R12` seems oderous but
+# (unless we exploit a structure of `R` such as diagonality, blocks, or bandedness, then)
+# any method using a full-rank R will include at least one matrix op. of complexity of $O(n^3)$.
+#
+# It is usually a good idea to also `center()` on the perturbations,
+# possibly with the `rescale=True` keyword argument.
+#
 # Thus the update is called as follows
 
 perm.ES = ens_update0(perm.Prior, **kwargs0)
@@ -658,127 +678,6 @@ perm.ES = ens_update0(perm.Prior, **kwargs0)
 # We will see some more diagnostics later.
 
 # ### Localization
-
-
-def ens_update0_loc(prior_ens, obs_ens, obs, perturbs, obs_err_cov, domains, taper):
-    """Perform local analysis/domain updates using `ens_update0`."""
-
-    def local_analysis(ii):
-        """Update for domain/batch `ii`."""
-        # Get localization mask, coeffs
-        oBatch, tapering = taper(ii)
-        # Convert [range, slice, epsilon] to inds (for np.ix_)
-        oBatch = np.arange(len(obs))[oBatch]
-        # Update
-        if len(oBatch) == 0:
-            # no obs ==> no update
-            return prior_ens[:, ii]
-        else:
-            c = sqrt(tapering)
-            return ens_update0(
-                prior_ens[:, ii],
-                obs_ens[:, oBatch] * c,
-                obs[oBatch] * c,
-                perturbs[:, oBatch] * c,
-                obs_err_cov[np.ix_(oBatch, oBatch)],
-            )
-
-    # Run -- could use multiprocessing here (replace `map` by `mp`),
-    # but in our case the overhead means that it's not worth it.
-    EE = map(local_analysis, domains)
-
-    # Write to ensemble matrix. NB: don't re-use `prior_ens`!
-    Ea = np.empty_like(prior_ens)
-    for ii, Eii in zip(domains, EE):
-        Ea[:, ii] = Eii
-
-    return Ea
-
-
-# The form of the localization used in the above code is "local/domain analysis".
-# Note that it sequentially processing batches (subsets/domains)
-# of the vector of unknowns (actually, ideally, we'd iterate over each single element,
-# but that is usually computationally inefficient).
-#
-# The localisation setup (`taper`) must return a mask or list of indices
-# that select the observations near the local domain `ii`,
-# and the corresponding tapering coefficients.
-# For example, consider this setup,
-# which makes the update process each local domain entirely independently,
-# *assuming an identity forward model, i.e. that `obs := prm + noise`*.
-
-
-def full_localization(batch_inds):
-    return batch_inds, 1
-
-
-# #### Bug check
-
-# Again, the (localized) method should yield the correct posterior,
-# up to some sampling error. However, thanks to `full_localization`,
-# this error should be smaller than in our bug check for `ens_update0`.
-
-gg_postr = ens_update0_loc(**gg_kwargs, domains=np.c_[:gg_ndim], taper=full_localization)
-
-with np.printoptions(precision=2, suppress=True):
-    print("Posterior mean:", np.mean(gg_postr, 0))
-    print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
-
-# #### Sanity check
-
-# Now consider the following setup.
-
-
-def no_localization(_batch_inds):
-    return ..., 1  # ellipsis (...) means "all"
-
-
-# Hopefully, using this should output the same ensemble (up to *numerical* error)
-# as `ens_update0`. Let us verify this:
-
-tmp = ens_update0_loc(perm.Prior, **kwargs0, domains=[...], taper=no_localization)
-print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
-
-# *PS: with no localization, it should not matter how the domain is partitioned.
-# For example, try `domains=np.arange(model.Nxy).reshape(some_integer, -1)`.*
-
-# #### Configuration for the history matching problem
-
-# Now let us define the local domains for the permeability field.
-
-domains = loc.rectangular_partitioning(model.shape, (2, 3))
-
-# We can illustrate the partitioning by filling each domain by a random color.
-# This should produce a patchwork of rectangles.
-
-# +
-colors = rnd.choice(len(domains), len(domains), False)
-Z = np.zeros(model.shape)
-for d, c in zip(domains, colors):
-    Z[tuple(model.ind2sub(d))] = c
-
-# fig, ax = plotting.freshfig("Computing domains", figsize=(6, 3))
-# ax.imshow(Z, cmap="tab20", aspect=0.5)
-# fig.tight_layout()
-# plt.show()
-
-
-# -
-
-# The tapering will be a function of the batch's mean distance to the observations.
-# The default `radius` and `sharpness` are the ones we found to be the most
-# promising from the above correlation study.
-
-
-def localization_setup(batch, radius=0.8, sharpness=1):
-    dists = distances_to_obs[batch].mean(axis=0)
-    obs_coeffs = loc.bump_function(dists / radius, sharpness)
-    obs_mask = obs_coeffs > 1e-3
-    return obs_mask, obs_coeffs[obs_mask]
-
-
-# #### Localization tuning
-
 # It is technically challenging to translate/encode **all** of our prior knowledge into
 # the computational form of an ensemble.  It is also computationally demanding, because
 # a finite ensemble size, $N$, will contain sampling errors.  Thus, in principle, there
@@ -794,7 +693,8 @@ def localization_setup(batch, radius=0.8, sharpness=1):
 # configuring an effective localization setup can be very challenging.
 # If successful, however, localization is unreasonably effective,
 # allowing the use of much smaller ensemble sizes than one would think.
-#
+
+# #### Tuning
 # In our simple case, it is sufficient to use distance-based localization.
 # Far-away (remote) correlations will be dampened ("tapered").
 # For the shape, we here use the "bump function" rather than the
@@ -886,6 +786,59 @@ corr_wells.controls = dict(
 #   resemble (as much as possible) the full-size ensemble fields.
 # - The suggested value from the author is `0.8` (and sharpness $10^0$, i.e. 1).
 
+# #### Localised ensemble conditioning
+
+
+def ens_update0_loc(prior_ens, obs_ens, obs, perturbs, decorr, taper):
+    """Perform local analysis/domain updates using `ens_update0`."""
+
+    N = len(prior_ens)
+    X = center(prior_ens)[0]
+    Y = center(obs_ens)[0]
+    S = Y @ decorr
+    D = (obs - obs_ens - perturbs) @ decorr
+
+    def local_analysis(i):
+        """Update for state element `i`."""
+        ci = np.sqrt(taper[i])
+        jj = ci > 1e-2
+        dE = 0
+        if np.any(jj):
+            Si = S[:, jj] * ci[jj]
+            Di = D[:, jj] * ci[jj]
+            Ci = Si.T @ Si + (N - 1) * np.eye(sum(jj))
+            dE = Di @ sla.pinv(Ci) @ Si.T @ X[:, i]
+        return prior_ens[:, i] + dE
+
+    ii = np.arange(prior_ens.shape[-1])
+    EE = map(local_analysis, ii)  # <-- can multiprocess this map
+    return np.asarray(list(EE)).T
+
+
+# The form of the localization used in the above code is "local/domain analysis".
+#
+# A more efficient version (sequentially processing batches, i.e. subsets/domains)
+# rather than iterating over each single element is avilable in an earlier
+# git version of this notebook.
+
+# #### Bug check
+# The following should make the update process each local domain entirely independently.
+# This localized method should yield lower sampling error (at least in the long run)
+# than in our bug check for `ens_update0`.
+
+gg_postr_loc = ens_update0_loc(**gg_kwargs, taper=np.eye(d))
+
+with np.printoptions(precision=2, suppress=True):
+    print("Posterior mean:", np.mean(gg_postr_loc, 0))
+    print("Posterior cov:", np.cov(gg_postr_loc.T), sep="\n")
+
+# #### Sanity check
+# Hopefully, the following should output the same ensemble (merely up to *numerical* error)
+# as `ens_update0` (but be less numerically efficient). Let us verify this:
+
+tmp = ens_update0_loc(perm.Prior, **kwargs0, taper=np.ones_like(distances_to_obs))
+print("Reproduces global analysis?", np.allclose(tmp, perm.ES))
+
 # #### Time-dependent localisation
 # In the preceding dashboards we could observe that the "locations" (defined as the
 # location of the maximum) of the correlations (between a given well observation
@@ -923,9 +876,9 @@ xy_max_corr[:, :6] = xy_max_corr[:, [6]]
 # distances_to_obs = loc.pairwise_distances(xy_prm.T, xy_obs.T)
 # -
 
-# #### Apply
+# #### Apply for history matching
 
-perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localization_setup)
+perm.LES = ens_update0_loc(perm.Prior, **kwargs0, taper=loc.bump_function(distances_to_obs / 0.8))
 
 # Again, we plot some updated/posterior fields
 
@@ -962,15 +915,19 @@ perm.LES = ens_update0_loc(perm.Prior, **kwargs0, domains=domains, taper=localiz
 # computational effort.
 
 # #### Algorithm
+# It is well known that the Woodbury matrix lemma can be used to write the Kalman gain
+# in a form where the inversion is of the size of the ensemble, and not of the observations.
+# This form was not employed above. However, working in ensemble subspace becomes important
+# when formulating the Gauss-Newton iterative ensemble smoother.
 
 
-def IES(prior_ens, fmodel, obs, perturbs, obs_err_cov, xStep=1.0, iMax=4):
+def IES(prior_ens, fmodel, obs, perturbs, decorr, xStep=1.0, iMax=4):
     """Iterative ensemble smoother."""
-    Rm12T = np.diag(sqrt(1 / np.diag(obs_err_cov)))  # TODO?
-    y = obs @ Rm12T
-    D, _ = center(perturbs, rescale=True)
+    stats = Dict(E=[], Eo=[])
+
     N = len(prior_ens)
-    stats = Dict(E=[], Eo=[], rms_data=[], dy=[], obs=[], Eomean=[])
+    y = obs @ decorr
+    D = perturbs @ decorr
 
     # Subspace decomposition
     W0 = np.eye(N)
@@ -985,7 +942,7 @@ def IES(prior_ens, fmodel, obs, perturbs, obs_err_cov, xStep=1.0, iMax=4):
         stats.E.append(E)
         stats.Eo.append(Eo)
 
-        Eo = Eo @ Rm12T
+        Eo = Eo @ decorr
         Y0 = center(sla.pinv(W))[0] @ Eo
 
         # Gradients
@@ -1007,20 +964,17 @@ def IES(prior_ens, fmodel, obs, perturbs, obs_err_cov, xStep=1.0, iMax=4):
 
 # #### Bug check
 
-gg_postr, stats = IES(
+tmp, stats = IES(
     gg_kwargs["prior_ens"],
     lambda x: x,
     gg_kwargs["obs"],
     gg_kwargs["perturbs"],
-    gg_kwargs["obs_err_cov"],
+    gg_kwargs["decorr"],
 )
 
-with np.printoptions(precision=2, suppress=True):
-    print("Posterior mean:", np.mean(gg_postr, 0))
-    print("Posterior cov:", np.cov(gg_postr.T), sep="\n")
+print("Reproduces non-iterative analysis?", np.allclose(tmp, gg_postr))
 
-
-# #### Compute
+# #### Apply for history matching
 
 kwargsI = kwargs0.copy()
 kwargsI.pop("obs_ens")

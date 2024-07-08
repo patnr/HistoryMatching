@@ -470,7 +470,7 @@ def toggle_items(wrapped):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
 
     def new(*args, **kwargs):
-        checkmarks = {label: True for label in args[0]}
+        checkmarks = {label: i < 4 for i, label in enumerate(args[0])}
         linked = wg.interactive(wrapped(*args, **kwargs), **checkmarks)
 
         # Adjust layout

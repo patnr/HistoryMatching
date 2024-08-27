@@ -91,7 +91,8 @@ model.prd_rates = rate0 * np.ones((4, 1)) / 4
 # #### Plot
 
 fig, ax = plotting.freshfig(model.name)
-model.plt_field(ax, model.K[0], "perm", grid=True)
+model.plt_field(ax, model.K[0], "perm", grid=True);  # fmt: skip
+
 # #### Simulations
 
 wsat0 = np.zeros(model.Nxy)
@@ -457,13 +458,15 @@ print(
 # and plot the optimisation paths along with the contours of the objective
 # *PS: code for both tasks must be in same cell in order to plot on same figure*.
 
-# Optimize, plot paths
+# ### Optimize, plot paths
+
 fig, axs = plotting.figure12(obj.__name__)
 for color in ["C0", "C2", "C7", "C9"]:
     u0 = rnd.rand(2) * model.domain[1]
     path, objs, info = GD(obj, u0, nabla_ens(0.1))
     plotting.add_path12(*axs, path, objs, color=color, labels=False)
-model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False)
+model.plt_field(axs[0], npvs, "NPV", argmax=True, wells=False);  # fmt: skip
+
 # Note that
 #
 # - The increase in objective function for each step is guaranteed by the line search
@@ -614,7 +617,7 @@ path = coordinate_transform(path)
 fig, axs = plotting.figure12(obj.__name__)
 plotting.add_path12(*axs, path[:, :2], objs, color="C1")
 plotting.add_path12(*axs, path[:, 2:], color="C3")
-model.plt_field(axs[0], model.K[0], "perm")
+model.plt_field(axs[0], model.K[0], "perm");  # fmt: skip
 # -
 
 # Seems reasonable.
@@ -693,7 +696,7 @@ model = remake(model, **wells, name="Triangle case")
 # Show well layout
 
 fig, ax = plotting.freshfig(model.name)
-model.plt_field(ax, model.K[0], "perm")
+model.plt_field(ax, model.K[0], "perm");  # fmt: skip
 
 # Define function that takes injection rates and computes final sweep, i.e. saturation field.
 # The plot also displays the resulting NPV.
@@ -873,7 +876,7 @@ uq_ens = 0.1 + np.exp(5 * geostat.gaussian_fields(model.mesh, nEns, r=0.8))
 
 # Plot
 
-plotting.fields(model, uq_ens, "perm")
+plotting.fields(model, uq_ens, "perm");  # fmt: skip
 
 # ### Conditional objective
 # The *conditional* objective consists of the `npv`
@@ -982,6 +985,7 @@ for n, (x, y) in enumerate(ctrl_ens_nominal):
 ax.scatter(*ctrl_robust, s=8**2, color="w")
 utils.adjust_text(lbls, precision=0.1)
 model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain", wells=False, colorbar=False, grid=True)
+
 # Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.

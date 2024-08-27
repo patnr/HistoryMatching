@@ -4,7 +4,7 @@ import numpy as np
 import numpy.random as rnd
 import scipy.linalg as sla
 
-# from adjustText import adjust_text
+from adjustText import adjust_text  # noqa: F401
 
 
 def center(E, axis=0, rescale=False):

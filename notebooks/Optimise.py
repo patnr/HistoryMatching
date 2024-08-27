@@ -400,6 +400,7 @@ def plot(case, seed=5, nTrial=2, aspect=0, nIter=10, xStep=0,
     axs[0].contourf(
         g, g, obj(mesh2list(*np.meshgrid(g, g))).reshape((len(g), -1)), **style
     )
+    plotting.show()
 # fmt: on
 
 

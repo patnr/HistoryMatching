@@ -766,9 +766,7 @@ prd_rates = model.actual_rates["prd"]
 oil_sats = 1 - prd_sats(model, wsats).T
 
 # +
-fig, (ax1, ax2) = plotting.freshfig(
-    "Optimal rates", figsize=(7, 6), nrows=2, sharex=True
-)
+fig, (ax1, ax2) = plotting.freshfig("Optimal rates", figsize=(7, 6), nrows=2, sharex=True)
 ax_ = ax1.twinx()
 for iWell, (rates, satrs) in enumerate(zip(prd_rates, oil_sats)):
     ax1.plot(np.arange(nTime), rates, c=f"C{iWell}", lw=3)
@@ -940,9 +938,7 @@ ctrl_robust = path[-1]
 ctrl_ens_nominal = []
 for x in progbar(uq_ens, desc="Nominal optim."):
     u0 = rnd.rand(2) * model.domain[1]
-    path, objs, info = GD(
-        lambda u: obj1(u, x), u0, nabla_ens(0.1, nEns=nEns), quiet=True
-    )
+    path, objs, info = GD(lambda u: obj1(u, x), u0, nabla_ens(0.1, nEns=nEns), quiet=True)
     ctrl_ens_nominal.append(path[-1])
 
 # Alternatively, since we have already computed the npv for each pixel/cell
@@ -968,9 +964,7 @@ for n, (x, y) in enumerate(ctrl_ens_nominal):
         ax.plot([x, x2], [y, y2], "-", color=color, lw=2)
 ax.scatter(*ctrl_robust, s=8**2, color="w")
 utils.adjust_text(lbls, precision=0.1)
-model.plt_field(
-    ax, np.zeros_like(model.mesh[0]), "domain", wells=False, colorbar=False, grid=True
-)
+model.plt_field(ax, np.zeros_like(model.mesh[0]), "domain", wells=False, colorbar=False, grid=True)
 # Also drawn are lines to/from the true/global nominal optima (if `my_computer_is_fast`).
 # It can be seen that EnOpt mostly, but not always, finds the global optimum
 # for this case.
@@ -979,9 +973,7 @@ if my_computer_is_fast:
     err = ctrl_ens_nominal2 - ctrl_ens_nominal
     err /= model.domain[1]  # scale to [0, 1]
     RMS = np.sqrt(np.mean(err**2, -1))
-    print(
-        f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}"
-    )
+    print(f"Number of significantly suboptimal EnOpt answer: {sum(RMS > 0.1)} of {len(RMS)}")
 
 # ### Histogram (KDE) for each control strategy
 
@@ -1043,9 +1035,7 @@ ax.text(
     ha="left",
     fontsize="medium",
     fontfamily="monospace",
-    bbox=dict(
-        facecolor="lightyellow", edgecolor="k", alpha=0.99, boxstyle="round,pad=0.25"
-    ),
+    bbox=dict(facecolor="lightyellow", edgecolor="k", alpha=0.99, boxstyle="round,pad=0.25"),
 )
 
 ax.tick_params(axis="y", left=False, labelleft=False)
@@ -1121,9 +1111,7 @@ for i, prd_rates in enumerate(optimal_rates):
     emissions.append(-(other["ledgr"]["inj"] + other["ledgr"]["wat"]))
 
 
-fig, ax = plotting.freshfig(
-    "Pareto front (npv-optimal settings for range of price['inj'])"
-)
+fig, ax = plotting.freshfig("Pareto front (npv-optimal settings for range of price['inj'])")
 ax.set(xlabel="npv (income only)", ylabel="inj/emissions (expenses)")
 ax.plot(sales, emissions, "o-")
 ax.grid()

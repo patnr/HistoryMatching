@@ -1109,7 +1109,7 @@ plotting.fields(model, perm.ILES, "pperm", "ILES (posterior)");  # fmt: skip
 # With ensemble methods, it is (typically, and in this case study) applied
 # to the deviation from the **ensemble mean**, whence the trailing `M` in `print_RMSMs` below.
 
-print(f"Accuracy wrt. unknown {emph('parameter')} field\n")
+print(f"Accuracy wrt. (supposedly unknown) {emph('parameter')} field\n")
 utils.print_RMSMs(perm, ref="Truth")
 
 # #### Field plots
@@ -1233,7 +1233,7 @@ plotting.productions(prod.futr, "Future");  # fmt: skip
 
 # ### RMS summary
 
-print(f"Accuracy vs. (supposedly unknown) {emph('future')} production\n")
+print(f"Accuracy wrt. (supposedly unknown) {emph('future')} production\n")
 utils.print_RMSMs(prod.futr, ref="Truth")
 
 # ## Final comments

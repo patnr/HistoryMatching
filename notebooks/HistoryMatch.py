@@ -262,13 +262,14 @@ prod_noise = R12 @ rnd.randn(nTime * nPrd)
 prod.past.Noisy = prod.past.Truth + prod_noise.reshape((nTime, nPrd))
 
 # The above may well produce observations outside $[0,1]$
-# which is "unphysical" or not physically "realisable".
+# which is not realistic. Therefore we truncate them.
 
-# +
-# prod.past.Noisy = prod.past.Noisy.clip(0, 1)
-# -
+prod.past.Noisy = prod.past.Noisy.clip(0, 1)
 
-# Plot of observations (and their noise):
+# Since it is not obvious how to do so, we will *not* account for this truncation
+# in our history matching methods.
+#
+# The following plots the observations (and the noisy observations thereof):
 
 fig, ax = plotting.freshfig("Observations")
 model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip

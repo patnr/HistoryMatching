@@ -243,7 +243,7 @@ animation
 length_tmp = 2
 corrs1well = np.exp(-np.arange(nTime) / length_tmp)
 corrs1well[corrs1well < 1e-2] = 0  # cut off
-R1well = 1e-3 * sla.toeplitz(corrs1well)
+R1well = 1e-2 * sla.toeplitz(corrs1well)
 R = np.kron(R1well, np.eye(nPrd))
 
 fig, (ax1, ax2) = plotting.freshfig("Obs. error cov", ncols=2, figsize=(7, 3))

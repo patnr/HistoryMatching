@@ -511,17 +511,16 @@ plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=Tru
 #     -->
 # - Set `Field = "Pre-perm"`.
 #   - Move `T` around. Why doesn't anything change?
-#   - Set the ensemble size: `N=2`. How does the correlation field look? Why?
+#   - Set a large `T` and the ensemble size to `N=2`. How does the correlation field look? Why?
 #     <!-- Answer: Only 2 colors, because 2 points always lie on a straight line -->
-# - Now set `Field = "Saturation"`. Explain the major new and strange appearance.
-#   <!-- Answer: Nan's and inf's at corners. Reason: for most realisations,
-#   the saturation is (as of yet) constant there.
-#   -->
-# - Set `N=200`. Move the point to the center again.
-#   - Set `T=0` How do the correlation fields look? Why?
-#   - Set `t=T=1`. Gradually move `T=2,3,4, etc` (hint: use your arrow keys).
-#     Explain the appearance of "fronts".
-#   - Move `T=1,2,3, etc` using your arrow keys. Explain the appearance of "fronts".
+# - Now set `Field = "Saturation"` (and a large `N`).
+#   - Set `T=0` How does the correlation field look? Why?
+#     <!-- Answer: Nan's everywhere because the initial sat. is perfectly known (has 0 spread). -->
+#   - Set `t=T=1,2,3,4, etc` progressively (hint: use your arrow keys).
+#     Explain the reason for the "fronts".
+#     <!-- Answer: The change in saturation (which emanates from injector) takes time
+#     to propagate (the physics are sufficiently realistic that the saturation field does
+#     not update with infinite speed), so the corners have NaN's up until a later `T`-->
 # - Set `T=20`, `t=40`, and move the point to the location of one of the wells.
 #   - Where is the maximum? And minimum? Does this make sense?
 #   - Gradually increase `T`. How do the extrema move? Why?.

@@ -1142,6 +1142,7 @@ for methd in perm:
         (wsat.past[methd],
          prod.past[methd]) = forward_model(perm[methd], desc=methd)  # fmt: skip
 
+# #### Updated predictions without re-running
 # The ES can be applied to any un-conditioned ensemble (not just the permeabilities).
 # A particularly interesting case is applying it to the prior's production predictions.
 # This provides another posterior approximation of the production history

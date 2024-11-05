@@ -630,18 +630,14 @@ with np.printoptions(precision=2, suppress=True):
 
 # #### Apply for history matching
 
-# Our vector of unknowns is the pre-permeability.
-# However, further below we will also apply the update to other unknowns
-# (future saturation or productions). For brevity, we therefore collect the
-# arguments that are common to all of the applications of this update.
+# Collect arguments that are common to all of the applications of this update.
 
-hm_setup = dict(
+hm_setup0 = dict(
+    obs_ens=vect(prod.past.Prior),
     obs=vect(prod.past.Noisy),
     perturbs=rnd.randn(N, nPrd * nTime) @ R12.T,
     decorr=sla.inv(R12.T),
 )
-hm_setup0 = dict(**hm_setup, obs_ens=vect(prod.past.Prior))
-hm_setupI = dict(**hm_setup, fmodel=lambda x: vect(forward_model(x, leave=False)[1]))
 
 # The inversion of `R12` seems oderous but
 # (unless we exploit a structure of `R` such as diagonality, blocks, or bandedness, then)
@@ -650,6 +646,7 @@ hm_setupI = dict(**hm_setup, fmodel=lambda x: vect(forward_model(x, leave=False)
 # It is usually a good idea to also `center()` on the perturbations,
 # possibly with the `rescale=True` keyword argument.
 #
+# Our vector of unknowns is the pre-permeability.
 # Thus the update is called as follows
 
 perm.ES = ens_update0(perm.Prior, **hm_setup0)
@@ -906,7 +903,7 @@ plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
 # when formulating the Gauss-Newton iterative ensemble smoother.
 
 
-def IES(prior_ens, fmodel, obs, perturbs, decorr, xStep=1.0, iMax=4):
+def IES(prior_ens, obs_ens, obs, perturbs, decorr, xStep=1.0, iMax=4):
     """Iterative ensemble smoother."""
     stats = Dict(E=[], Eo=[])
 
@@ -921,7 +918,7 @@ def IES(prior_ens, fmodel, obs, perturbs, decorr, xStep=1.0, iMax=4):
 
     for itr in utils.progbar(range(iMax), desc="Iter.ES"):
         E = x0 + W @ X0
-        Eo = fmodel(E)
+        Eo = obs_ens(E)
 
         # In practice, you'd rather store *summary* stats
         stats.E.append(E)
@@ -949,11 +946,17 @@ def IES(prior_ens, fmodel, obs, perturbs, decorr, xStep=1.0, iMax=4):
 
 # #### Bug check
 
-tmp, stats = IES(**gg_setup, fmodel=lambda x: x)
+tmp, stats = IES(**gg_setup, obs_ens=lambda x: x)
 
 print("Reproduces non-iterative analysis?", np.allclose(tmp, gg_postr))
 
 # #### Apply for history matching
+
+# In the iterative case the method needs to know the forward/observational model *function*,
+# not just the value of the its evaluation on the prior ensemble.
+
+hm_setupI = hm_setup0.copy()
+hm_setupI["obs_ens"] = lambda x: vect(forward_model(x, leave=False)[1])
 
 perm.IES, stats = IES(perm.Prior, **hm_setupI, xStep=0.4, iMax=10)
 
@@ -1001,7 +1004,7 @@ plotting.fields(model, perm.IES, "pperm", "IES (posterior)");  # fmt: skip
 # ### Localised, iterative ensemble smoother
 
 
-def ILES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
+def ILES(prior_ens, obs_ens, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
     """Iterative ensemble smoother."""
     stats = Dict(E=[], Eo=[])
 
@@ -1019,15 +1022,14 @@ def ILES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
 
     for itr in utils.progbar(range(iMax), desc="Iter.ES"):
         E = recompose(Ws)
-        obs_ens = fmodel(E)
+        Eo = obs_ens(E)
 
         # In practice, you'd rather store *summary* stats
         stats.E.append(E)
-        stats.Eo.append(obs_ens)
+        stats.Eo.append(Eo)
 
-        Eo = obs_ens @ decorr
-        S = center(Eo)[0]
-        D = (obs - obs_ens - perturbs) @ decorr
+        S = center(Eo @ decorr)[0]
+        D = (obs - Eo - perturbs) @ decorr
 
         def local_analysis(i):
             """Update for state element `i`."""
@@ -1064,7 +1066,7 @@ def ILES(prior_ens, fmodel, obs, perturbs, decorr, taper, xStep=1.0, iMax=4):
 
 # #### Bug check
 
-tmp, stats = ILES(**gg_setup, fmodel=lambda x: x, taper=np.eye(d))
+tmp, stats = ILES(**gg_setup, obs_ens=lambda x: x, taper=np.eye(d))
 
 print("Reproduces non-iterative, local analysis?", np.allclose(tmp, gg_postr_loc))
 

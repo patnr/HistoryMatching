@@ -363,6 +363,7 @@ def rosenbrock(u):
 
 def rastrigin(u):
     u = u * [5.12, 5.12]
+    # TODO: should use 10 in place of 5 below?
     return 20 + (u * u - 5 * np.cos(2 * np.pi * u)).sum(-1)
 
 

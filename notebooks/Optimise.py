@@ -43,7 +43,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import numpy.random as rnd
-import TPFA_ResSim as simulator
+import minires as simulator
 
 from tools import geostat, plotting, utils
 from tools.utils import center, apply, progbar, mesh2list
@@ -88,6 +88,37 @@ model.prd_xy = xy_4corners
 model.inj_rates = rate0 * np.ones((1, 1)) / 1
 model.prd_rates = rate0 * np.ones((4, 1)) / 4
 
+# The simulator itself makes no distinction between injectors and producers:
+# it has a *single* set of wells, whose rates are **signed** (positive injects
+# water, negative produces). The above is thus a *specification* of ours, which
+# `remake` renders into `model.wells` proper, listing the injectors first.
+# We use `remake` for all (re)configuration hereafter, since the optimisers
+# will keep varying one or another of the specs -- which is also why it
+# tolerates the flat (raveled) arrays that they work in.
+# Note that, unlike the history matching tutorial, we do not bother to
+# implement/support a permeability setter, which would contain a few extra steps.
+
+
+def remake(model, **params):
+    """Instantiate new model config: apply `params`, render the wells."""
+    model = copy.deepcopy(model)
+    for k, v in params.items():
+        setattr(model, k, v)
+
+    def records(xy, rates, sign):
+        rates = np.reshape(rates, (len(xy), -1))  # ⇒ 1 row (time series) per well
+        return [dict(xy=x, rate=sign * r) for x, r in zip(xy, rates)]
+
+    model.inj_xy = np.reshape(model.inj_xy, (-1, 2))
+    model.prd_xy = np.reshape(model.prd_xy, (-1, 2))
+    model.nInj, model.nPrd = len(model.inj_xy), len(model.prd_xy)
+    model.wells = (records(model.inj_xy, model.inj_rates, +1)
+                  +records(model.prd_xy, model.prd_rates, -1))  # fmt: off
+    return model
+
+
+model = remake(model)
+
 # #### Plot
 
 fig, ax = plotting.freshfig(model.name)
@@ -113,7 +144,7 @@ def npv(model, **params):
     """Net present value (NPV) for `model` with (keyword) `params`."""
     try:
         model = remake(model, **params)
-        wsats = model.sim(dt, nTime, wsat0, pbar=False)
+        wsats, _ = model.sim(dt, nTime, wsat0, pbar=False)
         ledgr = accounting(model, wsats)
         value = sum(ledgr.values())
         other = dict(model=model, wsats=wsats, ledgr=ledgr)
@@ -125,23 +156,11 @@ def npv(model, **params):
     return value, other
 
 
-# #### Auxiliary functions
+# Note that the parameter setter (`remake`) is factored out of the forward model,
+# which will be convenient since we will do several distinct "cases"
+# of model configurations. Let's store the base one.
 
-
-def remake(model, **params):
-    """Instantiate new model config."""
-    model = copy.deepcopy(model)
-    for k, v in params.items():
-        setattr(model, k, v)
-    return model
-
-
-# Note that, unlike the history matching tutorial,
-# we do not bother to implement/support permability setter, which would contain a few extra steps.
-# Also, the parameter setter is factored out of the forward model, which will be convenient
-# since we will do several distinct "cases" of model configurations. Let's store the base one.
-
-original_model = remake(model)
+original_model = model
 
 # The following prices are not grounded in reality.
 # However, the 1-to-1 relationship implied by mass balance of the simulator
@@ -171,9 +190,12 @@ def accounting(model, wsats):
     """Monetary value (NPV) from simulation results."""
     prd_wsats = prd_sats(model, wsats).T
 
-    # Rates (computed by dynamic_rate)
-    inj_rates = model.actual_rates["inj"]
-    prd_rates = model.actual_rates["prd"]
+    # Rates (as realized by the model), from its single, signed array.
+    # NB: sliced by position, not by `model.wells.signs`, since a well that we
+    # shut for the entire horizon has no sign, and would drop out of such a mask.
+    rates = model.wells.actual_rates
+    inj_rates = rates[: model.nInj]
+    prd_rates = -rates[model.nInj :]
     # Volumes (should NOT scale with model hx*hy)
     inj_volumes = dt * inj_rates * 1
     oil_volumes = dt * prd_rates * (1 - prd_wsats)
@@ -195,7 +217,7 @@ def accounting(model, wsats):
     values["iwell"] = -price["/well"] * np.sum(inj_rates != 0)
     values["turbo"] = -price["turbo"] * excess.sum() ** 2 * dt
     values["diffs"] = -price["diffs"] * (np.abs(diffs) ** 0.1).sum()
-    # values['fixed'] = -price['fixed'] * (1 + max(find_shut_ins(model.actual_rates['prd'])))
+    # values['fixed'] = -price['fixed'] * (1 + max(find_shut_ins(prd_rates)))
 
     return values
 
@@ -782,8 +804,8 @@ plot_final_sweep(model, name=f"Optimal for {obj.__name__}")
 
 # #### Plot rates
 
-inj_rates = model.actual_rates["inj"]
-prd_rates = model.actual_rates["prd"]
+inj_rates = model.wells.actual_rates[: model.nInj]
+prd_rates = -model.wells.actual_rates[model.nInj :]
 oil_sats = 1 - prd_sats(model, wsats).T
 
 # +

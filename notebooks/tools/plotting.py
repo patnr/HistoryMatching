@@ -15,7 +15,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator, LogLocator
 from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
-from TPFA_ResSim.plotting import styles
+from minires.plotting import styles
 
 # Colormap for correlations
 cmap_corr = plt.get_cmap("bwr")

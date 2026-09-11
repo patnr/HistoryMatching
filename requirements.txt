@@ -1,9 +1,14 @@
-git+https://github.com/patnr/TPFA-ResSim.git@adc89536
+# NB: pre-history-rewrite hash -- re-pin once MiniRes' history is rewritten.
+git+https://github.com/patnr/MiniRes.git@d351b221f704
 # "Editable" mode:
-# -e ${HOME}/path/TPFA-ResSim
+# -e ${HOME}/path/MiniRes
 
 jupyter
 pathos
 threadpoolctl
 adjustText==0.8
-mpl-tools==0.4.0
+# NB: 0.4.0 uses `mpl.rcsetup.interactive_bk`, removed in matplotlib 3.11
+# (and 0.4.1 has a `freshfig` bug) -- so this floor is load-bearing.
+mpl-tools>=0.4.2,<0.5
+# Used by the notebooks; used to arrive transitively, via TPFA-ResSim.
+struct-tools

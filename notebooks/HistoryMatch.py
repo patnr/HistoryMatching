@@ -85,7 +85,7 @@ seed = rnd.seed(1)
 # algebra. Hence our focus and code will be of aspects directly related to the history
 # matching and optimisation process.
 
-import TPFA_ResSim as simulator
+import minires as simulator
 import tools.localization as loc
 from tools import geostat, plotting, utils
 from tools.utils import center, apply, emph
@@ -127,7 +127,8 @@ wsat = Dict(
 # separate dicts.
 
 # #### The unknown: permeability
-# We will estimate the log permeability field.  We *parameterize* the permeability,
+# Commonly adjusted parameters include porosity, transmissibility and fault multipliers,
+# but here we will only estimate the log permeability field.  We *parameterize* the permeability,
 # meaning that they are defined via some transform (function), which becomes part of the
 # forward model. We term the parameterized permeability fields "pre-permeability".
 # *If* we use the exponential, then we will be working with log-permeabilities.
@@ -179,18 +180,30 @@ xy_4corners = [[x, y]
                for y in model.Ly*near01
                for x in model.Lx*near01]  # fmt: skip
 
-# Since the **boundary conditions** are Dirichlet, specifying *zero flux*, and the fluid
-# is incompressible, the total of the source terms must equal that of the sinks.
+# The simulator makes no distinction between injectors and producers: there is one set
+# of wells, whose `rates` are **signed** -- positive injects (water), negative produces
+# (at the well cell's fractional flow). We put a single injector at the centre, and a
+# producer in each corner.
+# Since the **boundary conditions** are no-flow (Neumann) and the fluid is
+# incompressible, the total of the source terms must equal that of the sinks.
 # If this is not the case, the model will raise an error when run.
 
 nPrd = len(xy_4corners)
-model.prd_xy = xy_4corners
-model.inj_xy = [[model.Lx / 2, model.Ly / 2]]
-model.inj_rates = [[1]]
-model.prd_rates = np.ones((nPrd, 1)) / nPrd
+model.wells = [
+    dict(xy=[model.Lx / 2, model.Ly / 2], rate=+1, name="Inj"),
+    *[dict(xy=xy, rate=-1 / nPrd, name=f"Prd{i}") for i, xy in enumerate(xy_4corners)],
+]
 
-# As detailed in the model docs, when `inj_rates.shape[1] == 1` (as above),
-# the rates do not vary in time.
+# The records above are read, not retained: what they configure is the flat well
+# arrays of `model.wells`, which are where the model reads the configuration from,
+# and which remain writable by hand (as the ensemble loop below does not, but an
+# optimisation loop would). As detailed in the model docs, a rate array with a
+# single column (as produced above) does not vary in time.
+#
+# We keep the indices of the producers around, since it is by them that we
+# will observe (and, further below, plot) the production.
+
+prod_inds = model.xy2ind(*model.wells.xy[model.wells.signs < 0].T)
 
 # #### Plot
 # Let's take a moment to visualize the (true) model permeability field,
@@ -206,8 +219,6 @@ model.plt_field(ax, perm_transf(perm.Truth), "perm", grid=True);  # fmt: skip
 # methods technically support (though your accuracy mileage may vary, again, depending
 # on the incurred nonlinearity and non-Gaussianity) observation models of any complexity.
 
-prod_inds = model.xy2ind(*model.prd_xy.T)
-
 
 def obs_model(water_sat):
     return water_sat[prod_inds]
@@ -221,7 +232,7 @@ dt = 0.025
 nTime = round(T / dt)
 
 wsat0 = np.zeros(model.Nxy)
-wsat.past.Truth = model.sim(dt, nTime, wsat0)
+wsat.past.Truth, _ = model.sim(dt, nTime, wsat0)  # `sim` also returns pressure
 prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 
 # #### Animation
@@ -280,11 +291,10 @@ model.plt_production(ax, prod.past.Truth, prod.past.Noisy);  # fmt: skip
 # same mean and covariance.  Thus, the members are "statistically indistinguishable" to
 # the truth. This assumption underlies ensemble methods.
 #
-# In practice, "encoding" prior information, from a range of experts, and prior
-# information sources, in such a way that it is useful for decision making analyses (and
-# history matching), is a formidable tecnnical task, typically involving multiple
-# different types of modelling.  Nevertheless it is crucial, and must be performed with
-# care.
+# In practice, "encoding" the prior information gathered from a range sources
+# in such a way that it is useful for decision making analyses (and history matching),
+# is a formidable technical task, typically involving multiple different types of modelling
+# and experts, that is crucial to perform with care.
 
 N = 40
 perm.Prior = sample_prior_perm(N)
@@ -359,7 +369,7 @@ def comp1(perm, wsat0=wsat0):
     """Composite forward/forecast/prediction model (for 1 realisation)."""
     new_model = copy.deepcopy(model)  # don't overwrite truth model
     set_perm(new_model, perm)  # set parameters
-    wsats = new_model.sim(dt, nTime, wsat0, pbar=False)  # run simulator
+    wsats, _ = new_model.sim(dt, nTime, wsat0, pbar=False)  # run simulator
     prods = np.array([obs_model(x) for x in wsats[1:]])  # extract prod time series
     return wsats, prods
 
@@ -497,30 +507,31 @@ corr_comp.controls = dict(
 plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=True)
 
 # Use the interative control widgets to investigate the correlation structure.
-# Answer the following questions. *NB*: the order matters!
+# Answer the following questions. *NB*: the instruction ordering matters!
 #
-# - Set the times as `T = t = 20`
-#     and the variable kinds as `Field = Point = "Saturation"`.
-#   - Move the point around (`x` and `y` sliders).
-#   - Why is the star marker (showing the location of the maximum)
-#     on top of the crosshairs?
-#     <!-- Answer: Because the correlation the correlation of a variable with itself
-#     is 1.00, which is the maximum possible correlation. This is a useful sanity check
-#     on our correlation and plotting facilities. Use the zoom functionality if necessary
-#     to assert exact superposition.
-#     -->
+# - Move the `Point` (indicated by the crosshairs, controlled by the `x` and `y` sliders) around.
+#   Why is the star marker (showing the location of the maximum)
+#   on top of the crosshairs?
+#   Move the `Point` back into the center.
+#   <!-- Answer: Because the correlation the correlation of a variable with itself
+#   is 1.00, which is the maximum possible correlation. This is a useful sanity check
+#   on our correlation and plotting facilities. Use the zoom functionality if necessary
+#   to assert exact superposition.
+#   -->
 # - Set `Field = "Pre-perm"`.
-#   - Move `T` around. Why doesn't anything change?
-#   - Set a large `T` and the ensemble size to `N=2`. How does the correlation field look? Why?
+#   - Move `T` around. Why doesn't anything change? Feel free to inspect the code itself.
+#   - Set a large `t` and the ensemble size to `N=2`. How does the correlation field look? Why?
 #     <!-- Answer: Only 2 colors, because 2 points always lie on a straight line -->
 # - Now set `Field = "Saturation"` (and a large `N`).
 #   - Set `T=0` How does the correlation field look? Why?
-#     <!-- Answer: Nan's everywhere because the initial sat. is perfectly known (has 0 spread). -->
+#     <!-- Answer: NaN's everywhere because the initial sat. is perfectly known (has 0 spread),
+#     and so the correlation coefficients are not defined (so it's good that we get NaN.) -->
 #   - Set `t=T=1,2,3,4, etc` progressively (hint: use your arrow keys).
 #     Explain the reason for the "fronts".
 #     <!-- Answer: The change in saturation (which emanates from injector) takes time
-#     to propagate (the physics are sufficiently realistic that the saturation field does
-#     not update with infinite speed), so the corners have NaN's up until a later `T`-->
+#     to propagate (the Hyperbolic PDEs are sufficiently realistically implemented
+#     that the saturation field does not update with infinite speed),
+#     to the corners, which therefore remain with variance 0 until a later `T` -->
 # - Set `T=20`, `t=40`, and move the point to the location of one of the wells.
 #   - Where is the maximum? And minimum? Does this make sense?
 #   - Gradually increase `T`. How do the extrema move? Why?.
@@ -543,7 +554,7 @@ plotting.field_console(model, corr_comp, "corr", "Prior", argmax=True, wells=Tru
 #   to `20`. Do the (changes you observe in the) correlation fields inspire confidence?
 #   Actually, that's a rhetorical question; the answer is clearly no.
 # - Now try flipping between low and high values of `N`.
-#   What do you think the tapering radius should be?
+#   In anticipation of the subject of localisation, what do you think the tapering radius should be?
 
 # ## Assimilation
 

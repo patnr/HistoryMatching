@@ -1,13 +1,13 @@
 # History matching tutorial
 
-![Screenshots](./screenshots.png)
+![Screenshots](./imgs/screenshots.png)
 
 ## Run in the cloud (no installation required)
 
 - on Colab (requires Google login):
-  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](http://colab.research.google.com/github/patnr/HistoryMatching)
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/patnr/HistoryMatching/blob/master/notebooks/HistoryMatch.ipynb)
 - on a NORCE server (not generally available):
-  [![JupyterHub](https://img.shields.io/static/v1?label=JupyterHub&message=by%20DIGIRES&logo=jupyter&color=blue)](https://jupyterhub.fredagsmorgen.no/hub?next=%2Fuser-redirect%2Fgit-pull?repo%3Dhttps%253A%252F%252Fgithub.com%252Fpatricknraanes%252FHistoryMatching%26branch%3Dmaster)
+  [![JupyterHub](https://img.shields.io/static/v1?label=JupyterHub&message=by%20DIGIRES&logo=jupyter&color=blue)](https://jupyterhub.fredagsmorgen.no/hub?next=%2Fuser-redirect%2Fgit-pull?repo%3Dhttps%253A%252F%252Fgithub.com%252Fpatnr%252FHistoryMatching%26branch%3Dmaster)
 
 ## OR: install
 
@@ -59,34 +59,21 @@ Linting (which is, as of now, just a suggestion) can be run with
 ## Contributors
 
 This work has been developed by *Patrick N. Raanes*, researcher at *NORCE*.
-The project has been funded by *DIGIRES* and *REMEDY*
-projects sponsored by industry partners
+It has been funded by the *DIGIRES* and *REMEDY* projects,
+which are sponsored by industry partners
 and the *PETROMAKS2* programme of the *Research Council of Norway*.
 
-<a href="http://norceresearch.no">
-<img height="100" src="https://github.com/nansencenter/DAPPER/blob/master/docs/imgs/norce-logo.png">
+<a href="https://www.norceresearch.no">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="./imgs/norce-white.png">
+<img src="./imgs/norce.png" height="60" alt="NORCE">
+</picture>
 </a>
-
-<a href="http://digires.no">
-<img src="http://digires.no/DIGIRES/digilogo%20(002).png" height="100">
+&nbsp;
+<a href="https://www.data-assimilation.no/projects/digires">
+<img src="./imgs/digires.png" height="60" alt="DIGIRES">
 </a>
-
+&nbsp;
 <a href="https://www.data-assimilation.no/projects/remedy">
-<img src="./remedy.png?raw=true" height="60">
+<img src="./imgs/remedy.png" height="40" alt="REMEDY">
 </a>
-
-
-
-
-
-<!-- markdownlint-configure-file
-{
-  "header-increment": false,
-  "no-multiple-blanks": false,
-  "no-inline-html": {
-    "allowed_elements": [ "img", "a" ]
-  },
-  "code-block-style": false,
-  "ul-indent": { "indent": 2 }
-}
--->

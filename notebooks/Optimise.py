@@ -130,24 +130,19 @@ def npv(model, **params):
 # which will be convenient since we will do several distinct "cases"
 # of model configurations.
 #
-# The simulator itself makes no distinction between injectors and producers:
-# the rates are merely **signed** (positive injects water, negative produces).
-# But for our purposes we do need to keep track of the distinction.
-# We do so by *naming* the wells (`Inj0`, `Prd0`, ... -- as above), and asking
-# `model.wells.which("Inj*")` -- or `"Prd*"` -- for the rows that either group
-# occupies in the flat, per-completion arrays (`wells.xy`, `.rates`,
-# `.actual_rates`). Note that this requires neither group to be contiguous,
-# and that it is indifferent to the controls -- unlike `wells.signs`, which
-# would lose a well that we shut for the entire horizon
-# (as the case of time-dependent rates does).
-
-# We also equip the setter with special parameters
+# We equip the setter with special parameters
 # `inj_xy`, `prd_xy`, `inj_rates`, `prd_rates`
 # for conveniently setting parts of the well configuration,
 # each one defaulting to the wells already configured.
+#
 # Any other keyword is simply set on the model (e.g. `K`, `name`).
-# Note that, unlike the history matching tutorial, we do not bother to
-# implement/support a permeability setter, which would contain a few extra steps.
+# This simplicity is a luxury of our toy model, not a boon of ensemble methods.
+# While ensemble practitioners are generally happy to
+# "stick everything in the (ever increasing, augmented) state vector" on paper,
+# in practice there is no universal way to set variables and parameters on a model.
+# Obstacles include constraints (boundedness, positivity — cf. the permeability
+# setter of the history matching tutorial), coupling and other side-effects,
+# and the model's API, deep-copying or file I/O.
 
 
 def remake(model, **params):
@@ -667,6 +662,10 @@ plot_final_sweep(model, inj_xy=path[-1], name=f"Optimal for {obj.__name__}")
 # When setting the injection rate(s), we must also
 # set the total production rates to be the same (this is a model constraint),
 # and vice-versa.
+# The balancing is an artefact of incompressibility (`ct=0`) and the no-flow
+# boundaries. It means that: the controls are no longer independent.
+# If instead wells were controlled by BHP (`wells.bhp`) then the balancing
+# and transformation could be dropped altogether.
 #
 # Thus, as above, we need to pre-compute something before calling `npv()`.
 

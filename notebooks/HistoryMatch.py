@@ -180,10 +180,9 @@ xy_4corners = [[x, y]
                for y in model.Ly*near01
                for x in model.Lx*near01]  # fmt: skip
 
-# The simulator makes no distinction between injectors and producers: there is one set
-# of wells, whose `rates` are **signed** -- positive injects (water), negative produces
-# (at the well cell's fractional flow). We put a single injector at the centre, and a
-# producer in each corner.
+# The simulator itself makes no distinction between injectors and producers:
+# the rates are merely **signed** (positive injects water, negative produces).
+# We put a single injector at the centre, and a producer in each corner.
 # Since the **boundary conditions** are no-flow (Neumann) and the fluid is
 # incompressible, the total of the source terms must equal that of the sinks.
 # If this is not the case, the model will raise an error when run.
@@ -194,12 +193,6 @@ model.wells = [
     *[dict(xy=xy, rate=-1 / nPrd, name=f"Prd{i}") for i, xy in enumerate(xy_4corners)],
 ]
 
-# The records above are read, not retained: what they configure is the flat well
-# arrays of `model.wells`, which are where the model reads the configuration from,
-# and which remain writable by hand (as the ensemble loop below does not, but an
-# optimisation loop would). As detailed in the model docs, a rate array with a
-# single column (as produced above) does not vary in time.
-#
 # We keep the indices of the producers around, since it is by them that we
 # will observe (and, further below, plot) the production.
 
@@ -374,8 +367,8 @@ def comp1(perm, wsat0=wsat0):
     return wsats, prods
 
 
-# Note that the input to `forward_model` can contain **not only** permeability fields,
-# but **also** the state (i.e. time-dependent, prognostic) variable, i.e. water saturations.
+# Note that `forward_model` takes as input **not only** permeability fields,
+# but also (optionally) the state (i.e. time-dependent, prognostic) variable, i.e. water saturations.
 # Why? Because further below we'll be "restarting" (running) the simulator
 # from a later point in time (to generate future predictions) in which case
 # the saturation fields (which is also among the outputs) will depend on the

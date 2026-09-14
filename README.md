@@ -14,41 +14,38 @@
 Use this option for development, or if you simply want faster computations
 (your typical laptop is 10x faster than Google's free offering).
 
-#### Prerequisite: Python>=3.10
+**Get the code**: `git clone` this repository (see the green button up top), and `cd` into it.  
+*You could instead download & unzip, but then you will
+have to manually download any later updates.*
 
-If you're an expert, setup a python environment however you like.
-Otherwise:
-Install [Anaconda](https://www.anaconda.com/download), then
-open the [Anaconda terminal](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#starting-conda)
-and run the following commands:
+**Install** (Python >= 3.12) with either
 
-```bash
-conda create --yes --name my-env python=3.10
-conda activate my-env
-python --version
-```
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) -- recommended:
+  a single, cross-platform tool that also fetches Python for you.
 
-Ensure the printed version is 3.10 or higher.  
-*Keep using the same terminal for the commands below.*
+  ```bash
+  uv sync
+  uv run jupyter notebook
+  ```
 
-#### Install
+- Or any other installer, e.g. `pip` inside an active environment
+  created by [venv](https://docs.python.org/3/library/venv.html),
+  [conda](https://www.anaconda.com/download), ... :
 
-- `git clone` this repository (see the green button up top).  
-  *You could instead download & unzip, but then you will
-  have to manually download any later updates.*
-- Move the resulting folder wherever you like
-- `cd` into the folder
-- Install requirements:  
-  `pip install -r [path/to/]requirements-dev.txt`
+  ```bash
+  pip install .
+  jupyter notebook
+  ```
 
-#### Launch
-
-- Launch the "notebook server" by executing:  
-  `jupyter notebook`  
-  This will open up a page in your web browser that is a file navigator.  
-- Click on `HistoryMatch.ipynb`.
+The `jupyter notebook` command opens a file navigator in your web browser.
+Click on `notebooks/HistoryMatch.ipynb`.
 
 ## Developer guide
+
+The dev tooling (jupytext, ruff, pre-commit, ...) lives in the `dev`
+[dependency group](https://peps.python.org/pep-0735/),
+which `uv sync` installs by default
+(with `pip`: `pip install --group dev`).
 
 I prefer to develop mostly in the format of standard python script,
 which is why each notebook corresponds to a `.py` file synced via [jupytext](https://jupytext.readthedocs.io/en/latest/).
@@ -62,8 +59,8 @@ Linting (which is, as of now, just a suggestion) can be run with
 ## Contributors
 
 This work has been developed by *Patrick N. Raanes*, researcher at *NORCE*.
-The project has been funded by *DIGIRES*,
-a project sponsored by industry partners
+The project has been funded by *DIGIRES* and *REMEDY*
+projects sponsored by industry partners
 and the *PETROMAKS2* programme of the *Research Council of Norway*.
 
 <a href="http://norceresearch.no">

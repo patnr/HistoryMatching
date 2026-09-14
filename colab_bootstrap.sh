@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
 # Colab doesn't provide
-# - Auto-installing requirements.txt
+# - Auto-installing dependencies (neither pyproject.toml nor requirements.txt)
 # - Pre-loading data/modules (aside from the notebook itself)
 # This script takes care of the above by cloning the full (shallow) repo.
 
-# Install requirements
 main () {
     set -e
 
@@ -19,8 +18,8 @@ main () {
     # https://pythonspeed.com/articles/upgrade-pip/
     pip install --upgrade pip
 
-    # Install requirements
-    pip install -r REPO/requirements.txt
+    # Install dependencies (declared in REPO/pyproject.toml)
+    pip install ./REPO
 
     # Put repo contents (including hidden files) in PWD
     shopt -s dotglob

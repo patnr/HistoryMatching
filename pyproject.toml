@@ -1,3 +1,56 @@
+[project]
+name = "history-matching-tutorial"
+version = "0.1.0"
+description = "Tutorial on history matching and production optimisation."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Patrick N. Raanes", email = "patrick.n.raanes@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+  # Pinned to a commit (rather than a release) -- bump as needed.
+  "minires @ git+https://github.com/patnr/MiniRes.git@1b9f8d56010a",
+  # "Editable" mode: install with `uv pip install -e ${HOME}/path/MiniRes`
+  "jupyter",
+  "pathos",
+  "threadpoolctl",
+  "adjustText==0.8",
+  # NB: 0.4.0 uses `mpl.rcsetup.interactive_bk`, removed in matplotlib 3.11
+  # (and 0.4.1 has a `freshfig` bug) -- so this floor is load-bearing.
+  "mpl-tools>=0.4.2,<0.5",
+  # Used by the notebooks; used to arrive transitively, via TPFA-ResSim.
+  "struct-tools",
+]
+
+[dependency-groups]
+dev = [
+  # Extensions for classic notebook
+  "jupyter_nbextensions_configurator",
+  "jupyter-server<2.0.0",
+  # For jupyterlab
+  # NB: jupyterlab>=4 breaks complex widgets and throws errors in console.
+  # NB: `.python-version` pins 3.12, since `jupyterlab~=3.6` has no wheels for later versions.
+  "jupyterlab~=3.6",
+  "jupytext~=1.15.2",
+  "ipympl~=0.9.3",
+  "ipython",
+  "ipdb",
+  "pre-commit",
+  "ruff~=0.5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Needed for the `minires @ git+...` pin above.
+[tool.hatch.metadata]
+allow-direct-references = true
+
+# This "project" is just a dependency set (the notebooks are run in-place,
+# not imported), so the wheel ships no files.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
+
 [tool.ruff]
 line-length = 100
 

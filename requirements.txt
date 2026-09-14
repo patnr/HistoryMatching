@@ -1,5 +1,5 @@
 # NB: pre-history-rewrite hash -- re-pin once MiniRes' history is rewritten.
-git+https://github.com/patnr/MiniRes.git@d351b221f704
+git+https://github.com/patnr/MiniRes.git@a07709d6a9bd
 # "Editable" mode:
 # -e ${HOME}/path/MiniRes
 

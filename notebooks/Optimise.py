@@ -83,41 +83,10 @@ rate0 = 1.5
 # Note that the production and injection rates add up to the same
 # (at each time step), as they must (or model will raise an error).
 
-model.inj_xy = [[model.Lx / 2, model.Ly / 2]]
-model.prd_xy = xy_4corners
-model.inj_rates = rate0 * np.ones((1, 1)) / 1
-model.prd_rates = rate0 * np.ones((4, 1)) / 4
-
-# The simulator itself makes no distinction between injectors and producers:
-# it has a *single* set of wells, whose rates are **signed** (positive injects
-# water, negative produces). The above is thus a *specification* of ours, which
-# `remake` renders into `model.wells` proper, listing the injectors first.
-# We use `remake` for all (re)configuration hereafter, since the optimisers
-# will keep varying one or another of the specs -- which is also why it
-# tolerates the flat (raveled) arrays that they work in.
-# Note that, unlike the history matching tutorial, we do not bother to
-# implement/support a permeability setter, which would contain a few extra steps.
-
-
-def remake(model, **params):
-    """Instantiate new model config: apply `params`, render the wells."""
-    model = copy.deepcopy(model)
-    for k, v in params.items():
-        setattr(model, k, v)
-
-    def records(xy, rates, sign):
-        rates = np.reshape(rates, (len(xy), -1))  # ⇒ 1 row (time series) per well
-        return [dict(xy=x, rate=sign * r) for x, r in zip(xy, rates)]
-
-    model.inj_xy = np.reshape(model.inj_xy, (-1, 2))
-    model.prd_xy = np.reshape(model.prd_xy, (-1, 2))
-    model.nInj, model.nPrd = len(model.inj_xy), len(model.prd_xy)
-    model.wells = (records(model.inj_xy, model.inj_rates, +1)
-                  +records(model.prd_xy, model.prd_rates, -1))  # fmt: off
-    return model
-
-
-model = remake(model)
+model.wells = [
+    dict(xy=[model.Lx / 2, model.Ly / 2], rate=+rate0, name="Inj0"),
+    *[dict(xy=xy, rate=-rate0 / 4, name=f"Prd{i}") for i, xy in enumerate(xy_4corners)],
+]
 
 # #### Plot
 
@@ -156,9 +125,56 @@ def npv(model, **params):
     return value, other
 
 
+# #### Auxiliary functions
 # Note that the parameter setter (`remake`) is factored out of the forward model,
 # which will be convenient since we will do several distinct "cases"
-# of model configurations. Let's store the base one.
+# of model configurations.
+#
+# The simulator itself makes no distinction between injectors and producers:
+# the rates are merely **signed** (positive injects water, negative produces).
+# But for our purposes we do need to keep track of the distinction.
+# We do so by *naming* the wells (`Inj0`, `Prd0`, ... -- as above), and asking
+# `model.wells.which("Inj*")` -- or `"Prd*"` -- for the rows that either group
+# occupies in the flat, per-completion arrays (`wells.xy`, `.rates`,
+# `.actual_rates`). Note that this requires neither group to be contiguous,
+# and that it is indifferent to the controls -- unlike `wells.signs`, which
+# would lose a well that we shut for the entire horizon
+# (as the case of time-dependent rates does).
+
+# We also equip the setter with special parameters
+# `inj_xy`, `prd_xy`, `inj_rates`, `prd_rates`
+# for conveniently setting parts of the well configuration,
+# each one defaulting to the wells already configured.
+# Any other keyword is simply set on the model (e.g. `K`, `name`).
+# Note that, unlike the history matching tutorial, we do not bother to
+# implement/support a permeability setter, which would contain a few extra steps.
+
+
+def remake(model, **params):
+    """Instantiate new model config: apply `params`, re-render the wells."""
+    model = copy.deepcopy(model)
+
+    def well_group(name):
+        """Well parameter extraction and reformatting."""
+        sign = +1 if (name == "Inj") else -1
+        rng = model.wells.which(name + "*")  # rows of the *previous* wells
+        locts = params.pop(name.lower() + "_xy", model.wells.xy[rng])
+        rates = params.pop(name.lower() + "_rates", sign * model.wells.rates[rng])
+        locts = np.reshape(locts, (-1, 2))
+        # 1d (and list) input ⇒ 1 rate per well; a schedule must come as 2d
+        rates = np.reshape(rates, (-1, 1)) if np.ndim(rates) < 2 else rates
+        assert len(rates) == len(locts), f"Got {len(rates)} rates for {len(locts)} {name}"
+        return [dict(xy=coord, rate=sign * r, name=f"{name}{i}")
+                for i, (coord, r) in enumerate(zip(locts, rates))]  # fmt: skip
+
+    model.wells = well_group("Inj") + well_group("Prd")
+    for k, v in params.items():
+        setattr(model, k, v)
+
+    return model
+
+
+# Let's store the base config.
 
 original_model = model
 
@@ -190,12 +206,10 @@ def accounting(model, wsats):
     """Monetary value (NPV) from simulation results."""
     prd_wsats = prd_sats(model, wsats).T
 
-    # Rates (as realized by the model), from its single, signed array.
-    # NB: sliced by position, not by `model.wells.signs`, since a well that we
-    # shut for the entire horizon has no sign, and would drop out of such a mask.
+    # Rates (as realized by the model)
     rates = model.wells.actual_rates
-    inj_rates = rates[: model.nInj]
-    prd_rates = -rates[model.nInj :]
+    inj_rates = rates[model.wells.which("Inj*")]
+    prd_rates = -rates[model.wells.which("Prd*")]
     # Volumes (should NOT scale with model hx*hy)
     inj_volumes = dt * inj_rates * 1
     oil_volumes = dt * prd_rates * (1 - prd_wsats)
@@ -228,7 +242,7 @@ def accounting(model, wsats):
 
 def prd_sats(model, wsats):
     """Saturations at producers, per time interval (⇒ trapezoidal rule)."""
-    s = wsats[:, model.xy2ind(*model.prd_xy.T)]
+    s = wsats[:, model.xy2ind(*model.wells.xy[model.wells.which("Prd*")].T)]
     return (s[:-1] + s[+1:]) / 2
 
 
@@ -664,7 +678,7 @@ def equalize(rates, nWell):
 
 
 def npv_in_inj_rates(inj_rates):
-    prd_rates = equalize(inj_rates, model.nPrd)
+    prd_rates = equalize(inj_rates, len(model.wells.which("Prd*")))
     return npv(model, inj_rates=inj_rates, prd_rates=prd_rates)[0]
 
 
@@ -739,14 +753,14 @@ def interactive_rate_optim(**kwargs):
         model,
         name="Interact. inj_rates",
         inj_rates=inj_rates,
-        prd_rates=equalize(inj_rates, model.nPrd),
+        prd_rates=equalize(inj_rates, len(model.wells.which("Prd*"))),
     )
 
 
 # #### Automatic (EnOpt) optimisation
 # Run EnOpt (below).
 
-u0 = 0.7 * np.ones(model.nInj)
+u0 = 0.7 * np.ones(len(model.wells.which("Inj*")))
 path, objs, info = GD(obj, u0, nabla_ens(0.1))
 print("Controls suggested by EnOpt:", path[-1])
 
@@ -757,7 +771,7 @@ print("Controls suggested by EnOpt:", path[-1])
 
 # +
 def npv_in_rates(rates, value_only=True):
-    split_at = nInterval * model.nInj
+    split_at = nInterval * len(model.wells.which("Inj*"))
     inj, prd = rates[:split_at], rates[split_at:]
 
     inj = rate_transform(inj)
@@ -792,7 +806,7 @@ def rate_transform(pre_rates):
 
 # Optimize
 
-u0 = -1.4 + 1e-2 * rnd.randn(model.nInj + model.nPrd, nInterval).ravel()
+u0 = -1.4 + 1e-2 * rnd.randn(model.wells.nComp, nInterval).ravel()
 path, objs, info = GD(obj, u0, nabla_ens(0.6, nEns=20))
 
 # Show final sweep
@@ -804,8 +818,8 @@ plot_final_sweep(model, name=f"Optimal for {obj.__name__}")
 
 # #### Plot rates
 
-inj_rates = model.wells.actual_rates[: model.nInj]
-prd_rates = -model.wells.actual_rates[model.nInj :]
+inj_rates = model.wells.actual_rates[model.wells.which("Inj*")]
+prd_rates = -model.wells.actual_rates[model.wells.which("Prd*")]
 oil_sats = 1 - prd_sats(model, wsats).T
 
 # +
@@ -815,15 +829,15 @@ for iWell, (rates, satrs) in enumerate(zip(prd_rates, oil_sats)):
     ax1.plot(np.arange(nTime), rates, c=f"C{iWell}", lw=3)
     ax_.plot(np.arange(nTime), satrs, c=f"C{iWell}", lw=1)
 ax1.axhline(rate_min, color="k", lw=1, ls="--")
-ax1.legend(range(model.nPrd), title="Prd. well")
+ax1.legend(range(len(prd_rates)), title="Prd. well")
 ax1.set(ylabel="Rate", ylim=(-0.05, None))
 ax1.grid(True)
 ax_.set(ylabel="Saturation", ylim=(-0.05, 1.05))
 
 for iWell, rates in enumerate(inj_rates):
-    ax2.plot(np.arange(nTime), rates, c=f"C{model.nPrd + iWell}", lw=3)
+    ax2.plot(np.arange(nTime), rates, c=f"C{len(prd_rates) + iWell}", lw=3)
 ax2.axhline(rate_min, color="k", lw=1, ls="--")
-ax2.legend(range(model.nInj), title="Inj. well")
+ax2.legend(range(len(inj_rates)), title="Inj. well")
 ax2.set(ylabel="Rate", xlabel="Time (index)", ylim=(-0.05, None))
 ax2.invert_yaxis()
 ax2.grid(True)
@@ -1114,7 +1128,7 @@ plot_final_sweep(model)
 
 # +
 def npv_in_prd_rates(prd_rates):
-    inj_rates = equalize(prd_rates, model.nInj)
+    inj_rates = equalize(prd_rates, len(model.wells.which("Inj*")))
     return npv(model, prd_rates=prd_rates, inj_rates=inj_rates)[0]
 
 
@@ -1149,7 +1163,7 @@ plotting.show()
 sales = []
 emissions = []
 for i, prd_rates in enumerate(optimal_rates):
-    inj_rates = equalize(prd_rates, model.nInj)
+    inj_rates = equalize(prd_rates, len(model.wells.which("Inj*")))
     value, other = npv(model, prd_rates=prd_rates, inj_rates=inj_rates)
     sales.append(other["ledgr"]["oil"])
     emissions.append(-(other["ledgr"]["inj"] + other["ledgr"]["wat"]))

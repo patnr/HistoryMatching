@@ -1,0 +1,23 @@
+# Packages that Google Colab does NOT preinstall, and that the notebooks need.
+#
+# Installed by `colab_bootstrap.sh` with `pip install --no-deps -r <this>`.
+# `--no-deps` guarantees that pip never up/downgrades a package Colab already
+# ships (numpy, scipy, matplotlib, ipywidgets, tqdm, ...): those are already
+# imported when the kernel starts, so changing them would require a runtime
+# restart. The price is that transitive dependencies must be listed here by
+# hand. Drift shows up as an ImportError, which `tests/colab/smoke.sh` catches.
+#
+# Keep in sync with `pyproject.toml` (the policy is documented there).
+# Colab's current package list: https://github.com/googlecolab/backend-info
+
+# Pin must equal the one in pyproject.toml (until the PyPI release of minires).
+minires @ git+https://github.com/patnr/MiniRes.git@1b9f8d56010a
+struct-tools
+adjustText==0.8
+# pathos and its (pure-Python) dependencies. Colab ships dill and multiprocess
+# already; they are listed anyway so that this file does not depend on that.
+pathos
+dill
+multiprocess
+pox
+ppft

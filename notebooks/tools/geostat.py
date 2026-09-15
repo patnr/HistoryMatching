@@ -84,6 +84,20 @@ def funm_psd(C, fun, rk=None, rtol=1e-8, sym_square=True, **kwargs):
     return funC
 
 
+def cov_sqrt(pts, r=0.2):
+    """Cholesky factor, `C12`, of the covariance (Gaussian variogram) of `gaussian_fields`.
+
+    Upper triangular, such that `Cov == C12.T @ C12`,
+    and so `z @ C12` has covariance `Cov` if `z` is standard Gaussian.
+    """
+    dists = dist_euclid(vectorize(*pts))
+    Cov = 1 - variogram_gauss(dists, r)
+    # C12    = sla.sqrtm(Cov).real.T                      # unstable for n >≈ 20
+    # C12    = funm_psd(Cov, np.sqrt, sym_square=True).T  # too slow for n >= 50^2
+    C12 = sla.cholesky(Cov + 1e-10 * np.eye(len(Cov)))
+    return C12
+
+
 def gaussian_fields(pts, N=1, r=0.2):
     """Random field generation.
 
@@ -91,11 +105,7 @@ def gaussian_fields(pts, N=1, r=0.2):
     - Gaussian variogram.
     - Gaussian distributions.
     """
-    dists = dist_euclid(vectorize(*pts))
-    Cov = 1 - variogram_gauss(dists, r)
-    # C12    = sla.sqrtm(Cov).real.T                      # unstable for n >≈ 20
-    # C12    = funm_psd(Cov, np.sqrt, sym_square=True).T  # too slow for n >= 50^2
-    C12 = sla.cholesky(Cov + 1e-10 * np.eye(len(Cov)))
+    C12 = cov_sqrt(pts, r)
     fields = randn(N, len(C12)) @ C12
     return fields
 

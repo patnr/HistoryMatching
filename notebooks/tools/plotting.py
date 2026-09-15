@@ -479,6 +479,10 @@ def ens_style(label, N=100):
     if label == "ILES":
         style.c = "C8"
         style.alpha = 0.3
+    if label == "MAP":
+        style.c = "C3"
+        style.lw = 1.5
+        style.ls = "--"
 
     # Incrase alpha if N is small
     style.alpha **= 1 + np.log10(N / 100)
@@ -593,10 +597,10 @@ def label_ax(ax, txt, x=0.01, y=0.99, ha="left", va="top", c="k", fontsize="larg
     )
 
 
-def iterative(title, rms):
+def iterative(title, rms, xlabel="iteration"):
     ax1 = freshfig(title)[1]
     ax1.grid()
-    ax1.set_xlabel("iteration")
+    ax1.set_xlabel(xlabel)
     ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax2 = ax1.twinx()
     ax2.tick_params(axis="y", labelcolor="C1")

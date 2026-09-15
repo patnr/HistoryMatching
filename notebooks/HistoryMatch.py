@@ -89,6 +89,7 @@ import minires as simulator
 import tools.localization as loc
 from tools import geostat, plotting, utils
 from tools.utils import center, apply, emph
+from minires.tlm import adjoint
 
 # In short, the model is a 2D, two-phase, immiscible, incompressible simulator using
 # two-point flux approximation (TPFA) discretisation. It was translated from the Matlab
@@ -890,6 +891,7 @@ plotting.fields(model, perm.LES, "pperm", "LES (posterior)");  # fmt: skip
 # mode of the posterior, i.e. perform maximum-a-posteriori (MAP) estimation.
 # This perspective comes from weather forecasting and their "variational"
 # methods, as well as classical (extended, iterative) Kalman filtering.
+# We will compute the MAP estimate directly (using an adjoint) further below.
 # However, this perspective is more of a first-order approximation
 # to the fully Bayesian uncertainty quantification approximated by ensemble methods.
 #
@@ -1091,6 +1093,114 @@ plotting.iterative(
 
 plotting.fields(model, perm.ILES, "pperm", "ILES (posterior)");  # fmt: skip
 
+
+# ### Adjoint-based (variational) history matching
+
+# As a reference point for the ensemble methods we also compute a posterior mode (MAP) estimate using the exact/analytic **adjoint** sensitivities, which is available for our simulator (by contrast, commercial simulators rarely expose one). But we must supplement it by the derivative of `perm_transf` which we defined above.
+
+
+def perm_transf_dlog(x):
+    """Derivative of `log(perm_transf(x))`. Chain rule for the adjoint."""
+    return 5 * np.exp(5 * x) / perm_transf(x)
+
+
+# Exact sensitivities do not have to contend with sampling error (no need for localisation), but are *local* (know nothing of what would require a big change to happen) as opposed to the average sensitivity of ensemble methods. On the other hand, each iteration only requires a single simulation (and reverse adjoint sweep).
+
+# Rather than optimising $\mathbf{x}$ directly, we optimise $\mathbf{z}$, defined by
+# $\mathbf{x} = \mathbf{x}^\text{prior} + \mathbf{C}^{1/2} \mathbf{z}$,
+# so that the prior term becomes simply $\tfrac{1}{2} \|\mathbf{z}\|^2$.
+# This "preconditioning" is common in variational data assimilation,
+# closely associated with the "incremental" formulation, and
+# avoids inverting $\mathbf{C}$ (which may be nearly singular).
+# Note the analogy with the IES, which optimises the weights $\mathbf{W}$
+# of the prior *anomalies*, $\mathbf{X}$ -- an ensemble (rank $N$) stand-in for $\mathbf{C}^{1/2}$.
+# Unlike with the ensemble methods, though, we now need the prior covariance explicitly.
+# Here, its Cholesky factor is readily available (it was used to sample the prior),
+# but for large-scale problems this too is a formidable task.
+
+C12 = geostat.cov_sqrt(model.mesh, r=0.8)  # C = C12.T @ C12
+
+
+# To compute the gradient the adjoint of the simulator (`minires.tlm.adjoint`) gets sequentially applied (as per the chain rule) in reverse order from the initial "seed" that is a data mismatch to the final, parameter derivative and its our transformation thereof.
+# The full objective/cost function and its derivative gets composed below.
+
+
+def neg_log_post(z, x_prior=0, obs=vect(prod.past.Noisy), stats=None):
+    """Negative log-posterior (up to a constant), and its gradient (via the adjoint)."""
+    decorr = hm_setup0["decorr"]  # i.e. R^{-1/2}
+    x = x_prior + z @ C12
+    new_model = copy.deepcopy(model)
+    set_perm(new_model, x)
+    wsats, press = new_model.sim(dt, nTime, wsat0, pbar=False)
+    prods = vect(np.array([obs_model(s) for s in wsats[1:]]))
+    d = (obs - prods) @ decorr  # innovation, decorrelated
+    J = z @ z / 2 + d @ d / 2
+    # Gradient: prior term, plus the data term backpropagated by the adjoint
+    dJ_dSS = np.zeros_like(wsats)
+    dJ_dSS[1:, prod_inds] = -vect(d @ decorr.T, undo=True)
+    grad = adjoint(new_model, dt, wsats, press, dJ_dSS)
+    dJ_dx = grad.logK.sum(0).ravel() * perm_transf_dlog(x)  # both K components ⇐ same x
+    dJ_dz = z + dJ_dx @ C12.T
+    if stats is not None:  # record, for plotting
+        stats.E.append(x[None])
+        stats.Eo.append(prods[None])
+    return J, dJ_dz
+
+
+# #### Bug check
+# The classic test of a gradient implementation: compare its directional derivative
+# (along a random direction) with a finite difference.
+
+z0 = np.zeros(model.Nxy)  # i.e. x = prior mean
+J0, dJ0 = neg_log_post(z0)
+dz = rnd.randn(model.Nxy)
+eps = 1e-5
+fd = (neg_log_post(z0 + eps * dz)[0] - neg_log_post(z0 - eps * dz)[0]) / (2 * eps)
+print(f"Directional derivative: {dJ0 @ dz:.5f} (adjoint) vs. {fd:.5f} (finite difference)")
+
+# #### Apply for history matching
+# With the gradient in hand, we can use any off-the-shelf optimiser,
+# for example quasi-Newton (L-BFGS), as in the "4D-Var" of weather forecasting.
+#
+# Since the MAP is a single (point) estimate, it comes with no uncertainty estimate unless we add sensitivity analysis.
+
+# +
+from scipy.optimize import minimize
+
+stats = Dict(E=[], Eo=[])
+optim = minimize(lambda z: neg_log_post(z, stats=stats), z0,
+                 jac=True, method="L-BFGS-B", options=dict(maxiter=20))  # fmt: skip
+perm.MAP = (optim.x @ C12)[None]
+print("Number of iterations:", optim.nfev)
+# -
+
+# #### Plot iterative stats
+# Compare with the plots for the (I)LES:
+# the misfits are now reported per *simulation* (i.e. per evaluation of `neg_log_post`),
+# whereas each IES iteration consists of $N$ simulations (in parallel).
+# As for the IES, the objective and the error wrt. the truth need not decrease together
+# (try increasing `maxiter`).
+
+plotting.iterative(
+    "MAP mismatches",
+    Dict(
+        error=rms(perm.Truth - stats.E),
+        prior=rms(perm.Prior - stats.E),
+        obsrv=rms(vect(prod.past.Noisy) - stats.Eo),
+    ),
+    xlabel="simulation",
+)
+
+# #### Field plots
+# The MAP field is far more muted than the truth. Indeed, it explains the data
+# with a field barely distinguishable from the prior mean, as measured by the prior term of $J$:
+
+print(
+    f"½|z|² at the MAP: {optim.x @ optim.x / 2:.1f}",
+    f"(for a typical prior sample: ≈ {model.Nxy / 2:.0f})",
+)
+plotting.fields(model, Dict(Truth=perm.Truth[0], MAP=perm.MAP[0]), "pperm", "MAP (posterior)");  # fmt: skip
+
 # ## Diagnostics
 
 # In terms of root-mean-square error (RMSE), the ES is expected to improve on the prior.
@@ -1198,6 +1308,8 @@ utils.print_RMSMs(prod.past, ref="Noisy")
 #
 # Note that the error of `ES0` is very low. As we shall see, however,
 # this "method" is very poor at prediction (in this nonlinear case).
+# The same goes for `MAP`, whose error is also low
+# (despite ignoring the breakthrough at two wells).
 
 # ## Prediction
 

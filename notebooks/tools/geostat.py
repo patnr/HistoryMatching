@@ -3,8 +3,9 @@
 import numpy as np
 import scipy.linalg as sla
 from matplotlib import pyplot as plt
-from mpl_tools.misc import nRowCol
 from numpy.random import randn
+
+from tools.plotting import nRowCol
 
 
 def variogram_gauss(xx, r, n=0, a=1 / 3):

@@ -35,7 +35,7 @@ repos:
           - tags
 
   - repo: https://github.com/mwouts/jupytext
-    rev: v1.15.1 # ensure equal to main venv
+    rev: v1.15.2 # keep equal to the `jupytext` pin in pyproject.toml
     hooks:
       - id: jupytext
         args: [--sync]

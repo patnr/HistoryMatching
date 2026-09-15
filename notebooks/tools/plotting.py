@@ -2,18 +2,17 @@
 
 import copy
 import warnings
+from math import sqrt
 
 import ipywidgets as wg
 import matplotlib as mpl
-import mpl_tools
-import mpl_tools.place
 import numpy as np
 import struct_tools
+from IPython import get_ipython
 from IPython.display import display
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MaxNLocator, LogLocator
-from mpl_tools.misc import nRowCol
 from struct_tools import DotDict as Dict
 from minires.plotting import styles
 
@@ -58,10 +57,82 @@ show = plt.show  # noqa  # type: ignore
 from matplotlib.colors import LogNorm, AsinhNorm  # noqa  # type: ignore
 
 
-def freshfig(*args, **kwargs):
-    if not kwargs.get("figsize", None):
-        kwargs["figsize"] = (8, 4)
-    return mpl_tools.place.freshfig(*args, **kwargs)
+# The following 3 helpers used to come from `mpl-tools` (also by patnr).
+# They were vendored (and reduced to what this repo uses) so that the tutorials
+# depend only on stable, public matplotlib/IPython API. This matters because
+# on Colab the base environment is outside our control (see pyproject.toml).
+
+
+def freshfig(num=None, figsize=None, sup=True, **kwargs):
+    """Like `plt.subplots(num=num, figsize=figsize, **kwargs)`, but re-using figures.
+
+    If a figure labelled `num` (a descriptive string, please) already exists,
+    it is *cleared*, not closed and re-opened. Thus its window keeps its
+    position and size on screen, which is what you want when re-running
+    the `.py` mirror of a notebook with `%run` in IPython (GUI backend).
+
+    The inline (Jupyter/Colab) backend does not show the figure label,
+    so there (if `sup`) the label is set as `fig.suptitle` instead.
+    """
+    if figsize is None:
+        figsize = (8, 4)
+    fig, ax = plt.subplots(num=num, figsize=figsize, clear=True, **kwargs)
+    if sup and isinstance(num, str) and "inline" in mpl.get_backend():
+        fig.suptitle(num)
+    return fig, ax
+
+
+def nRowCol(nTotal, figsize=None, axsize=None):
+    """Compute `(nrows, ncols)` such that `nTotal ≈ nrows*ncols`.
+
+    Takes into account the `figsize` and `axsize`, either of which
+    may be given as a tuple, or a number (the ratio width/height).
+    Defaults are taken from `mpl.rcParams`.
+
+    Examples
+    --------
+    >>> nRowCol(4)
+    {'nrows': 2, 'ncols': 2}
+    >>> nRowCol(4, (4, 1), (1, 1))
+    {'nrows': 1, 'ncols': 4}
+    >>> nRowCol(4, (4, 1), (4, 1))
+    {'nrows': 2, 'ncols': 2}
+    >>> nRowCol(12, (4, 3), (1, 1))
+    {'nrows': 3, 'ncols': 4}
+    """
+    if figsize is None:
+        figsize = mpl.rcParams["figure.figsize"]
+    if axsize is None:
+        rc = {k: mpl.rcParams["figure.subplot." + k] for k in ["bottom", "left", "right", "top"]}
+        axsize = (rc["right"] - rc["left"], rc["top"] - rc["bottom"])
+
+    def ratio(size):
+        try:
+            w, h = size
+            return w / h
+        except TypeError:
+            return size
+
+    ratio = ratio(figsize) / ratio(axsize)
+    nrows = round(sqrt(nTotal / ratio)) or 1
+    ncols = nTotal // nrows
+    if nrows * ncols < nTotal:  # since `//` rounds down
+        ncols += 1
+    return {"nrows": nrows, "ncols": ncols}
+
+
+def is_notebook():
+    """Detect a Jupyter-type frontend (local Jupyter, Colab, VS Code, nbclient, ...).
+
+    Returns `False` in plain Python and in terminal IPython.
+    Relies only on the shell class, which has been stable for a decade:
+    `ZMQInteractiveShell` for Jupyter kernels, `google.colab._shell.Shell` on Colab.
+    """
+    ip = get_ipython()
+    if ip is None:
+        return False
+    cls = type(ip)
+    return cls.__name__ == "ZMQInteractiveShell" or "colab" in cls.__module__
 
 
 def fields(
@@ -151,51 +222,28 @@ def fields(
 
 
 def init():
-    """Configure mpl.
+    """Configure mpl (backend, rcParams).
 
-    ## On the choice of backend:
+    ## Backend
+    In notebooks, we always use the "inline" backend, which is the default
+    of Jupyter kernels, and the only one supported by Colab. The interactive
+    alternatives (`%matplotlib widget`, i.e. `ipympl`, and `nbAgg`) were
+    dropped: they don't work on Colab, are slower and flicker when embedded
+    in `ipywidgets` controls, and testing a single backend is simpler.
+    NB: this means `init()` must not `mpl.use()` anything in notebooks.
 
-    - In scripts, `Qt5Agg` is nice coz it (is interactive and) allows
-      programmatic (automatic) placement of figures on screen.
-    - In notebooks `%matplotib notebook` (nbAgg) is interactive,
-      so cooler than `%matplotlib inline`.
-    - On my local machine, `%matplotlib inline` always makes figures display
-      as string: <Figure size ...>, despite `plt.show()`, `plt.pause(0.1)`, etc.
-    - However, `%matplotlib widget/ipympl` ('module://ipympl.backend_nbagg')
-      is also interactive, and compatible with BOTH jupyter-notebook and -lab.
-      It may also be selected via `import ipympl`.
-    - Colab only supports `%matplotlib inline` (but could look into "plotly")
-      https://stackoverflow.com/a/64297121
+    In scripts (e.g. `%run HistoryMatch.py` in IPython), `Qt5Agg` is preferred
+    since it allows programmatic placement of figure windows. Otherwise
+    (e.g. on macOS without Qt) the default GUI backend is used, and figure
+    windows at least keep their placement across re-runs thanks to `freshfig`.
 
-    ## On IPython magics vs `mpl.use()`:
-
-    The magics (like `%matplotlib notebook/ipympl`) set `plt.ion()` and some rcParams.
-    They could probably be used in a module via `get_ipython().run_line_magic()`
-    however, here I choose to instead use `mpl.use(...)` or `import ipympl`.
-    - Obsolete? If you do `import ipympl` BEFORE `import matplotlib.pyplot` then
-      the figures only display as the text string <Figure size ...>.
-    - If you do mpl.use("nbAgg") BEFORE `import matplotlib.pyplot` then
-      you must remember to do `plt.ion()` too.
-      PS: this "interactive" is not to be confused with "interactive backends".
-      PS: check status with `plt.isinteractive`.
-
-    ## About "run all (cells)":
-
-    On my Mac, the figures sometimes don't display, or are "inline" instead of "nbAgg".
-
-    ## About animation displaying twice:
-
-    The solution seems to be to split the creation and display cells, and using %%capture.
-    This worked both locally and on Colab.
-    - [Ref](https://stackoverflow.com/q/47138023)
-    - [Ref](https://stackoverflow.com/a/36685236)
-    On my Mac, `%matplotlib inline` did not have this issue, but plenty others (see above).
-    However, on Colab (i.e. `%matplotlib inline`), the animation still displayed double.
+    ## Animations displaying twice
+    Split the creation and display into separate cells, using `%%capture`.
+    Refs: <https://stackoverflow.com/q/47138023>, <https://stackoverflow.com/a/36685236>.
     """
-    if mpl_tools.is_notebook_or_qt:
+    if is_notebook():
         mpl.rc("animation", html="jshtml")
 
-        # mpl.rcParams["figure.figsize"] = [5, 3.5]
         # NB: Non-default figsize/fontsize may cause axis labels/titles
         # that do not fit within the figure, or trespass into the axes
         # (unless fixed by tight_layout, but that is sometimes not possible)
@@ -204,32 +252,6 @@ def init():
         # reducing the need to change defaults.
         mpl.rcParams.update({"legend.fontsize": "large"})
         mpl.rcParams["font.size"] = 11
-
-        try:
-            # Colab
-            import google.colab  # type: ignore  # noqa: F401
-            # [colab-specific adjustments]
-
-        except ImportError:
-            # Local Jupyter
-
-            # ipympl is nice but when embedded in ipywidget controls
-            # - it is a bit slower than inline
-            # - it flickers (in classic notebook, not jupyter-lab)
-            # Also it's nice to only have to test for one backend,
-            # i.e. the one that works on Colab
-            pass  # use "inline"
-
-            # try:
-            #     # Similar to `%matplotlib widget/ipympl`
-            #     # or `mpl.use('module://ipympl.backend_nbagg')`
-            #     # import ipympl  # type: ignore
-
-            # except ImportError:
-            #     pass  # use "inline"
-
-            #     # Similar to `%matplotlib notebook`:
-            #     # mpl.use("nbAgg")  # NB: must be installed!
 
     else:
         # Script run
@@ -464,8 +486,8 @@ def ens_style(label, N=100):
     return style
 
 
-# NOTE: This uses IPython/jupyter widgets. Another solution, using interactive
-# mpl backends (=> not available on Colab), can be found in mpl_tools.
+# NOTE: This uses IPython/jupyter widgets (works on Colab), rather than
+# an interactive mpl backend (not available on Colab).
 def toggle_items(wrapped):
     """Include checkboxes/checkmarks to toggle plotted data series on/off."""
 

@@ -5,51 +5,90 @@ description = "Tutorial on history matching and production optimisation."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Patrick N. Raanes", email = "patrick.n.raanes@gmail.com" }]
+
+# ── Dependency policy ────────────────────────────────────────────────────────
+#
+# The tutorials must run with a single click on Google Colab, whose base
+# environment we do not control and which gets upgraded every few weeks.
+# That single fact shapes everything below. There are two install targets:
+#
+# (A) Local (`uv sync`): exact reproducibility comes from `uv.lock`,
+#     not from pins in this file. Refresh with `uv lock --upgrade`.
+#
+# (B) Colab (`colab_bootstrap.sh`): installs `requirements-colab.txt`
+#     with `pip install --no-deps`, i.e. it adds ONLY the packages Colab lacks,
+#     and never touches a preinstalled one. Reason: numpy/scipy/matplotlib/
+#     ipywidgets are already *imported* when a Colab kernel starts, so
+#     re-installing them (up- or downgrade) requires a runtime restart.
+#     Hence the constraints below on Colab-preinstalled packages must accept
+#     whatever Colab ships. In practice this means: no upper bounds here
+#     (our own `minires` carries `matplotlib<4`), and lower bounds only
+#     where the code demands them. If Colab's upgrades break us, we fix the
+#     code, not the pins -- and `tests/colab/` exists to catch that early.
+#
+# Consequently `pyproject.toml` and `requirements-colab.txt` must be kept in
+# sync by hand (they are short). The Colab smoke test fails loudly on drift
+# (ImportError for a missing package, or a mutated preinstalled package).
+#
+# Python: 3.12 (`.python-version`) because that is what Colab runs
+# (runtime 2026.08). Newer versions work too (`requires-python` is open),
+# but 3.12 is what gets tested.
+
 requires-python = ">=3.12"
 dependencies = [
-  # Pinned to a commit (rather than a release) -- bump as needed.
-  "minires @ git+https://github.com/patnr/MiniRes.git@1b9f8d56010a",
-  # "Editable" mode: install with `uv pip install -e ${HOME}/path/MiniRes`
-  "jupyter",
-  "pathos",
+  # Our own toy reservoir simulator, from PyPI since its 0.3.0 (2026-09-15).
+  # Pinned to the minor: `minires` is 0.x, so a minor bump may break the API
+  # (keep `requirements-colab.txt` in step). An unreleased snapshot is
+  # `"minires @ git+https://github.com/patnr/MiniRes.git@<hash>"`; for local
+  # hacking, `uv pip install -e ${HOME}/path/MiniRes`.
+  "minires~=0.3.0",
+  # Preinstalled on Colab => deliberately unconstrained (see policy above).
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "ipywidgets",
+  "ipython",
   "threadpoolctl",
-  "adjustText==0.8",
-  # NB: 0.4.0 uses `mpl.rcsetup.interactive_bk`, removed in matplotlib 3.11
-  # (and 0.4.1 has a `freshfig` bug) -- so this floor is load-bearing.
-  "mpl-tools>=0.4.2,<0.5",
-  # Used by the notebooks; used to arrive transitively, via TPFA-ResSim.
+  # NOT preinstalled on Colab => also listed in `requirements-colab.txt`.
+  # `pathos` (multiprocessing with dill pickling) drags in
+  # dill/multiprocess/pox/ppft, all pure-Python, so also cheap on Colab.
+  "pathos",
+  # Zero dependencies, by design (it is our own).
   "struct-tools",
+  # Label de-overlapping in `tools/utils.py`. Exact-pinned since it was added
+  # (2023, when 0.8 was current); the 1.x releases rewrote the algorithm and
+  # the pin has simply not been re-evaluated against them. Not preinstalled on
+  # Colab (only depends on numpy+matplotlib), so the exact pin is harmless there.
+  "adjustText==0.8",
 ]
 
 [dependency-groups]
+# Local-only tooling. Never installed on Colab, which has its own frontend.
 dev = [
-  # Extensions for classic notebook
-  "jupyter_nbextensions_configurator",
-  "jupyter-server<2.0.0",
-  # For jupyterlab
-  # NB: jupyterlab>=4 breaks complex widgets and throws errors in console.
-  # NB: `.python-version` pins 3.12, since `jupyterlab~=3.6` has no wheels for later versions.
-  "jupyterlab~=3.6",
+  # Notebook frontend (v7, i.e. built on JupyterLab 4). Classic notebook (v6)
+  # and `jupyterlab~=3.6` were dropped: they forced `jupyter-server<2` and
+  # Python 3.12, and doubled the surface to test. `ipympl` was also dropped:
+  # all notebooks use the inline backend (the only one that works on Colab).
+  "notebook",
+  # `tests/colab/run_nb.py` executes notebooks headlessly with these two
+  # (deliberately not nbclient, see its docstring). Both come with `notebook`
+  # anyway, and Colab ships them.
+  "jupyter_client",
+  "nbformat",
+  # Keep in sync with the `jupytext` rev in `.pre-commit-config.yaml`.
   "jupytext~=1.15.2",
-  "ipympl~=0.9.3",
-  "ipython",
   "ipdb",
   "pre-commit",
   "ruff~=0.5.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-# Needed for the `minires @ git+...` pin above.
-[tool.hatch.metadata]
-allow-direct-references = true
-
-# This "project" is just a dependency set (the notebooks are run in-place,
-# not imported), so the wheel ships no files.
-[tool.hatch.build.targets.wheel]
-bypass-selection = true
+# Not a package: nothing is imported from this project, the notebooks are run
+# in place. Hence no `[build-system]` (a PEP 517 build would only serve to
+# read the dependency list). Install with `uv sync`, or, for pip users,
+# `pip install -r requirements-colab.txt` is NOT the way (it is Colab-specific);
+# use `uv pip install -r pyproject.toml` or just `pip install uv && uv sync`.
+[tool.uv]
+package = false
 
 [tool.ruff]
 line-length = 100

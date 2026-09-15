@@ -250,7 +250,7 @@ R = np.kron(R1well, np.eye(nPrd))
 fig, (ax1, ax2) = plotting.freshfig("Obs. error cov", ncols=2, figsize=(7, 3))
 kws = dict(cmap="RdBu_r", vmin=-R[0, 0], vmax=R[0, 0])
 ax1.imshow(R1well, **kws)
-ax2.imshow(R[:50, :50], **kws)
+ax2.imshow(R[:50, :50], **kws);  # fmt: skip
 
 # We need a Cholesky factor to sample with this covariance matrix.
 # A pragmatic alternative is to start by specifying the matrix square root,

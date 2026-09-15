@@ -25,7 +25,7 @@ dependencies = [
 dev = [
   # Extensions for classic notebook
   "jupyter_nbextensions_configurator",
-  "jupyter-server<2.0.0",
+  "jupyter-server<3.0.0",
   # For jupyterlab
   # NB: jupyterlab>=4 breaks complex widgets and throws errors in console.
   # NB: `.python-version` pins 3.12, since `jupyterlab~=3.6` has no wheels for later versions.

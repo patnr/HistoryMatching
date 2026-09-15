@@ -1,0 +1,44 @@
+name: Colab compatibility
+
+# Runs the tutorials inside Google's published Colab runtime image
+# (which lags the live Colab runtime by a few weeks), checking that
+# - colab_bootstrap.sh installs cleanly,
+# - it modifies no preinstalled package (=> no "restart runtime" prompt),
+# - both notebooks execute end-to-end.
+# See tests/colab/ and the dependency policy in pyproject.toml.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 1 * *" # 1st of every month: catches Colab's upgrades
+  push:
+    branches: [master]
+    paths:
+      - requirements-colab.txt
+      - colab_bootstrap.sh
+      - notebooks/**
+      - tests/colab/**
+      - .github/workflows/colab-compat.yml
+  pull_request:
+    paths:
+      - requirements-colab.txt
+      - colab_bootstrap.sh
+      - notebooks/**
+      - tests/colab/**
+      - .github/workflows/colab-compat.yml
+
+jobs:
+  colab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: us-docker.pkg.dev/colab-images/public/runtime:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Smoke test (bootstrap, freeze diff, execute notebooks)
+        env:
+          REPO_DIR: ${{ github.workspace }}
+          SMOKE_MODE: local
+        run: bash tests/colab/smoke_inner.sh

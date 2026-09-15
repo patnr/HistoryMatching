@@ -71,6 +71,12 @@ dev = [
   # Python 3.12, and doubled the surface to test. `ipympl` was also dropped:
   # all notebooks use the inline backend (the only one that works on Colab).
   "notebook",
+  # tornado 6.5.9 (2026-09-14) added a symlink check in `StaticFileHandler`
+  # that reads `self.allowed_symlink_directory`, set in its `initialize()`.
+  # jupyter_server (<=2.21.0) `FileFindHandler` overrides `initialize()`
+  # without calling super, so every `/static/...` request 500s and the
+  # notebook page renders blank. Drop this pin once jupyter_server is fixed.
+  "tornado<6.5.9",
   # `tests/colab/run_nb.py` executes notebooks headlessly with these two
   # (deliberately not nbclient, see its docstring). Both come with `notebook`
   # anyway, and Colab ships them.

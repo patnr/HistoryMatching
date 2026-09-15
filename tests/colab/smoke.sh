@@ -48,7 +48,6 @@ tar -C "$REPO" --exclude=.git --exclude=.claude --exclude=.ipynb_checkpoints \
 "$ENGINE" create --name "$name" --platform linux/amd64 \
     -e REPO_DIR=/repo \
     -e SMOKE_MODE="$MODE" \
-    -e SMOKE_BRANCH="${SMOKE_BRANCH:-master}" \
     -e SMOKE_NOTEBOOKS="${SMOKE_NOTEBOOKS:-HistoryMatch.ipynb Optimise.ipynb}" \
     -e SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-1800}" \
     --entrypoint bash "$IMAGE" /repo/tests/colab/smoke_inner.sh >/dev/null

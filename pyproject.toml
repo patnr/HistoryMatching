@@ -22,7 +22,7 @@ authors = [{ name = "Patrick N. Raanes", email = "patrick.n.raanes@gmail.com" }]
 #     re-installing them (up- or downgrade) requires a runtime restart.
 #     Hence the constraints below on Colab-preinstalled packages must accept
 #     whatever Colab ships. In practice this means: no upper bounds here
-#     (our own `minires` carries `matplotlib<4`), and lower bounds only
+#     (our own `minires` caps matplotlib, scipy and tqdm at their next major), and lower bounds only
 #     where the code demands them. If Colab's upgrades break us, we fix the
 #     code, not the pins -- and `tests/colab/` exists to catch that early.
 #
@@ -49,6 +49,7 @@ dependencies = [
   "ipywidgets",
   "ipython",
   "threadpoolctl",
+  "tqdm",
   # NOT preinstalled on Colab => also listed in `requirements-colab.txt`.
   # `pathos` (multiprocessing with dill pickling) drags in
   # dill/multiprocess/pox/ppft, all pure-Python, so also cheap on Colab.

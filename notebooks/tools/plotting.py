@@ -73,6 +73,10 @@ def freshfig(num=None, figsize=None, sup=True, **kwargs):
 
     The inline (Jupyter/Colab) backend does not show the figure label,
     so there (if `sup`) the label is set as `fig.suptitle` instead.
+
+    Unlike `mpl_tools.place.freshfig`, this does not save/load window placement
+    across sessions (`.fig_layout.*` files are inert): that only ever worked on
+    Qt backends, which the tutorials no longer depend on.
     """
     if figsize is None:
         figsize = (8, 4)
@@ -270,7 +274,7 @@ def interact(side="top", wrap=True, **kwargs):
     - `side` specifies control panel placement relative to figure output.
     - If `wrap`: stack controls vertically (otherwise: horizontally).
 
-    Tested with ipympl and inline mpl backends.
+    Only the inline mpl backend is used (see `init`).
     """
 
     def decorator(plotter):
@@ -278,15 +282,11 @@ def interact(side="top", wrap=True, **kwargs):
         #
         # - Wrapping `plotter` with a function that takes care of it
         #   doesn't work because then `interactive` fails to parse its kwargs.
-        # - If we do it in decorator then it must come at the very end,
-        #   otherwise "run all (cells) above" will place all regular figures
-        #   here (at least with ipympl). BUT putting it at the end
-        #   appears to make it impossible to control the layout
-        #   (controls always wind up above figure output).
+        # - Doing it in the decorator (at the very end) makes it impossible to
+        #   control the layout (controls always wind up above figure output).
         #
-        # Earlier python/Jupyter/Colab/mpl/ipympl versions used to (see cdbb4c15)
+        # Earlier python/Jupyter/Colab/mpl versions used to (see cdbb4c15)
         # require even more trickery to make figures actually show up,
-        # especially that works both on Colab (inline) and ipympl (when cell gets re-run),
         # ref <https://github.com/jupyter-widgets/ipywidgets/issues/3352>
         # and `fig.canvas.{flush_events,draw}`.
 

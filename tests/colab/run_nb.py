@@ -34,7 +34,9 @@ class CellFailed(Exception):
 
 def run_cell(kc, cell, timeout):
     """Execute one code cell; collect its outputs; raise `CellFailed` on error/timeout."""
-    msg_id = kc.execute(cell.source)
+    # No stdin: a stray `input()`/`breakpoint()` then fails at once instead of
+    # blocking until the per-cell timeout (nbclient does the same).
+    msg_id = kc.execute(cell.source, allow_stdin=False)
     cell.outputs = []
     deadline = time.monotonic() + timeout
     reply = idle = False

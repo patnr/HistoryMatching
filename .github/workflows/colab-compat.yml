@@ -14,6 +14,8 @@ on:
   push:
     branches: [master]
     paths:
+      - pyproject.toml
+      - uv.lock
       - requirements-colab.txt
       - colab_bootstrap.sh
       - notebooks/**
@@ -21,6 +23,8 @@ on:
       - .github/workflows/colab-compat.yml
   pull_request:
     paths:
+      - pyproject.toml
+      - uv.lock
       - requirements-colab.txt
       - colab_bootstrap.sh
       - notebooks/**
@@ -41,4 +45,13 @@ jobs:
         env:
           REPO_DIR: ${{ github.workspace }}
           SMOKE_MODE: local
+          SMOKE_OUT: ${{ github.workspace }}/executed
         run: bash tests/colab/smoke_inner.sh
+
+      - name: Upload executed notebooks (on failure, for diagnosis)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: executed-notebooks
+          path: executed/
+          if-no-files-found: ignore

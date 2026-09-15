@@ -8,7 +8,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.15.1
+#       jupytext_version: 1.15.2
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -233,11 +233,8 @@ prod.past.Truth = np.array([obs_model(x) for x in wsat.past.Truth[1:]])
 # Injection/production wells are marked with triangles pointing down/up.
 # The (untransformed) pre-perm field is plotted, rather than the actual permeability.
 
-# %%capture
-animation = model.anim(wsat.past.Truth, prod.past.Truth);  # fmt: skip
-
 # Note: can take up to a minute to appear
-animation
+model.anim(wsat.past.Truth)
 
 # #### Noisy obs
 # In reality, observations are never perfect. To simulate this, we corrupt the

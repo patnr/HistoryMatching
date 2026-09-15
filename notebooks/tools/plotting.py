@@ -237,13 +237,13 @@ def init():
     (e.g. on macOS without Qt) the default GUI backend is used, and figure
     windows at least keep their placement across re-runs thanks to `freshfig`.
 
-    ## Animations displaying twice
-    Split the creation and display into separate cells, using `%%capture`.
-    Refs: <https://stackoverflow.com/q/47138023>, <https://stackoverflow.com/a/36685236>.
+    ## Animations
+    `model.anim(...)` (minires >= 0.3.1) displays itself as the cell's output
+    (its `_repr_html_` is `to_jshtml`) and closes its figure, so it needs no
+    `rc("animation", html="jshtml")`, and no `%%capture` against the figure
+    being displayed a second time.
     """
     if is_notebook():
-        mpl.rc("animation", html="jshtml")
-
         # NB: Non-default figsize/fontsize may cause axis labels/titles
         # that do not fit within the figure, or trespass into the axes
         # (unless fixed by tight_layout, but that is sometimes not possible)

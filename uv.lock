@@ -1436,7 +1436,7 @@ wheels = [
 
 [[package]]
 name = "minires"
-version = "0.3.0"
+version = "0.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
@@ -1444,9 +1444,9 @@ dependencies = [
     { name = "struct-tools" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/35/95/45fe49d0e8fd79f7efe1ed9e730935e4ed3ab9147651f4fd3027051060b7/minires-0.3.0.tar.gz", hash = "sha256:858b91e089ac25fe9df002d30e71e8d1f1d8c3d51134d7f598af33edaba7dd47", size = 63406, upload-time = "2026-09-15T08:37:23.147Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/4a/66beb2cf1e0db2620a1ae84120ef26769822b6160ad1450863db2407c05e/minires-0.3.1.tar.gz", hash = "sha256:b240a2ff7e69272aca5ed3e0a0e53bace00c561c022f9996339d9cb579dbc4f8", size = 63668, upload-time = "2026-09-15T11:43:53.856Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/94/e15c1963ff7026bd0dbbf978e421054ee66cecaa6bf8cd1eba9aebda1116/minires-0.3.0-py3-none-any.whl", hash = "sha256:fdb7f331fc1606d8b4e9efc2b9804c183a3dc5ad99cfe84d9562abb52a4f0fcf", size = 67341, upload-time = "2026-09-15T08:37:21.882Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/c6/8f1d1b7feab1ebed9df00fc0ecd1b0b6044fc0cd38033737ef0a9ab78c3f/minires-0.3.1-py3-none-any.whl", hash = "sha256:cb8a5570e8446bf9813f344fa95a83cc5a99b42f1c60259526d18160542f4537", size = 67625, upload-time = "2026-09-15T11:43:52.449Z" },
 ]
 
 [[package]]

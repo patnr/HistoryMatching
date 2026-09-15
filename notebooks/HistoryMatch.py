@@ -80,14 +80,15 @@ seed = rnd.seed(1)
 # Our reservoir simulator takes up about 100 lines of python code. This may seem
 # outrageously simple, but serves the purpose of *illustrating* the main features of
 # the history matching process. Indeed, we do not detail the simulator code here, but
-# simply import it from the accompanying python modules, together with the associated
-# plot functionality, the (geostatistical) random field generator, and some linear
-# algebra. Hence our focus and code will be of aspects directly related to the history
-# matching and optimisation process.
+# simply import it (together with its (geostatistical) random field generator),
+# as well as the associated plot functionality and some linear algebra from
+# the accompanying python modules. Hence our focus and code will be of aspects
+# directly related to the history matching and optimisation process.
 
 import minires as simulator
 import tools.localization as loc
-from tools import geostat, plotting, utils
+from minires import geostat
+from tools import plotting, utils
 from tools.utils import center, apply, emph
 from minires.tlm import adjoint
 

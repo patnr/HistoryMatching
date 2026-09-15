@@ -8,7 +8,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.15.1
+#       jupytext_version: 1.15.2
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -44,8 +44,9 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.random as rnd
 import minires as simulator
+from minires import geostat
 
-from tools import geostat, plotting, utils
+from tools import plotting, utils
 from tools.utils import center, apply, progbar, mesh2list
 # -
 

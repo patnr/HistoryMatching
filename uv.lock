@@ -690,6 +690,7 @@ dependencies = [
     { name = "scipy" },
     { name = "struct-tools" },
     { name = "threadpoolctl" },
+    { name = "tqdm" },
 ]
 
 [package.dev-dependencies]
@@ -715,6 +716,7 @@ requires-dist = [
     { name = "scipy" },
     { name = "struct-tools" },
     { name = "threadpoolctl" },
+    { name = "tqdm" },
 ]
 
 [package.metadata.requires-dev]

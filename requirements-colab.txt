@@ -10,8 +10,8 @@
 # Keep in sync with `pyproject.toml` (the policy is documented there).
 # Colab's current package list: https://github.com/googlecolab/backend-info
 
-# Pin must equal the one in pyproject.toml (until the PyPI release of minires).
-minires @ git+https://github.com/patnr/MiniRes.git@1b9f8d56010a
+# Pin must equal the one in pyproject.toml.
+minires~=0.3.0
 struct-tools
 adjustText==0.8
 # pathos and its (pure-Python) dependencies. Colab ships dill and multiprocess

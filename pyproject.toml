@@ -36,10 +36,12 @@ authors = [{ name = "Patrick N. Raanes", email = "patrick.n.raanes@gmail.com" }]
 
 requires-python = ">=3.12"
 dependencies = [
-  # Our own toy reservoir simulator. Pinned to a commit until the PyPI release,
-  # then this becomes `minires>=X.Y` (and `requirements-colab.txt` likewise).
-  # For local hacking: `uv pip install -e ${HOME}/path/MiniRes`
-  "minires @ git+https://github.com/patnr/MiniRes.git@1b9f8d56010a",
+  # Our own toy reservoir simulator, from PyPI since its 0.3.0 (2026-09-15).
+  # Pinned to the minor: `minires` is 0.x, so a minor bump may break the API
+  # (keep `requirements-colab.txt` in step). An unreleased snapshot is
+  # `"minires @ git+https://github.com/patnr/MiniRes.git@<hash>"`; for local
+  # hacking, `uv pip install -e ${HOME}/path/MiniRes`.
+  "minires~=0.3.0",
   # Preinstalled on Colab => deliberately unconstrained (see policy above).
   "numpy",
   "scipy",
@@ -68,8 +70,11 @@ dev = [
   # Python 3.12, and doubled the surface to test. `ipympl` was also dropped:
   # all notebooks use the inline backend (the only one that works on Colab).
   "notebook",
-  # Executes notebooks headlessly (`tests/colab/run_nb.py`).
-  "nbclient",
+  # `tests/colab/run_nb.py` executes notebooks headlessly with these two
+  # (deliberately not nbclient, see its docstring). Both come with `notebook`
+  # anyway, and Colab ships them.
+  "jupyter_client",
+  "nbformat",
   # Keep in sync with the `jupytext` rev in `.pre-commit-config.yaml`.
   "jupytext~=1.15.2",
   "ipdb",

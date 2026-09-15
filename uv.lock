@@ -695,8 +695,9 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "ipdb" },
+    { name = "jupyter-client" },
     { name = "jupytext" },
-    { name = "nbclient" },
+    { name = "nbformat" },
     { name = "notebook" },
     { name = "pre-commit" },
     { name = "ruff" },
@@ -708,7 +709,7 @@ requires-dist = [
     { name = "ipython" },
     { name = "ipywidgets" },
     { name = "matplotlib" },
-    { name = "minires", git = "https://github.com/patnr/MiniRes.git?rev=1b9f8d56010a" },
+    { name = "minires", specifier = "~=0.3.0" },
     { name = "numpy" },
     { name = "pathos" },
     { name = "scipy" },
@@ -719,8 +720,9 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ipdb" },
+    { name = "jupyter-client" },
     { name = "jupytext", specifier = "~=1.15.2" },
-    { name = "nbclient" },
+    { name = "nbformat" },
     { name = "notebook" },
     { name = "pre-commit" },
     { name = "ruff", specifier = "~=0.5.0" },
@@ -1434,13 +1436,17 @@ wheels = [
 
 [[package]]
 name = "minires"
-version = "0.2.0"
-source = { git = "https://github.com/patnr/MiniRes.git?rev=1b9f8d56010a#1b9f8d56010a8c1cd36b65481b2a0d81c094bf0f" }
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
     { name = "scipy" },
     { name = "struct-tools" },
     { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/95/45fe49d0e8fd79f7efe1ed9e730935e4ed3ab9147651f4fd3027051060b7/minires-0.3.0.tar.gz", hash = "sha256:858b91e089ac25fe9df002d30e71e8d1f1d8c3d51134d7f598af33edaba7dd47", size = 63406, upload-time = "2026-09-15T08:37:23.147Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/94/e15c1963ff7026bd0dbbf978e421054ee66cecaa6bf8cd1eba9aebda1116/minires-0.3.0-py3-none-any.whl", hash = "sha256:fdb7f331fc1606d8b4e9efc2b9804c183a3dc5ad99cfe84d9562abb52a4f0fcf", size = 67341, upload-time = "2026-09-15T08:37:21.882Z" },
 ]
 
 [[package]]

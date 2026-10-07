@@ -76,7 +76,7 @@ dev = [
   # jupyter_server (<=2.21.0) `FileFindHandler` overrides `initialize()`
   # without calling super, so every `/static/...` request 500s and the
   # notebook page renders blank. Drop this pin once jupyter_server is fixed.
-  "tornado<6.5.9",
+  "tornado<6.5.10",
   # `tests/colab/run_nb.py` executes notebooks headlessly with these two
   # (deliberately not nbclient, see its docstring). Both come with `notebook`
   # anyway, and Colab ships them.
